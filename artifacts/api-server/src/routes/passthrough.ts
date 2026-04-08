@@ -36,16 +36,26 @@ async function pipeAnthropicStreamWithUsageAdjust(
     res.write(line + "\n");
   };
 
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buf += dec.decode(value, { stream: true });
-    const lines = buf.split("\n");
-    buf = lines.pop() ?? "";
-    for (const line of lines) writeLine(line);
+  // Send SSE comment pings every 15s to prevent proxy from cutting long streams.
+  const keepalive = setInterval(() => {
+    if (!res.destroyed) res.write(": ping\n\n");
+  }, 15000);
+
+  try {
+    for (;;) {
+      if (res.destroyed) { reader.cancel().catch(() => {}); break; }
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split("\n");
+      buf = lines.pop() ?? "";
+      for (const line of lines) writeLine(line);
+    }
+    if (buf && !res.destroyed) res.write(buf);
+    if (!res.destroyed) res.end();
+  } finally {
+    clearInterval(keepalive);
   }
-  if (buf) res.write(buf);
-  res.end();
 }
 
 // ─── Generic passthrough helper ──────────────────────────────────────────────
@@ -134,12 +144,20 @@ async function passthrough(
     if (adjustUsage) {
       await pipeAnthropicStreamWithUsageAdjust(reader, res);
     } else {
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        res.write(value);
+      const keepalive = setInterval(() => {
+        if (!res.destroyed) res.write(": ping\n\n");
+      }, 15000);
+      try {
+        for (;;) {
+          if (res.destroyed) { reader.cancel().catch(() => {}); break; }
+          const { done, value } = await reader.read();
+          if (done) break;
+          res.write(value);
+        }
+        if (!res.destroyed) res.end();
+      } finally {
+        clearInterval(keepalive);
       }
-      res.end();
     }
     return;
   }
