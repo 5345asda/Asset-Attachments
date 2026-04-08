@@ -108,11 +108,11 @@ router.post("/chat/completions", async (req: Request, res: Response) => {
         const target = convertedMessages[convertedMessages.length - 2];
         if (Array.isArray(target.content) && target.content.length > 0) {
           const lastBlock = target.content[target.content.length - 1];
-          target.content[target.content.length - 1] = { ...lastBlock, cache_control: { type: "ephemeral" } };
+          target.content[target.content.length - 1] = { ...lastBlock, cache_control: { type: "ephemeral", ttl: 3600 } };
         } else if (typeof target.content === "string") {
           convertedMessages[convertedMessages.length - 2] = {
             ...target,
-            content: [{ type: "text", text: target.content, cache_control: { type: "ephemeral" } }],
+            content: [{ type: "text", text: target.content, cache_control: { type: "ephemeral", ttl: 3600 } }],
           };
         }
       }
@@ -126,7 +126,7 @@ router.post("/chat/completions", async (req: Request, res: Response) => {
         model: p.model,
         max_tokens: p.max_tokens || 8192,
         messages: convertedMessages,
-        ...(systemText && { system: [{ type: "text", text: systemText, cache_control: { type: "ephemeral" } }] }),
+        ...(systemText && { system: [{ type: "text", text: systemText, cache_control: { type: "ephemeral", ttl: 3600 } }] }),
         ...(p.stream && { stream: true }),
         ...(hasTemperature && { temperature: p.temperature }),
         ...(!hasTemperature && hasTopP && { top_p: p.top_p }),
@@ -139,7 +139,7 @@ router.post("/chat/completions", async (req: Request, res: Response) => {
         const convertedTools = oaiToolsToAnthropic(p.tools);
         convertedTools[convertedTools.length - 1] = {
           ...convertedTools[convertedTools.length - 1],
-          cache_control: { type: "ephemeral" },
+          cache_control: { type: "ephemeral", ttl: 3600 },
         };
         body.tools = convertedTools;
         const tc = oaiToolChoiceToAnthropic(p.tool_choice);
