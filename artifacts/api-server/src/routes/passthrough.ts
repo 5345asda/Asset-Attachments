@@ -538,10 +538,23 @@ function sanitizeAnthropicBody(body: Record<string, unknown>): Record<string, un
     result = rest;
   }
 
+  const clientCCCount = countCacheControls(result);
   result = injectCacheControl(result);           // step 1: inject if client sent none
   result = upgradeCacheControlTo1h(result);      // step 2: upgrade all ephemeral TTL to 1h
   result = enforceCacheControlLimit(result, 4);  // step 3: trim to Anthropic's hard limit of 4
   result = normalizeCacheControlTTL(result);     // step 4: downgrade invalid later ttl:1h blocks
+  const finalCCCount = countCacheControls(result);
+  logger.info(
+    {
+      model: result.model,
+      clientHadCacheControl: clientCCCount > 0,
+      clientCCCount,
+      finalCCCount,
+      msgCount: Array.isArray(result.messages) ? (result.messages as unknown[]).length : 0,
+      hasSystem: result.system !== undefined,
+    },
+    "Anthropic cache_control state",
+  );
   return result;
 }
 
