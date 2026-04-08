@@ -1,4 +1,5 @@
 import { Router, type Request, type Response } from "express";
+import { createHash } from "crypto";
 import { logger } from "../lib/logger";
 import { applyBillingAnthropic } from "../lib/billing";
 
@@ -539,6 +540,19 @@ function sanitizeAnthropicBody(body: Record<string, unknown>): Record<string, un
   }
 
   const clientCCCount = countCacheControls(result);
+
+  // Compute system prompt fingerprint BEFORE injection (raw text from client).
+  let sysHash = "none";
+  let sysLen = 0;
+  if (Array.isArray(result.system)) {
+    const sysText = (result.system as any[]).map((b: any) => b?.text ?? "").join("");
+    sysLen = sysText.length;
+    sysHash = createHash("sha1").update(sysText).digest("hex").slice(0, 12);
+  } else if (typeof result.system === "string") {
+    sysLen = (result.system as string).length;
+    sysHash = createHash("sha1").update(result.system as string).digest("hex").slice(0, 12);
+  }
+
   result = injectCacheControl(result);           // step 1: inject if client sent none
   result = upgradeCacheControlTo1h(result);      // step 2: upgrade all ephemeral TTL to 1h
   result = enforceCacheControlLimit(result, 4);  // step 3: trim to Anthropic's hard limit of 4
@@ -551,7 +565,8 @@ function sanitizeAnthropicBody(body: Record<string, unknown>): Record<string, un
       clientCCCount,
       finalCCCount,
       msgCount: Array.isArray(result.messages) ? (result.messages as unknown[]).length : 0,
-      hasSystem: result.system !== undefined,
+      sysHash,
+      sysLen,
     },
     "Anthropic cache_control state",
   );
