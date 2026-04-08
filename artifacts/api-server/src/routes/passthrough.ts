@@ -29,7 +29,16 @@ async function pipeAnthropicStreamWithUsageAdjust(
           },
           "Anthropic raw usage (before billing adjustment)",
         );
-        e.message.usage = applyBillingAnthropic(rawUsage);
+        const adjustedUsage = applyBillingAnthropic(rawUsage);
+        e.message.usage = adjustedUsage;
+        logger.info(
+          {
+            input_tokens: adjustedUsage.input_tokens,
+            cache_creation_input_tokens: adjustedUsage.cache_creation_input_tokens ?? 0,
+            cache_read_input_tokens: adjustedUsage.cache_read_input_tokens ?? 0,
+          },
+          "Anthropic adjusted usage (after billing, sent to client)",
+        );
         res.write(`data: ${JSON.stringify(e)}\n`);
         return;
       }
