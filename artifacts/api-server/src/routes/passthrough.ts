@@ -80,7 +80,7 @@ async function passthrough(
   if (req.headers["anthropic-version"]) headers["anthropic-version"]  = req.headers["anthropic-version"] as string;
 
   // Merge client beta flags with proxy-required ones.
-  // prompt-caching-2024-07-31 enables cache_control blocks with ttl: 3600 (1h lifetime).
+  // prompt-caching-2024-07-31 enables cache_control blocks with ttl: "1h" (1h lifetime).
   const clientBeta = req.headers["anthropic-beta"] as string | undefined;
   const requiredBetas = ["prompt-caching-2024-07-31"];
   const mergedBetas = Array.from(new Set([
@@ -283,7 +283,7 @@ function injectCacheControl(body: Record<string, unknown>): Record<string, unkno
   // ── Tools: last tool is the cache breakpoint for all tool definitions ─────
   if (Array.isArray(result.tools) && result.tools.length > 0) {
     const tools = [...result.tools];
-    tools[tools.length - 1] = { ...tools[tools.length - 1], cache_control: { type: "ephemeral", ttl: 3600 } };
+    tools[tools.length - 1] = { ...tools[tools.length - 1], cache_control: { type: "ephemeral", ttl: "1h" } };
     result.tools = tools;
   }
 
@@ -298,7 +298,7 @@ function injectCacheControl(body: Record<string, unknown>): Record<string, unkno
       sysBlocks = [];
     }
     if (sysBlocks.length > 0) {
-      sysBlocks[sysBlocks.length - 1] = { ...sysBlocks[sysBlocks.length - 1], cache_control: { type: "ephemeral", ttl: 3600 } };
+      sysBlocks[sysBlocks.length - 1] = { ...sysBlocks[sysBlocks.length - 1], cache_control: { type: "ephemeral", ttl: "1h" } };
       result.system = sysBlocks;
     }
   }
@@ -311,12 +311,12 @@ function injectCacheControl(body: Record<string, unknown>): Record<string, unkno
     const target = { ...messages[messages.length - 2] };
     if (Array.isArray(target.content) && target.content.length > 0) {
       const content = [...target.content];
-      content[content.length - 1] = { ...content[content.length - 1], cache_control: { type: "ephemeral", ttl: 3600 } };
+      content[content.length - 1] = { ...content[content.length - 1], cache_control: { type: "ephemeral", ttl: "1h" } };
       target.content = content;
       messages[messages.length - 2] = target;
       result.messages = messages;
     } else if (typeof target.content === "string") {
-      target.content = [{ type: "text", text: target.content, cache_control: { type: "ephemeral", ttl: 3600 } }];
+      target.content = [{ type: "text", text: target.content, cache_control: { type: "ephemeral", ttl: "1h" } }];
       messages[messages.length - 2] = target;
       result.messages = messages;
     }
@@ -439,7 +439,7 @@ function normalizeCacheControlTTL(body: Record<string, unknown>): Record<string,
   function processItem(item: any, update: (next: any) => void): void {
     const cc = item?.cache_control;
     if (!cc) return;
-    const isOneHour = typeof cc === "object" && cc.ttl === 3600;
+    const isOneHour = typeof cc === "object" && cc.ttl === "1h";
     if (!isOneHour) {
       seenDefault = true;
     } else if (seenDefault) {
@@ -486,14 +486,14 @@ function normalizeCacheControlTTL(body: Record<string, unknown>): Record<string,
   return result;
 }
 
-// Upgrade all cache_control blocks without a ttl to use ttl: 3600.
+// Upgrade all cache_control blocks without a ttl to use ttl: "1h".
 // Anthropic's default ephemeral TTL is only 5 minutes; 1h avoids cache misses
 // between requests that are more than 5 minutes apart.
 function upgradeCacheControlTo1h(body: Record<string, unknown>): Record<string, unknown> {
   function upgradeCC(cc: unknown): unknown {
     if (!cc || typeof cc !== "object") return cc;
     const obj = cc as Record<string, unknown>;
-    if (obj.type === "ephemeral" && !("ttl" in obj)) return { ...obj, ttl: 3600 };
+    if (obj.type === "ephemeral" && !("ttl" in obj)) return { ...obj, ttl: "1h" };
     return cc;
   }
   function upgradeBlock(block: any): any {
