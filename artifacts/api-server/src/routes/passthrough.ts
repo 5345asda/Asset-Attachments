@@ -19,7 +19,16 @@ async function pipeAnthropicStreamWithUsageAdjust(
     try {
       const e = JSON.parse(raw);
       if (e.type === "message_start" && e.message?.usage) {
-        e.message.usage = applyBillingAnthropic(e.message.usage);
+        const rawUsage = e.message.usage;
+        logger.info(
+          {
+            input_tokens: rawUsage.input_tokens,
+            cache_creation_input_tokens: rawUsage.cache_creation_input_tokens ?? 0,
+            cache_read_input_tokens: rawUsage.cache_read_input_tokens ?? 0,
+          },
+          "Anthropic raw usage (before billing adjustment)",
+        );
+        e.message.usage = applyBillingAnthropic(rawUsage);
         res.write(`data: ${JSON.stringify(e)}\n`);
         return;
       }
