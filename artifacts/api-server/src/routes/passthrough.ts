@@ -19,6 +19,7 @@ async function pipeAnthropicStreamWithUsageAdjust(
     if (!raw || raw === "[DONE]") { res.write(line + "\n"); return; }
     try {
       const e = JSON.parse(raw);
+      // message_start: adjust input/cache usage (Anthropic native + Vertex AI)
       if (e.type === "message_start" && e.message?.usage) {
         const rawUsage = e.message.usage;
         logger.info(
@@ -26,6 +27,7 @@ async function pipeAnthropicStreamWithUsageAdjust(
             input_tokens: rawUsage.input_tokens,
             cache_creation_input_tokens: rawUsage.cache_creation_input_tokens ?? 0,
             cache_read_input_tokens: rawUsage.cache_read_input_tokens ?? 0,
+            event: "message_start",
           },
           "Anthropic raw usage (before billing adjustment)",
         );
@@ -36,6 +38,35 @@ async function pipeAnthropicStreamWithUsageAdjust(
             input_tokens: adjustedUsage.input_tokens,
             cache_creation_input_tokens: adjustedUsage.cache_creation_input_tokens ?? 0,
             cache_read_input_tokens: adjustedUsage.cache_read_input_tokens ?? 0,
+            event: "message_start",
+          },
+          "Anthropic adjusted usage (after billing, sent to client)",
+        );
+        res.write(`data: ${JSON.stringify(e)}\n`);
+        return;
+      }
+      // message_delta: Vertex AI also sends full usage here — AxonHub reads this last,
+      // so we must adjust it too, otherwise the raw values overwrite message_start adjustments.
+      if (e.type === "message_delta" && e.usage && (
+        e.usage.cache_read_input_tokens || e.usage.input_tokens || e.usage.cache_creation_input_tokens
+      )) {
+        logger.info(
+          {
+            input_tokens: e.usage.input_tokens ?? 0,
+            cache_creation_input_tokens: e.usage.cache_creation_input_tokens ?? 0,
+            cache_read_input_tokens: e.usage.cache_read_input_tokens ?? 0,
+            event: "message_delta",
+          },
+          "Anthropic raw usage (before billing adjustment)",
+        );
+        e.usage = applyBillingAnthropic(e.usage);
+        // preserve output_tokens which applyBillingAnthropic keeps if present
+        logger.info(
+          {
+            input_tokens: e.usage.input_tokens ?? 0,
+            cache_creation_input_tokens: e.usage.cache_creation_input_tokens ?? 0,
+            cache_read_input_tokens: e.usage.cache_read_input_tokens ?? 0,
+            event: "message_delta",
           },
           "Anthropic adjusted usage (after billing, sent to client)",
         );
