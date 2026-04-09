@@ -111,7 +111,6 @@ x-api-key: sk-proxy-xxxxx
 |------|------|--------|
 | `PROXY_API_KEY` | 固定代理 Key（可选） | 自动生成 |
 | `TOKEN_MARKUP` | Token 计费倍率 | `1.0` |
-| `CACHE_PASS_RATE` | 缓存 Token 折扣率 | `1.0` |
 | `PORT` | API 服务端口 | Replit 自动分配 |
 
 以上 AI 相关变量（`AI_INTEGRATIONS_*`）由 Replit 平台自动注入，无需手动配置。

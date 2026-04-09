@@ -58,7 +58,7 @@ AI Proxy Server — OpenAI-compatible multi-model gateway routing to Anthropic, 
 
 ## Auth
 
-Proxy key lookup order: `PROXY_API_KEY` env var → `.data/proxy-key` file (自动生成并持久保存，重启不重新生成).
+Proxy key lookup order: `PROXY_API_KEY` env var → `artifacts/api-server/.data/proxy-key` file (自动生成并持久保存，重启不重新生成).
 
 Pass as `Authorization: Bearer <key>` or `x-api-key: <key>`.
 
