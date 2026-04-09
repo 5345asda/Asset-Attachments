@@ -566,11 +566,39 @@ function upgradeCacheControlTo1h(body: Record<string, unknown>): Record<string, 
   return result;
 }
 
+// Strip thinking blocks that are missing a `signature` field.
+// Anthropic requires the `signature` field on every thinking block sent back in
+// conversation history (it uses it to verify the block wasn't tampered with).
+// Blocks without a signature are either client-constructed fakes or ones that
+// lost their signature in transit — forwarding them causes a 400 "Field required".
+function stripUnsignedThinkingBlocks(body: Record<string, unknown>): Record<string, unknown> {
+  if (!Array.isArray(body.messages)) return body;
+  let dropped = 0;
+  const messages = (body.messages as any[]).map((msg: any) => {
+    if (!Array.isArray(msg?.content)) return msg;
+    const filtered = msg.content.filter((block: any) => {
+      if (block?.type !== "thinking") return true;  // keep non-thinking blocks as-is
+      if (block.signature) return true;              // valid thinking block — keep
+      dropped++;
+      return false;                                  // unsigned thinking block — drop
+    });
+    return filtered.length !== msg.content.length ? { ...msg, content: filtered } : msg;
+  });
+  if (dropped > 0) {
+    logger.warn(
+      { model: body.model, dropped },
+      "Anthropic: dropped thinking block(s) without signature — client must echo signature from prior response",
+    );
+  }
+  return dropped > 0 ? { ...body, messages } : body;
+}
+
 // Anthropic rejects requests that set both temperature and top_p simultaneously.
 // When both are present, drop top_p and keep temperature (lower latency impact).
 // Anthropic also rejects tools: [] (empty array) — remove it entirely.
 function sanitizeAnthropicBody(body: Record<string, unknown>): Record<string, unknown> {
-  let result = stripAllCacheControlScopes(body);
+  let result = stripUnsignedThinkingBlocks(body);
+  result = stripAllCacheControlScopes(result);
 
   if (result.temperature !== undefined && result.top_p !== undefined) {
     const { top_p, ...rest } = result as any;
