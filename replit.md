@@ -40,7 +40,7 @@ AI Proxy Server — OpenAI-compatible multi-model gateway routing to Anthropic, 
 | Path | Auth | Description |
 |------|------|-------------|
 | `GET /api/healthz` | No | Health check |
-| `GET /api/proxy-info` | No | Returns masked proxy key + provider list (never plaintext) |
+| `GET /api/proxy-info` | No | Returns proxy key + provider list |
 | `GET /api/v1/models` | Yes | List all supported models |
 | `POST /api/v1/chat/completions` | Yes | Unified proxy (OpenAI format) |
 | `/api/anthropic/*` | Yes | Anthropic passthrough |
@@ -49,27 +49,18 @@ AI Proxy Server — OpenAI-compatible multi-model gateway routing to Anthropic, 
 
 ## Auth
 
-Proxy key lookup order: `PROXY_API_KEY` env var → `.data/proxy-key` file (auto-generated on first boot, **dev only**).
+Proxy key lookup order: `PROXY_API_KEY` env var → `.data/proxy-key` file (自动生成并持久保存，重启不重新生成).
 
 Pass as `Authorization: Bearer <key>` or `x-api-key: <key>`.
 
-## ⚠️ Proxy Key Rules — Read Before Deploying
+## Proxy Key Behavior
 
-1. **Generate once, never again.** Run this command once to create a key:
-   ```
-   node -e "console.log('sk-proxy-' + require('crypto').randomBytes(16).toString('hex'))"
-   ```
-2. **Store as a Replit Secret** — go to the Secrets tab and add `PROXY_API_KEY`. Never put the value in code or replit.md.
-3. **In production, the server will throw a fatal error if `PROXY_API_KEY` is missing** (not just a warning — it refuses to start). This prevents silent key rotation that would break all clients with 401 errors.
-4. **The key is never sent to the browser.** `/api/proxy-info` returns `proxyKeyMasked` (first 14 chars + dots). The status page shows the masked form only; no eye/reveal toggle exists. Retrieve the real key from Replit Secrets.
-5. **The status page code examples use `<YOUR_PROXY_KEY>` as a placeholder** — never the real value.
+**自动生成、持久复用（无需手动操作）：**
 
-## Known Behaviors
-
-- **temperature + top_p conflict (Anthropic)**: Automatically resolved — `top_p` is dropped when both are present. A WARN log is emitted.
-- **cache_control.scope (Anthropic/Vertex AI)**: Stripped automatically — Vertex AI rejects unknown `scope` field.
-- **thinking blocks (Anthropic)**: Passed through as-is including `signature` — Vertex AI requires the signature field to be present.
-- **Auth failures**: Logged as WARN with `reason` field: `missing_auth_header` / `invalid_bearer_token` / `invalid_x_api_key`
+1. **首次启动时自动生成** — 服务器第一次启动时会自动在 `artifacts/api-server/.data/proxy-key` 生成并保存一个 Key。
+2. **后续每次重启/重新部署都复用同一个 Key** — 只要容器未被完全重置，文件就一直存在，不会重新生成。
+3. **可选：通过 Replit Secret 固定 Key** — 如果需要在容器完全重置后也保持同一个 Key（避免客户端收到 401 错误），可以将当前 Key 的值保存为名为 `PROXY_API_KEY` 的 Replit Secret。设置后 Secret 优先级高于文件，始终生效。
+4. **获取当前 Key** — 在状态页面（`/`）可以查看并复制当前 Key，也可以读取 `artifacts/api-server/.data/proxy-key` 文件。
 
 ## GitHub
 
