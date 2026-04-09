@@ -48,5 +48,6 @@ Thumbs.db
 .cache/
 .local/
 
-# Temporary debug/analysis files
-attached_assets/
+# Proxy key persistence — NEVER commit this file
+.data/
+artifacts/api-server/.data/
