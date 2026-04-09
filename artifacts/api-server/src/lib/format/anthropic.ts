@@ -33,6 +33,13 @@ export function oaiMessagesToAnthropic(messages: any[]): any[] {
           for (const part of msg.content) {
             if (part.type === "text" && typeof part.text === "string") {
               content.push({ type: "text", text: part.text });
+            } else if (part.type === "thinking") {
+              // Only pass through thinking blocks that have a valid signature.
+              // Blocks without a signature (e.g. client-reconstructed ones) are
+              // dropped — sending them to Anthropic causes a 400 "Field required".
+              if (part.signature) {
+                content.push({ type: "thinking", thinking: part.thinking ?? "", signature: part.signature });
+              }
             }
           }
         } else if (typeof msg.content === "object" && typeof msg.content.text === "string") {
