@@ -3,14 +3,22 @@ import healthRouter from "./health";
 import proxyRouter from "./proxy";
 import passthroughRouter from "./passthrough";
 import { PROXY_API_KEY } from "../lib/proxy-key";
-import { logger } from "../lib/logger";
+import { ApiError } from "../lib/api-error";
+import { getRequestLogger } from "../lib/request-context";
 
 const router: IRouter = Router();
 
 function proxyAuth(req: Request, res: Response, next: NextFunction) {
+  const requestLogger = getRequestLogger(req);
+
   if (!PROXY_API_KEY) {
-    logger.warn({ url: req.url, method: req.method }, "Auth skipped: PROXY_API_KEY not configured");
-    res.status(503).json({ error: { message: "Proxy API key not configured", type: "server_error" } });
+    next(new ApiError({
+      status: 503,
+      message: "Proxy API key not configured",
+      type: "server_error",
+      code: "proxy_api_key_not_configured",
+      logLevel: "warn",
+    }));
     return;
   }
 
@@ -26,23 +34,23 @@ function proxyAuth(req: Request, res: Response, next: NextFunction) {
         ? "invalid_bearer_token"
         : "invalid_x_api_key";
 
-    logger.warn(
-      {
-        url: req.url,
-        method: req.method,
+    next(new ApiError({
+      status: 401,
+      message: "Unauthorized - invalid or missing API key",
+      type: "invalid_request_error",
+      code: "unauthorized",
+      details: {
         reason,
         hasAuthorization: !!auth,
         hasXApiKey: !!xApiKey,
         authScheme: auth ? auth.split(" ")[0] : undefined,
       },
-      "Auth failed: 401 Unauthorized",
-    );
-
-    res.status(401).json({ error: { message: "Unauthorized - invalid or missing API key", type: "invalid_request_error" } });
+      logLevel: "warn",
+    }));
     return;
   }
 
-  logger.debug({ url: req.url, method: req.method, via: bearerOk ? "bearer" : "x-api-key" }, "Auth passed");
+  requestLogger.debug({ url: req.url, method: req.method, via: bearerOk ? "bearer" : "x-api-key" }, "Auth passed");
   next();
 }
 
