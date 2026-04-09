@@ -2,25 +2,105 @@
 
 ## Overview
 
-AI Proxy Server — OpenAI-compatible multi-model gateway routing to Anthropic, OpenAI, and Google Gemini via Replit AI Integrations. Includes a React status page.
+这是一个 Replit 风格的 AI Proxy 单仓库：
 
-## Artifacts
+- `artifacts/api-server` 提供统一 API 入口和 provider 转发
+- `artifacts/status-page` 提供状态页和使用说明
+- 最终以一个统一入口对外暴露：根路径是状态页，`/api/*` 是服务端接口
 
-- **`artifacts/api-server`** — Express 5 API server (`/api`)
-- **`artifacts/status-page`** — React + Vite status UI (`/`)
+当前维护目标很明确：
+
+- 对外接口稳定，客户端继续按 OpenAI 兼容方式调用
+- 对内结构保持轻量，避免把 provider 分支重新堆回 `proxy.ts`
 
 ## Stack
 
-- **Monorepo tool**: pnpm workspaces
-- **Node.js version**: 24
-- **Package manager**: pnpm
-- **TypeScript version**: 5.9
-- **API framework**: Express 5
-- **Logging**: pino + pino-http (structured JSON, pretty in dev)
-- **Frontend**: React + Vite + Tailwind + shadcn/ui
-- **Build**: esbuild (CJS bundle for API server)
+- Monorepo: pnpm workspaces
+- Node.js: 24
+- TypeScript: 5.9
+- API: Express 5
+- Logging: pino + pino-http
+- Frontend: React + Vite + Tailwind + shadcn/ui
+- API build: esbuild
 
-## AI Integrations (Replit-managed, no manual keys)
+## Entry Points
+
+### 本地开发
+
+- `pnpm dev`
+  先构建状态页，再由 API 服务统一托管，行为最接近 Replit `Run`
+- `pnpm --filter @workspace/api-server run dev`
+  只启动 API 服务
+- `VITE_API_PROXY_TARGET=http://127.0.0.1:8080 pnpm --filter @workspace/status-page run dev`
+  本地单独调试状态页，`/api/*` 代理到 API 服务
+
+### 部署
+
+- `pnpm run build`
+  构建所有需要的产物
+- `pnpm start`
+  从现有构建产物启动统一入口
+
+### `.replit`
+
+- `run = "pnpm dev"`
+- `deployment.build = "pnpm run build"`
+- `deployment.run = "pnpm start"`
+- `[[ports]].localPort = 3000`
+
+## Runtime Structure
+
+### 对外路由
+
+| Path | Auth | Description |
+|------|------|-------------|
+| `GET /api/healthz` | No | Health check |
+| `GET /api/proxy-info` | No | Returns proxy key + provider info |
+| `GET /api/v1/models` | Yes | Unified model list |
+| `POST /api/v1/chat/completions` | Yes | Unified OpenAI-compatible entry |
+| `/api/anthropic/*` | Yes | Anthropic passthrough |
+| `/api/openai/*` | Yes | OpenAI passthrough |
+| `/api/gemini/*` | Yes | Gemini passthrough |
+
+### API 服务内部职责
+
+```text
+artifacts/api-server/src/
+├── lib/
+│   ├── api-error.ts
+│   ├── proxy-key.ts
+│   └── request-context.ts
+└── routes/
+    ├── proxy.ts
+    ├── passthrough.ts
+    └── providers/chat-completions/
+        ├── index.ts
+        ├── catalog.ts
+        ├── request.ts
+        ├── openai.ts
+        ├── anthropic.ts
+        ├── gemini.ts
+        └── types.ts
+```
+
+### 维护边界
+
+- `proxy.ts`
+  保持薄。这里只做统一入口、请求日志、request resolve、provider dispatch。
+- `providers/chat-completions/index.ts`
+  只做 registry / re-export，不写 provider 细节。
+- `providers/chat-completions/catalog.ts`
+  维护统一 `/models` 返回。
+- `providers/chat-completions/request.ts`
+  维护模型校验、provider 解析、provider 凭证解析。
+- `providers/chat-completions/{openai,anthropic,gemini}.ts`
+  各 provider 实际转发逻辑。
+
+如果后面要加新 provider，优先按这个结构加，不要把 `if/else` 再塞回 `proxy.ts`。
+
+## Provider Environment
+
+这些变量通常由 Replit AI Integrations 注入：
 
 | Provider | URL env var | Key env var |
 |----------|-------------|-------------|
@@ -28,48 +108,58 @@ AI Proxy Server — OpenAI-compatible multi-model gateway routing to Anthropic, 
 | OpenAI | `AI_INTEGRATIONS_OPENAI_BASE_URL` | `AI_INTEGRATIONS_OPENAI_API_KEY` |
 | Gemini | `AI_INTEGRATIONS_GEMINI_BASE_URL` | `AI_INTEGRATIONS_GEMINI_API_KEY` |
 
-## Key Commands
+额外变量：
 
-- `pnpm dev` — build the status page and serve everything through the API server (single Replit-style entrypoint)
-- `pnpm start` — start the unified deployment entrypoint from existing build output
-- `pnpm --filter @workspace/api-server run dev` — run API server locally
-- `VITE_API_PROXY_TARGET=http://127.0.0.1:8080 pnpm --filter @workspace/status-page run dev` — run status page locally against the API server
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
+- `PROXY_API_KEY`
+- `TOKEN_MARKUP`
+- `PORT`
 
-## Replit Configuration
+## Proxy Key
 
-- `.replit run = "pnpm dev"` — the Workspace Run button uses the unified app entrypoint
-- `.replit deployment.build = "pnpm run build"` — deployments compile the API server and status page before boot
-- `.replit deployment.run = "pnpm start"` — deployments boot the already-built unified server
-- `.replit [[ports]] localPort = 3000` — the unified app now exposes a single public web port
+查找顺序：
 
-## API Routes
+1. `PROXY_API_KEY`
+2. `artifacts/api-server/.data/proxy-key`
+3. 首次启动自动生成
 
-| Path | Auth | Description |
-|------|------|-------------|
-| `GET /api/healthz` | No | Health check |
-| `GET /api/proxy-info` | No | Returns proxy key + provider list |
-| `GET /api/v1/models` | Yes | List all supported models |
-| `POST /api/v1/chat/completions` | Yes | Unified proxy (OpenAI format) |
-| `/api/anthropic/*` | Yes | Anthropic passthrough |
-| `/api/openai/*` | Yes | OpenAI passthrough |
-| `/api/gemini/*` | Yes | Gemini passthrough |
+注意：
 
-## Auth
+- 路径现在是相对 `artifacts/api-server` 包目录锚定，不依赖当前启动 cwd。
+- `artifacts/api-server/.data/proxy-key` 已忽略，不应提交到 git。
+- 想固定 Key，直接配 `PROXY_API_KEY`。
 
-Proxy key lookup order: `PROXY_API_KEY` env var → `artifacts/api-server/.data/proxy-key` file (自动生成并持久保存，重启不重新生成).
+## Logging And Error Handling
 
-Pass as `Authorization: Bearer <key>` or `x-api-key: <key>`.
+- 每个请求都会分配或透传 `x-request-id`
+- 日志会把请求和响应按同一个 request id 串起来
+- 对外错误结构保持稳定：
 
-## Proxy Key Behavior
+```json
+{
+  "error": {
+    "message": "....",
+    "type": "...."
+  }
+}
+```
 
-**自动生成、持久复用（无需手动操作）：**
+不要在返回体里额外增加调试字段；排错主要看 `x-request-id` 和服务端日志。
 
-1. **首次启动时自动生成** — 服务器第一次启动时会自动在 `artifacts/api-server/.data/proxy-key` 生成并保存一个 Key。
-2. **后续每次重启/重新部署都复用同一个 Key** — 只要容器未被完全重置，文件就一直存在，不会重新生成。
-3. **可选：通过 Replit Secret 固定 Key** — 如果需要在容器完全重置后也保持同一个 Key（避免客户端收到 401 错误），可以将当前 Key 的值保存为名为 `PROXY_API_KEY` 的 Replit Secret。设置后 Secret 优先级高于文件，始终生效。
-4. **获取当前 Key** — 在状态页面（`/`）可以查看并复制当前 Key，也可以读取 `artifacts/api-server/.data/proxy-key` 文件。
+## Behavior Notes
+
+- `claude-*` 路由到 Anthropic
+- `gemini-*` 路由到 Gemini
+- 其他模型默认走 OpenAI / OpenRouter 兼容逻辑
+- Anthropic assistant prefill 会在本地先拒绝，不等上游报错
+
+## Validation
+
+改完 API 路由或 provider 逻辑后，至少跑这两条：
+
+```bash
+pnpm test:template
+pnpm run build
+```
 
 ## GitHub
 
