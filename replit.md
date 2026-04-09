@@ -30,10 +30,19 @@ AI Proxy Server — OpenAI-compatible multi-model gateway routing to Anthropic, 
 
 ## Key Commands
 
+- `pnpm dev` — build the status page and serve everything through the API server (single Replit-style entrypoint)
+- `pnpm start` — start the unified deployment entrypoint from existing build output
 - `pnpm --filter @workspace/api-server run dev` — run API server locally
-- `pnpm --filter @workspace/status-page run dev` — run status page locally
+- `VITE_API_PROXY_TARGET=http://127.0.0.1:8080 pnpm --filter @workspace/status-page run dev` — run status page locally against the API server
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
+
+## Replit Configuration
+
+- `.replit run = "pnpm dev"` — the Workspace Run button uses the unified app entrypoint
+- `.replit deployment.build = "pnpm run build"` — deployments compile the API server and status page before boot
+- `.replit deployment.run = "pnpm start"` — deployments boot the already-built unified server
+- `.replit [[ports]] localPort = 3000` — the unified app now exposes a single public web port
 
 ## API Routes
 

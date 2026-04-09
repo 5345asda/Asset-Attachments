@@ -1,9 +1,12 @@
 import { randomBytes } from "node:crypto";
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const KEY_DIR  = join(process.cwd(), ".data");
-const KEY_FILE = join(KEY_DIR, "proxy-key");
+const PACKAGE_DIR = fileURLToPath(new URL("../..", import.meta.url));
+
+export const PROXY_KEY_DIR = join(PACKAGE_DIR, ".data");
+export const PROXY_KEY_FILE = join(PROXY_KEY_DIR, "proxy-key");
 
 function generate(): string {
   return "sk-proxy-" + randomBytes(16).toString("hex");
@@ -16,14 +19,14 @@ function generate(): string {
  */
 function load(): string {
   try {
-    const saved = readFileSync(KEY_FILE, "utf8").trim();
+    const saved = readFileSync(PROXY_KEY_FILE, "utf8").trim();
     if (saved) return saved;
   } catch {
     // file doesn't exist yet — first boot
   }
   const key = generate();
-  mkdirSync(KEY_DIR, { recursive: true });
-  writeFileSync(KEY_FILE, key, "utf8");
+  mkdirSync(PROXY_KEY_DIR, { recursive: true });
+  writeFileSync(PROXY_KEY_FILE, key, "utf8");
   return key;
 }
 

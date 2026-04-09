@@ -1,5 +1,10 @@
 import { useState, useEffect } from "react";
 import { Check, Copy, Eye, EyeOff, Zap, Server, Key, Code2, Globe, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  getHealthzUrl,
+  getOpenAIBaseUrl,
+  getProxyInfoUrl,
+} from "@/lib/runtime-config";
 
 const MODELS = [
   { id: "claude-opus-4-6", provider: "anthropic", label: "Claude Opus 4.6" },
@@ -93,6 +98,7 @@ function CodeBlock({ code, language = "bash", id }: { code: string; language?: s
 }
 
 export default function StatusPage() {
+  const apiOriginOverride = import.meta.env.VITE_API_ORIGIN;
   const [showKey, setShowKey] = useState(false);
   const [baseUrl, setBaseUrl] = useState("");
   const [proxyKey, setProxyKey] = useState("");
@@ -101,22 +107,32 @@ export default function StatusPage() {
   const [status, setStatus] = useState<"checking" | "online" | "offline">("checking");
 
   useEffect(() => {
-    const host = window.location.hostname;
-    const proto = window.location.protocol;
-    const base = `${proto}//${host}/api/v1`;
+    const runtimeConfig = {
+      locationOrigin: window.location.origin,
+      overrideOrigin: apiOriginOverride,
+    };
+    const base = getOpenAIBaseUrl(runtimeConfig);
+
     setBaseUrl(base);
-    fetch(`${proto}//${host}/api/proxy-info`)
+
+    fetch(getProxyInfoUrl(runtimeConfig))
       .then((r) => r.json())
       .then((d) => setProxyKey(d.proxyKey || ""))
       .catch(() => {});
-  }, []);
+  }, [apiOriginOverride]);
 
   useEffect(() => {
     if (!baseUrl) return;
-    fetch(`${baseUrl.replace("/v1", "")}/healthz`)
+
+    fetch(
+      getHealthzUrl({
+        locationOrigin: window.location.origin,
+        overrideOrigin: apiOriginOverride,
+      }),
+    )
       .then((r) => setStatus(r.ok ? "online" : "offline"))
       .catch(() => setStatus("offline"));
-  }, [baseUrl]);
+  }, [apiOriginOverride, baseUrl]);
 
   const maskedKey = showKey ? proxyKey : (proxyKey ? proxyKey.slice(0, 10) + "••••••••••••••••••••" : "loading...");
 

@@ -8,6 +8,7 @@ const rawPort = process.env.PORT;
 const port = rawPort ? Number(rawPort) : 3000;
 
 const basePath = process.env.BASE_PATH || "/";
+const apiProxyTarget = process.env.VITE_API_PROXY_TARGET;
 
 export default defineConfig({
   base: basePath,
@@ -45,6 +46,14 @@ export default defineConfig({
     port,
     host: "0.0.0.0",
     allowedHosts: true,
+    proxy: apiProxyTarget
+      ? {
+          "/api": {
+            target: apiProxyTarget,
+            changeOrigin: true,
+          },
+        }
+      : undefined,
     fs: {
       strict: true,
       deny: ["**/.*"],

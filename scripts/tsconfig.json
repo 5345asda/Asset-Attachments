@@ -1,9 +1,12 @@
 {
   "extends": "../tsconfig.base.json",
   "compilerOptions": {
-    "outDir": "dist",
-    "rootDir": "src",
+    "allowImportingTsExtensions": true,
     "types": ["node"]
   },
-  "include": ["src"]
+  "include": [
+    "src",
+    "../artifacts/api-server/src/**/*.ts",
+    "../artifacts/status-page/src/lib/runtime-config.ts"
+  ]
 }

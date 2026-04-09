@@ -122,12 +122,20 @@ x-api-key: sk-proxy-xxxxx
 # 安装依赖
 pnpm install
 
-# 启动 API 服务
-pnpm --filter @workspace/api-server run dev
+# Replit 单入口模式（先构建状态页，再由 API 服务统一托管）
+pnpm dev
 
-# 启动状态页面
+# 分离调试：先启动 API 服务，再启动状态页
+pnpm --filter @workspace/api-server run dev
+VITE_API_PROXY_TARGET=http://127.0.0.1:8080 \
 pnpm --filter @workspace/status-page run dev
 ```
+
+- `pnpm start`：使用已经构建好的产物启动统一入口，要求先执行过 `pnpm run build`
+- Replit `Run` 按钮：现在直接执行 `pnpm dev`
+- Replit Deployment：现在显式使用 `build = "pnpm run build"` 与 `run = "pnpm start"`
+- `VITE_API_ORIGIN`：如果前端需要直接请求另一个 API 域名，可显式指定完整 Origin
+- `VITE_API_PROXY_TARGET`：本地分离调试时，让 Vite 将 `/api/*` 代理到 API 服务
 
 ## 项目结构
 
