@@ -40,7 +40,7 @@ AI Proxy Server — OpenAI-compatible multi-model gateway routing to Anthropic, 
 | Path | Auth | Description |
 |------|------|-------------|
 | `GET /api/healthz` | No | Health check |
-| `GET /api/proxy-info` | No | Returns proxy key + provider list |
+| `GET /api/proxy-info` | No | Returns masked proxy key + provider list (never plaintext) |
 | `GET /api/v1/models` | Yes | List all supported models |
 | `POST /api/v1/chat/completions` | Yes | Unified proxy (OpenAI format) |
 | `/api/anthropic/*` | Yes | Anthropic passthrough |
@@ -49,18 +49,20 @@ AI Proxy Server — OpenAI-compatible multi-model gateway routing to Anthropic, 
 
 ## Auth
 
-Proxy key lookup order: `PROXY_API_KEY` env var → `.data/proxy-key` file (auto-generated on first boot).
-
-**IMPORTANT — set `PROXY_API_KEY` as a Secret before deploying.** The auto-generated file fallback uses `process.cwd()` which differs between dev (package directory) and production (workspace root), so the key silently regenerates on every new deployment and breaks all clients. Pin it once as a Secret and it never changes.
+Proxy key lookup order: `PROXY_API_KEY` env var → `.data/proxy-key` file (auto-generated on first boot, **dev only**).
 
 Pass as `Authorization: Bearer <key>` or `x-api-key: <key>`.
 
-## Deployment Checklist
+## ⚠️ Proxy Key Rules — Read Before Deploying
 
-1. Set up AI Integrations (Anthropic, OpenAI, Gemini) via `setupReplitAIIntegrations` ✅ DONE
-2. **Set `PROXY_API_KEY` secret** ✅ DONE (sk-proxy-5c4154d49d8969bf632488b093d069c5)
-3. Restart API Server workflow ✅ DONE
-4. Publish
+1. **Generate once, never again.** Run this command once to create a key:
+   ```
+   node -e "console.log('sk-proxy-' + require('crypto').randomBytes(16).toString('hex'))"
+   ```
+2. **Store as a Replit Secret** — go to the Secrets tab and add `PROXY_API_KEY`. Never put the value in code or replit.md.
+3. **In production, the server will throw a fatal error if `PROXY_API_KEY` is missing** (not just a warning — it refuses to start). This prevents silent key rotation that would break all clients with 401 errors.
+4. **The key is never sent to the browser.** `/api/proxy-info` returns `proxyKeyMasked` (first 14 chars + dots). The status page shows the masked form only; no eye/reveal toggle exists. Retrieve the real key from Replit Secrets.
+5. **The status page code examples use `<YOUR_PROXY_KEY>` as a placeholder** — never the real value.
 
 ## Known Behaviors
 
