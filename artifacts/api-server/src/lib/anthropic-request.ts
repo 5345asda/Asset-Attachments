@@ -503,6 +503,25 @@ function stripUnsignedThinkingBlocks(body: JsonObject): JsonObject {
   return dropped > 0 ? { ...body, messages } : body;
 }
 
+function hasEnabledThinking(body: JsonObject): boolean {
+  const thinking = body.thinking;
+
+  if (thinking === undefined || thinking === null || thinking === false) {
+    return false;
+  }
+
+  if (typeof thinking !== "object") {
+    return true;
+  }
+
+  const thinkingConfig = thinking as Record<string, unknown>;
+  if (thinkingConfig.enabled === false || thinkingConfig.type === "disabled") {
+    return false;
+  }
+
+  return true;
+}
+
 function buildSystemFingerprint(body: JsonObject): { sysHash: string; sysLen: number } {
   if (Array.isArray(body.system)) {
     const systemText = (body.system as any[]).map((block: any) => block?.text ?? "").join("");
@@ -541,6 +560,17 @@ export function validateAnthropicMessages(messages: unknown): void {
 export function sanitizeAnthropicBody(body: JsonObject): JsonObject {
   let result = stripUnsignedThinkingBlocks(body);
   result = stripAllCacheControlScopes(result);
+
+  if (hasEnabledThinking(result) && result.temperature !== undefined && result.temperature !== 1) {
+    logger.warn(
+      { temperature: result.temperature, model: result.model },
+      "Anthropic: normalized temperature to 1 because thinking is enabled",
+    );
+    result = {
+      ...result,
+      temperature: 1,
+    };
+  }
 
   if (result.temperature !== undefined && result.top_p !== undefined) {
     const { top_p, ...rest } = result;
