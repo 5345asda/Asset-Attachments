@@ -25,6 +25,30 @@
 
 ## Entry Points
 
+### 新项目首次部署前置条件
+
+这份仓库文档默认你在 Replit 环境里运行，但有一个很容易漏掉的前置步骤：
+
+- 新建一个 Replit 项目并导入这个仓库之后
+- 不能只做 `pnpm install` / `pnpm dev`
+- 必须先在**当前 Replit 项目**里启用你要用的 AI provider 集成
+
+原因很简单：
+
+- `AI_INTEGRATIONS_*` 变量不是仓库自带的
+- `pnpm dev` 不会替你生成这些变量
+- 只有当前 Replit 项目里对应集成被启用后，这些变量才会出现在运行环境里
+
+需要的变量映射：
+
+| Provider | URL env var | Key env var |
+|----------|-------------|-------------|
+| Anthropic | `AI_INTEGRATIONS_ANTHROPIC_BASE_URL` | `AI_INTEGRATIONS_ANTHROPIC_API_KEY` |
+| OpenAI | `AI_INTEGRATIONS_OPENAI_BASE_URL` | `AI_INTEGRATIONS_OPENAI_API_KEY` |
+| Gemini | `AI_INTEGRATIONS_GEMINI_BASE_URL` | `AI_INTEGRATIONS_GEMINI_API_KEY` |
+
+如果只启用部分 provider，也可以正常跑；只是访问未启用 provider 时会得到 503 配置错误。
+
 ### 本地开发
 
 - `pnpm dev`
@@ -100,7 +124,9 @@ artifacts/api-server/src/
 
 ## Provider Environment
 
-这些变量通常由 Replit AI Integrations 注入：
+这些变量通常由 Replit AI Integrations 注入。
+
+但这里的“注入”不是仓库导入后自动完成，而是依赖**当前 Replit 项目已经先启用对应 provider 集成**：
 
 | Provider | URL env var | Key env var |
 |----------|-------------|-------------|
@@ -113,6 +139,16 @@ artifacts/api-server/src/
 - `PROXY_API_KEY`
 - `TOKEN_MARKUP`
 - `PORT`
+
+## First-Deploy Checklist
+
+1. 在新的 Replit 项目里导入这个仓库
+2. 先启用需要的 AI provider 集成
+3. 确认对应 `AI_INTEGRATIONS_*` 变量已经存在
+4. 再运行 `pnpm install`
+5. 再运行 `pnpm dev` 或部署命令
+
+如果跳过第 2 步，服务可以启动，但 provider 调用会在运行时失败。
 
 ## Proxy Key
 
@@ -144,6 +180,17 @@ artifacts/api-server/src/
 ```
 
 不要在返回体里额外增加调试字段；排错主要看 `x-request-id` 和服务端日志。
+
+## Missing-Integration Failure Mode
+
+新项目最容易踩的坑不是安装失败，而是 provider 集成没启用导致的运行时 503。
+
+实际表现：
+
+- 统一 OpenAI 兼容入口：`Provider credentials for '<provider>' are not configured`
+- 原生透传入口：`<PROVIDER> integration not configured`
+
+所以文档和部署脚本都应该把“先启用 Replit AI Integrations”当成前置条件，而不是默认环境已经配好。
 
 ## Behavior Notes
 

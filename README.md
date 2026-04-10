@@ -27,7 +27,41 @@ Anthropic OpenAI Gemini
 
 ## 快速开始
 
-### 1. 启动
+### 1. 新 Replit 项目先激活 AI provider 集成
+
+这一条是新项目首次部署的前置条件，不是可选项。
+
+如果你是：
+
+- 刚把这个仓库导入 / 克隆到一个新的 Replit 项目
+- 第一次在这个 Replit 项目里运行这个代理
+
+那你必须先在当前 Replit 项目里，把要用到的 AI provider 集成启用一次。只有启用之后，Replit 才会把对应的 `AI_INTEGRATIONS_*` 环境变量注入运行环境。
+
+至少需要按实际使用场景启用这些 provider：
+
+- Anthropic
+- OpenAI
+- Gemini
+
+对应变量是：
+
+- `AI_INTEGRATIONS_ANTHROPIC_BASE_URL`
+- `AI_INTEGRATIONS_ANTHROPIC_API_KEY`
+- `AI_INTEGRATIONS_OPENAI_BASE_URL`
+- `AI_INTEGRATIONS_OPENAI_API_KEY`
+- `AI_INTEGRATIONS_GEMINI_BASE_URL`
+- `AI_INTEGRATIONS_GEMINI_API_KEY`
+
+注意：
+
+- 这些变量**不是**“克隆仓库后天然就有”
+- 这些变量**不是**运行 `pnpm install` / `pnpm dev` 后自动生成
+- 这些变量只会在对应 provider 集成被当前 Replit 项目启用后出现
+
+如果你只打算用其中一部分 provider，也可以只启用那一部分；未启用的 provider 在实际请求时会返回 503，而不是在启动阶段自动补齐。
+
+### 2. 启动
 
 ```bash
 pnpm install
@@ -42,14 +76,26 @@ pnpm dev
 - API 根路径是 `/api/v1`
 - 状态页会显示当前 Base URL 和 Proxy Key
 
-### 2. 获取 Base URL 和 Proxy Key
+### 3. 先验证 provider 凭证已经注入
+
+第一次部署建议先验证一次，不要直接开始调 Anthropic / OpenAI / Gemini。
+
+最简单的判断方式：
+
+- 你已经在当前 Replit 项目里完成了 provider 集成启用
+- 对应 `AI_INTEGRATIONS_*` 变量在运行环境里已经存在
+- 访问某个 provider 的实际模型时，不会立刻收到“provider credentials not configured / integration not configured”这类 503
+
+如果这里只做仓库导入、安装依赖、启动服务，但**没有先启用 Replit AI Integrations**，那 README 里后面所有 Anthropic / OpenAI / Gemini 调用示例都不成立。
+
+### 4. 获取 Base URL 和 Proxy Key
 
 部署后访问根路径 `/`，页面会显示：
 
 - Base URL，例如 `https://your-app.replit.app/api/v1`
 - Proxy Key，例如 `sk-proxy-xxxxx`
 
-### 3. 用 OpenAI SDK 调用
+### 5. 用 OpenAI SDK 调用
 
 ```python
 from openai import OpenAI
@@ -75,7 +121,7 @@ response = client.chat.completions.create(
 )
 ```
 
-### 4. 用 curl 调用
+### 6. 用 curl 调用
 
 ```bash
 BASE_URL="https://your-app.replit.app/api/v1"
@@ -142,7 +188,9 @@ Proxy Key 的优先级是：
 | `TOKEN_MARKUP` | Token 计费倍率 | `1.0` |
 | `PORT` | API 服务端口 | 由运行环境分配 |
 
-AI provider 凭证默认走 Replit 注入的环境变量：
+AI provider 凭证默认走 Replit 注入的环境变量。
+
+但这里的前提是：你已经在**当前 Replit 项目**里把对应 provider 集成启用过一次。这个仓库不会替你自动完成那一步。
 
 - `AI_INTEGRATIONS_ANTHROPIC_BASE_URL`
 - `AI_INTEGRATIONS_ANTHROPIC_API_KEY`
@@ -180,6 +228,14 @@ pnpm start
 - Replit `Run`：`pnpm dev`
 - Replit Deployment build：`pnpm run build`
 - Replit Deployment run：`pnpm start`
+
+### 新项目首次部署 checklist
+
+1. 在 Replit 里创建 / 导入当前仓库
+2. 先启用需要的 AI provider 集成，而不是直接启动
+3. 确认对应 `AI_INTEGRATIONS_*` 变量已经存在
+4. 再执行 `pnpm install`
+5. 再执行 `pnpm dev` 或部署流程
 
 ## 代码结构
 
@@ -236,6 +292,23 @@ artifacts/
   }
 }
 ```
+
+### 新项目最常见的坑
+
+如果你在一个全新的 Replit 项目里：
+
+- 直接克隆仓库
+- 直接 `pnpm install`
+- 直接 `pnpm dev`
+
+但没有先启用 Replit AI provider 集成，那么最容易遇到的是 provider 相关 503，而不是启动报错。
+
+常见表现：
+
+- 统一聊天入口会报 `Provider credentials for '<provider>' are not configured`
+- 原生透传入口会报 `<PROVIDER> integration not configured`
+
+这通常不是代码坏了，而是当前 Replit 项目还没有把对应 provider 的 `AI_INTEGRATIONS_*` 环境变量注入进来。
 
 ### 当前约束
 
