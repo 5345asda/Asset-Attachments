@@ -1,5 +1,5 @@
 import type { Response } from "express";
-import { applyBillingAnthropic } from "./billing";
+import { applyBillingAnthropic, createCacheUsageNormalizer } from "./billing";
 import { logger } from "./logger";
 
 function writeKeepAlive(res: Response): void {
@@ -43,6 +43,7 @@ export async function pipeAnthropicStreamWithUsageAdjust(
 ): Promise<void> {
   const dec = new TextDecoder();
   let buf = "";
+  const normalizeCacheUsage = createCacheUsageNormalizer();
 
   const writeLine = (line: string) => {
     if (!line.startsWith("data: ")) {
@@ -61,6 +62,7 @@ export async function pipeAnthropicStreamWithUsageAdjust(
 
       if (event.type === "message_start" && event.message?.usage) {
         const rawUsage = event.message.usage;
+        const normalizedCache = normalizeCacheUsage(rawUsage);
         logger.info(
           {
             input_tokens: rawUsage.input_tokens,
@@ -71,7 +73,11 @@ export async function pipeAnthropicStreamWithUsageAdjust(
           "Anthropic raw usage (before billing adjustment)",
         );
 
-        const adjustedUsage = applyBillingAnthropic(rawUsage);
+        const adjustedUsage = applyBillingAnthropic({
+          ...rawUsage,
+          cache_creation_input_tokens: normalizedCache.cacheCreation,
+          cache_read_input_tokens: normalizedCache.cacheRead,
+        }, { cacheAlreadyNormalized: true });
         event.message.usage = adjustedUsage;
 
         logger.info(
@@ -105,7 +111,12 @@ export async function pipeAnthropicStreamWithUsageAdjust(
           "Anthropic raw usage (before billing adjustment)",
         );
 
-        event.usage = applyBillingAnthropic(event.usage);
+        const normalizedCache = normalizeCacheUsage(event.usage);
+        event.usage = applyBillingAnthropic({
+          ...event.usage,
+          cache_creation_input_tokens: normalizedCache.cacheCreation,
+          cache_read_input_tokens: normalizedCache.cacheRead,
+        }, { cacheAlreadyNormalized: true });
 
         logger.info(
           {

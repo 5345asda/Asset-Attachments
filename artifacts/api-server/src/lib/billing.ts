@@ -14,6 +14,16 @@ const CACHE_READ_TO_WRITE_RATE = 0.2;
 
 const m = (n: number) => Math.round(n * TOKEN_MARKUP);
 
+type CacheUsage = {
+  cacheRead: number;
+  cacheCreation: number;
+};
+
+type BillingOptions = {
+  random?: () => number;
+  cacheAlreadyNormalized?: boolean;
+};
+
 function shouldMergeCacheRead(random: () => number): boolean {
   return random() < CACHE_READ_TO_WRITE_RATE;
 }
@@ -22,7 +32,7 @@ function normalizeCacheUsage(
   cacheRead: number,
   cacheCreation: number,
   random: () => number,
-): { cacheRead: number; cacheCreation: number } {
+): CacheUsage {
   if (cacheRead > 0 && shouldMergeCacheRead(random)) {
     return {
       cacheRead: 0,
@@ -33,19 +43,46 @@ function normalizeCacheUsage(
   return { cacheRead, cacheCreation };
 }
 
+export function createCacheUsageNormalizer(options?: { random?: () => number }) {
+  const random = options?.random ?? Math.random;
+  let mergeCacheRead: boolean | undefined;
+
+  return (usage: Record<string, number>): CacheUsage => {
+    const cacheRead = usage.cache_read_input_tokens || 0;
+    const cacheCreation = usage.cache_creation_input_tokens || 0;
+
+    if (cacheRead <= 0) {
+      return { cacheRead, cacheCreation };
+    }
+
+    if (mergeCacheRead === undefined) {
+      mergeCacheRead = shouldMergeCacheRead(random);
+    }
+
+    return mergeCacheRead
+      ? { cacheRead: 0, cacheCreation: cacheCreation + cacheRead }
+      : { cacheRead, cacheCreation };
+  };
+}
+
 // ─── OAI format (proxy path /v1/chat/completions) ────────────────────────────
 export function applyBillingOai(
   usage: Record<string, number>,
-  options?: { random?: () => number },
+  options?: BillingOptions,
 ): Record<string, number> {
   let prompt    = usage.prompt_tokens               || 0;
   let output    = usage.completion_tokens           || 0;
   const random = options?.random ?? Math.random;
-  const normalizedCache = normalizeCacheUsage(
-    usage.cache_read_input_tokens || 0,
-    usage.cache_creation_input_tokens || 0,
-    random,
-  );
+  const normalizedCache = options?.cacheAlreadyNormalized
+    ? {
+        cacheRead: usage.cache_read_input_tokens || 0,
+        cacheCreation: usage.cache_creation_input_tokens || 0,
+      }
+    : normalizeCacheUsage(
+        usage.cache_read_input_tokens || 0,
+        usage.cache_creation_input_tokens || 0,
+        random,
+      );
 
   const result: Record<string, number> = {
     prompt_tokens:     m(prompt),
@@ -62,16 +99,21 @@ export function applyBillingOai(
 // ─── Anthropic native format (passthrough path /anthropic/v1/messages) ───────
 export function applyBillingAnthropic(
   usage: Record<string, number>,
-  options?: { random?: () => number },
+  options?: BillingOptions,
 ): Record<string, number> {
   let input       = usage.input_tokens                || 0;
   let output      = usage.output_tokens               || 0;
   const random = options?.random ?? Math.random;
-  const normalizedCache = normalizeCacheUsage(
-    usage.cache_read_input_tokens || 0,
-    usage.cache_creation_input_tokens || 0,
-    random,
-  );
+  const normalizedCache = options?.cacheAlreadyNormalized
+    ? {
+        cacheRead: usage.cache_read_input_tokens || 0,
+        cacheCreation: usage.cache_creation_input_tokens || 0,
+      }
+    : normalizeCacheUsage(
+        usage.cache_read_input_tokens || 0,
+        usage.cache_creation_input_tokens || 0,
+        random,
+      );
 
   const result: Record<string, number> = {
     input_tokens:  m(input),

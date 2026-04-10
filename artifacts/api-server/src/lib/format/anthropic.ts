@@ -1,6 +1,6 @@
 import type { Response } from "express";
 import { rid, now } from "../utils";
-import { applyBillingOai } from "../billing";
+import { applyBillingOai, createCacheUsageNormalizer } from "../billing";
 
 // ─── OAI messages → Anthropic messages ───────────────────────────────────────
 export function oaiMessagesToAnthropic(messages: any[]): any[] {
@@ -165,6 +165,7 @@ export async function streamAnthropic(
   const id = rid();
   let buf = "";
   const toolCallMap: Record<number, { id: string; name: string; argsBuf: string }> = {};
+  const normalizeCacheUsage = createCacheUsageNormalizer();
 
   // Accumulated usage — filled from message_start (input) + message_delta (output)
   const usage: Record<string, number> = {
@@ -197,11 +198,20 @@ export async function streamAnthropic(
       // ── Capture initial usage (includes cache stats) ───────────────────
       if (e.type === "message_start" && e.message?.usage) {
         const u = e.message.usage;
+        const normalizedCache = normalizeCacheUsage(u);
         usage["prompt_tokens"]    = u.input_tokens  || 0;
         usage["completion_tokens"] = u.output_tokens || 0;
         usage["total_tokens"]     = (u.input_tokens || 0) + (u.output_tokens || 0);
-        if (u.cache_creation_input_tokens != null) usage["cache_creation_input_tokens"] = u.cache_creation_input_tokens;
-        if (u.cache_read_input_tokens     != null) usage["cache_read_input_tokens"]     = u.cache_read_input_tokens;
+        if (normalizedCache.cacheCreation > 0) {
+          usage["cache_creation_input_tokens"] = normalizedCache.cacheCreation;
+        } else {
+          delete usage["cache_creation_input_tokens"];
+        }
+        if (normalizedCache.cacheRead > 0) {
+          usage["cache_read_input_tokens"] = normalizedCache.cacheRead;
+        } else {
+          delete usage["cache_read_input_tokens"];
+        }
         continue;
       }
 
@@ -226,7 +236,11 @@ export async function streamAnthropic(
           usage["completion_tokens"] = e.usage.output_tokens;
           usage["total_tokens"] = usage["prompt_tokens"] + e.usage.output_tokens;
         }
-        send({}, sr === "tool_use" ? "tool_calls" : sr === "end_turn" ? "stop" : sr || "stop", { usage: applyBillingOai(usage) });
+        send(
+          {},
+          sr === "tool_use" ? "tool_calls" : sr === "end_turn" ? "stop" : sr || "stop",
+          { usage: applyBillingOai(usage, { cacheAlreadyNormalized: true }) },
+        );
       }
     }
   }
