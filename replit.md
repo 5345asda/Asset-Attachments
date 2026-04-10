@@ -58,12 +58,24 @@
 - `VITE_API_PROXY_TARGET=http://127.0.0.1:8080 pnpm --filter @workspace/status-page run dev`
   本地单独调试状态页，`/api/*` 代理到 API 服务
 
+补充说明：
+
+- `pnpm dev` 会先跑完整构建，不是秒开的 dev server
+- 在 Replit 里首次运行时，端口起来之前可能要先经历一段 build
+- 如果 Replit `Run` 看起来像超时，先确认是不是还在 build，而不是直接判断服务坏了
+
 ### 部署
 
 - `pnpm run build`
   构建所有需要的产物
 - `pnpm start`
   从现有构建产物启动统一入口
+
+重点：
+
+- `pnpm start` 不会自动重建最新源码
+- 它只会启动当前磁盘上已经存在的 `dist` 产物
+- 所以导入新代码、`git pull`、或者手工覆盖文件后，必须先重新 `pnpm run build`
 
 ### `.replit`
 
@@ -140,15 +152,22 @@ artifacts/api-server/src/
 - `TOKEN_MARKUP`
 - `PORT`
 
+在 Replit 部署语境下，默认推荐：
+
+- 优先使用 Replit AI Integrations 自动配置这些 provider 变量
+- 不要默认回退到向用户索要单独的 provider API key
+
 ## First-Deploy Checklist
 
 1. 在新的 Replit 项目里导入这个仓库
 2. 先启用需要的 AI provider 集成
 3. 确认对应 `AI_INTEGRATIONS_*` 变量已经存在
 4. 再运行 `pnpm install`
-5. 再运行 `pnpm dev` 或部署命令
+5. 再运行 `pnpm run build`
+6. 再运行 `pnpm dev` 或 `pnpm start`
 
 如果跳过第 2 步，服务可以启动，但 provider 调用会在运行时失败。
+如果跳过第 5 步，服务也可能继续跑旧构建产物。
 
 ## Proxy Key
 
@@ -189,8 +208,19 @@ artifacts/api-server/src/
 
 - 统一 OpenAI 兼容入口：`Provider credentials for '<provider>' are not configured`
 - 原生透传入口：`<PROVIDER> integration not configured`
+- `/api/proxy-info` 这类源码中已存在的接口仍然返回 404；这通常说明还在跑旧构建产物
 
 所以文档和部署脚本都应该把“先启用 Replit AI Integrations”当成前置条件，而不是默认环境已经配好。
+
+## Startup Visibility
+
+服务启动时会打印一条 `Provider integration status` 日志，直接显示：
+
+- `anthropic: true/false`
+- `openai: true/false`
+- `gemini: true/false`
+
+这条日志用来尽早暴露“服务能启动，但 provider 变量没注入”的状态，避免部署阶段只看到 `Server listening` 就误以为一切都配好了。
 
 ## Behavior Notes
 

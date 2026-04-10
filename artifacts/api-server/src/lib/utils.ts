@@ -11,6 +11,19 @@ export function getProviderCreds(provider: string): { url: string; key: string }
   return { url, key };
 }
 
+export function getProviderIntegrationStatus() {
+  return {
+    anthropic: isProviderConfigured("anthropic"),
+    openai: isProviderConfigured("openai"),
+    gemini: isProviderConfigured("gemini"),
+  };
+}
+
+function isProviderConfigured(provider: string): boolean {
+  const { url, key } = getProviderCreds(provider);
+  return !!url && !!key;
+}
+
 export function routeModel(model: string): string {
   if (model.startsWith("claude-")) return "anthropic";
   if (model.startsWith("gemini-")) return "gemini";

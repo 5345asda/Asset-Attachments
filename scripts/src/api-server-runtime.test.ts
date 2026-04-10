@@ -91,7 +91,10 @@ test("api-server dev script starts a local server", async (t) => {
 
     const onData = (chunk: Buffer) => {
       output += chunk.toString();
-      if (output.includes("Server listening")) {
+      if (
+        output.includes("Provider integration status")
+        && output.includes("Server listening")
+      ) {
         clearTimeout(timer);
         resolve();
       }

@@ -70,11 +70,18 @@ pnpm install
 pnpm dev
 ```
 
+注意：
+
+- `pnpm dev` 不是轻量热启动，它会先执行一次完整构建，再启动统一入口
+- 首次运行或刚导入大改动后，通常会先经过 `typecheck + 前端 build + 后端 build`
+- 在 Replit 里这一步可能需要 1-2 分钟，端口起来前看起来像“卡住”，不要把它误判成代码没启动
+
 启动后：
 
 - 状态页默认由统一入口托管
 - API 根路径是 `/api/v1`
 - 状态页会显示当前 Base URL 和 Proxy Key
+- 服务日志会打印 `Provider integration status`，直接告诉你 Anthropic / OpenAI / Gemini 哪些已经注入完成
 
 ### 3. 先验证 provider 凭证已经注入
 
@@ -209,6 +216,12 @@ pnpm dev
 
 这会先构建状态页，再由 API 服务统一托管前后端。
 
+适用场景：
+
+- 本地第一次启动
+- 想确保当前源码已经重新构建并生效
+- 刚导入仓库、刚 `git pull`、刚替换过文件
+
 ### 本地分离调试
 
 ```bash
@@ -223,6 +236,13 @@ pnpm run build
 pnpm start
 ```
 
+这里要注意两点：
+
+- `pnpm start` 只启动**已有构建产物**
+- 它不会自动根据最新源码重新构建
+
+所以如果你刚导入新代码、刚 `git pull`、或者刚改完文件，先跑 `pnpm run build`，再跑 `pnpm start`。不然就可能继续跑旧的 `dist`，出现“源码里已经有路由，但运行时还是旧行为”的情况。
+
 对应关系：
 
 - Replit `Run`：`pnpm dev`
@@ -235,7 +255,13 @@ pnpm start
 2. 先启用需要的 AI provider 集成，而不是直接启动
 3. 确认对应 `AI_INTEGRATIONS_*` 变量已经存在
 4. 再执行 `pnpm install`
-5. 再执行 `pnpm dev` 或部署流程
+5. 如果要跑当前最新源码，先执行 `pnpm run build`
+6. 再执行 `pnpm dev` 或 `pnpm start`
+
+如果你是在 Replit 里交给别的 AI 继续部署，文档默认的推荐路径是：
+
+- 优先使用 Replit AI Integrations 自动配置 provider 变量
+- 不要默认向用户索要 Anthropic / OpenAI / Gemini 的单独 API key
 
 ## 代码结构
 
@@ -307,8 +333,9 @@ artifacts/
 
 - 统一聊天入口会报 `Provider credentials for '<provider>' are not configured`
 - 原生透传入口会报 `<PROVIDER> integration not configured`
+- `/api/proxy-info` 这类源码里已经存在的接口，在运行时却返回 404；这通常说明当前跑的还是旧构建产物，而不是最新源码
 
-这通常不是代码坏了，而是当前 Replit 项目还没有把对应 provider 的 `AI_INTEGRATIONS_*` 环境变量注入进来。
+前两类通常是 provider 变量没注入；最后一类通常是旧构建产物没更新，不是同一个问题。
 
 ### 当前约束
 

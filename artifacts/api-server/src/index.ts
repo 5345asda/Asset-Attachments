@@ -1,5 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
+import { getProviderIntegrationStatus } from "./lib/utils";
 
 const rawPort = process.env["PORT"];
 
@@ -21,5 +22,9 @@ app.listen(port, (err) => {
     process.exit(1);
   }
 
+  logger.info(
+    { providers: getProviderIntegrationStatus() },
+    "Provider integration status",
+  );
   logger.info({ port }, "Server listening");
 });
