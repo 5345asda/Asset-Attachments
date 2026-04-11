@@ -106,3 +106,13 @@ test("scripts package does not expose placeholder commands unrelated to deployme
 
   assert.equal(scriptsPackageJson.scripts?.["hello"], undefined);
 });
+
+test(".replit pins the one-click deployment commands at the repo root", async () => {
+  const replitConfig = await readFile(path.join(repoRoot, ".replit"), "utf8");
+
+  assert.match(replitConfig, /^run = "pnpm dev"$/m);
+  assert.match(replitConfig, /^\[deployment\]$/m);
+  assert.match(replitConfig, /^build = "pnpm run build"$/m);
+  assert.match(replitConfig, /^run = "pnpm start"$/m);
+  assert.match(replitConfig, /^router = "application"$/m);
+});
