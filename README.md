@@ -16,6 +16,19 @@
 4. 点 Run，根目录 `.replit` 会跑 `pnpm dev`。
 5. 点 Deploy，根目录 `.replit` 会用 build=`pnpm run build`、run=`pnpm start`。
 
+## 一轮对话版
+
+如果你想把这段话直接发给 Replit AI，复制下面这段，不要再自己解释：
+
+```text
+这是一个单入口 Replit Anthropic 模板。不要重组项目，不要新建 workflow，不要拆分前后端，不要修改业务代码来迁就 Deploy 面板。直接按根目录 .replit 执行：先启用 Anthropic integration，然后 pnpm install；Run 用 pnpm dev；Deploy 面板固定填写 Build command: pnpm run build、Run command: pnpm start；部署后只检查 / 和 /api/healthz。
+```
+
+如果你是手工填 Deploy 面板，直接填这两个值：
+
+- Build command: `pnpm run build`
+- Run command: `pnpm start`
+
 不要做这些事：
 
 - 不要先 clone 到临时目录再把文件 copy 到另一个 Replit 项目。

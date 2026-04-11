@@ -2,6 +2,19 @@
 
 这个文件是给 Replit AI 看的。按下面执行，不要自己重组项目。
 
+## 一轮对话优先
+
+如果你只能做一轮对话，就直接执行下面这段，不要自己推断其它部署拓扑，不要扩展成多服务：
+
+```text
+这是一个单入口 Replit Anthropic 模板。唯一入口是根目录 .replit。不要自己推断其它部署拓扑，不要拆分前后端，不要新建 workflow、artifact 或临时脚本，不要修改业务代码来迁就 Deploy 面板。先启用 Anthropic integration，然后 pnpm install。Run 用 pnpm dev。Deploy 面板固定填写：Build command: pnpm run build；Run command: pnpm start。部署后只检查 / 和 /api/healthz。
+```
+
+Deploy 面板固定填写：
+
+- Build command: `pnpm run build`
+- Run command: `pnpm start`
+
 ## 先读这个
 
 - 根目录 `.replit` 是唯一部署入口。

@@ -137,3 +137,22 @@ test("replit.md gives a short deployment acceptance check", async () => {
   assert.match(guide, /GET \/api\/healthz/);
   assert.match(guide, /根路径 `\/` 能打开状态页/);
 });
+
+test("README includes a copy-paste one-shot prompt and exact deploy panel values", async () => {
+  const readme = await readFile(path.join(repoRoot, "README.md"), "utf8");
+
+  assert.match(readme, /一轮对话版/);
+  assert.match(readme, /Build command: `pnpm run build`/);
+  assert.match(readme, /Run command: `pnpm start`/);
+  assert.match(readme, /不要拆分前后端/);
+});
+
+test("replit.md starts with a one-shot instruction block for Replit AI", async () => {
+  const guide = await readFile(path.join(repoRoot, "replit.md"), "utf8");
+
+  assert.match(guide, /如果你只能做一轮对话/);
+  assert.match(guide, /不要自己推断其它部署拓扑/);
+  assert.match(guide, /Deploy 面板固定填写/);
+  assert.match(guide, /Build command: `pnpm run build`/);
+  assert.match(guide, /Run command: `pnpm start`/);
+});
