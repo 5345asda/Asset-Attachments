@@ -83,11 +83,10 @@ export interface SyncAxonHubChannelResult {
   channel: GraphQlChannelNode;
 }
 
-interface AxonHubChannelInput {
+interface AxonHubCreateChannelInput {
   type: "anthropic";
   name: string;
   baseURL: string;
-  status: "enabled";
   credentials: {
     apiKey: string;
   };
@@ -98,6 +97,10 @@ interface AxonHubChannelInput {
   autoSyncModelPattern: "";
   tags: string[];
   remark: string;
+}
+
+interface AxonHubUpdateChannelInput extends AxonHubCreateChannelInput {
+  status: "enabled";
 }
 
 export class AxonHubSyncError extends Error {
@@ -140,14 +143,13 @@ export function normalizeAxonHubToken(token: string): string {
 export function buildAxonHubChannelInput({
   projectOrigin,
   proxyKey,
-}: BuildAxonHubChannelInputOptions): AxonHubChannelInput {
+}: BuildAxonHubChannelInputOptions): AxonHubCreateChannelInput {
   const normalizedOrigin = normalizeOrigin(projectOrigin);
 
   return {
     type: "anthropic",
     name: deriveChannelName(normalizedOrigin),
     baseURL: `${normalizedOrigin}/api/anthropic`,
-    status: "enabled",
     credentials: {
       apiKey: proxyKey,
     },
@@ -158,6 +160,15 @@ export function buildAxonHubChannelInput({
     autoSyncModelPattern: "",
     tags: [],
     remark: AXONHUB_REMARK,
+  };
+}
+
+function buildAxonHubUpdateChannelInput(
+  input: AxonHubCreateChannelInput,
+): AxonHubUpdateChannelInput {
+  return {
+    ...input,
+    status: "enabled",
   };
 }
 
@@ -241,11 +252,13 @@ export async function syncAxonHubChannel({
     });
 
   if (existingChannel) {
+    const updateInput = buildAxonHubUpdateChannelInput(input);
+
     const updated = await postGraphQl<UpdateChannelResponse>(
       UPDATE_CHANNEL_MUTATION,
       {
         id: existingChannel.id,
-        input,
+        input: updateInput,
       },
       adminToken,
       fetchImpl,
