@@ -26,7 +26,7 @@
 
 - 根目录 `.replit` 是唯一部署入口
 - 不要把 `artifacts/status-page` 和 `artifacts/api-server` 重新拆成两个独立公开服务
-- `.replit-artifact` 目录存在，但它们不是这个仓库当前推荐的对外拓扑
+- 仓库不再提交 `.replit-artifact` 目录，避免 Replit AI 读取到第二套冲突拓扑
 
 当前维护目标很明确：
 

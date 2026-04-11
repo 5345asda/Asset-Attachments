@@ -21,6 +21,7 @@
 - 不要先 clone 到临时目录再把文件 copy 到另一个 Replit 项目。
 - 不要把 `artifacts/status-page` 和 `artifacts/api-server` 当成两个独立应用重新部署。
 - 不要忽略根目录 `.replit`，它就是这个仓库的唯一部署入口。
+- 不要把 Replit 自动生成的 `.replit-artifact` 元数据重新提交回仓库。
 
 ## 架构
 
@@ -49,7 +50,7 @@
 - 根目录 `.replit` 就是唯一的部署入口
 - 对外是单入口：`/` 为状态页，`/api/*` 为 API
 - 不要把 `artifacts/status-page` 和 `artifacts/api-server` 当成两个独立对外服务重新拆分发布
-- `.replit-artifact` 目录只保留给 Replit artifact 元数据，不是让 AI 重新设计部署拓扑的依据
+- 仓库不再提交 `.replit-artifact` 目录，避免 Replit AI 读取到第二套冲突拓扑
 
 ### 1. 先启用 Replit Anthropic 集成
 
