@@ -1,6 +1,5 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import healthRouter from "./health";
-import proxyRouter from "./proxy";
 import passthroughRouter from "./passthrough";
 import { PROXY_API_KEY } from "../lib/proxy-key";
 import { ApiError } from "../lib/api-error";
@@ -56,8 +55,6 @@ function proxyAuth(req: Request, res: Response, next: NextFunction) {
 
 router.use(healthRouter);
 
-router.use("/v1", proxyAuth, proxyRouter);
-
-router.use("/", proxyAuth, passthroughRouter);
+router.use("/anthropic", proxyAuth, passthroughRouter);
 
 export default router;

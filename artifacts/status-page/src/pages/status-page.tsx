@@ -2,38 +2,22 @@ import { useState, useEffect } from "react";
 import { Check, Copy, Eye, EyeOff, Zap, Server, Key, Code2, Globe, ChevronDown, ChevronUp } from "lucide-react";
 import {
   getHealthzUrl,
-  getOpenAIBaseUrl,
+  getAnthropicBaseUrl,
   getProxyInfoUrl,
 } from "@/lib/runtime-config";
 
 const MODELS = [
-  { id: "claude-opus-4-6", provider: "anthropic", label: "Claude Opus 4.6" },
-  { id: "claude-opus-4-5", provider: "anthropic", label: "Claude Opus 4.5" },
-  { id: "claude-sonnet-4-6", provider: "anthropic", label: "Claude Sonnet 4.6" },
-  { id: "claude-sonnet-4-5", provider: "anthropic", label: "Claude Sonnet 4.5" },
-  { id: "claude-haiku-4-5", provider: "anthropic", label: "Claude Haiku 4.5" },
-  { id: "gpt-5.2", provider: "openai", label: "GPT-5.2" },
-  { id: "gpt-5", provider: "openai", label: "GPT-5" },
-  { id: "gpt-5-mini", provider: "openai", label: "GPT-5 Mini" },
-  { id: "gpt-4o", provider: "openai", label: "GPT-4o" },
-  { id: "gpt-4o-mini", provider: "openai", label: "GPT-4o Mini" },
-  { id: "o4-mini", provider: "openai", label: "o4-mini" },
-  { id: "o3", provider: "openai", label: "o3" },
-  { id: "gemini-2.5-pro",   provider: "google", label: "Gemini 2.5 Pro" },
-  { id: "gemini-2.5-flash", provider: "google", label: "Gemini 2.5 Flash" },
+  "claude-opus-4-6",
+  "claude-opus-4-5",
+  "claude-sonnet-4-6",
+  "claude-sonnet-4-5",
+  "claude-haiku-4-5",
+  "claude-3-5-sonnet-20241022",
+  "claude-3-5-haiku-20241022",
+  "claude-3-opus-20240229",
+  "claude-3-sonnet-20240229",
+  "claude-3-haiku-20240307",
 ];
-
-const PROVIDER_COLORS: Record<string, string> = {
-  anthropic: "text-orange-400 bg-orange-500/10 border-orange-500/20",
-  openai: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
-  google: "text-blue-400 bg-blue-500/10 border-blue-500/20",
-};
-
-const PROVIDER_LABELS: Record<string, string> = {
-  anthropic: "Anthropic",
-  openai: "OpenAI",
-  google: "Google",
-};
 
 function useCopy() {
   const [copied, setCopied] = useState<string | null>(null);
@@ -111,7 +95,7 @@ export default function StatusPage() {
       locationOrigin: window.location.origin,
       overrideOrigin: apiOriginOverride,
     };
-    const base = getOpenAIBaseUrl(runtimeConfig);
+    const base = getAnthropicBaseUrl(runtimeConfig);
 
     setBaseUrl(base);
 
@@ -136,49 +120,54 @@ export default function StatusPage() {
 
   const maskedKey = showKey ? proxyKey : (proxyKey ? proxyKey.slice(0, 10) + "••••••••••••••••••••" : "loading...");
 
-  const curlExample = `curl ${baseUrl}/chat/completions \\
-  -H "Authorization: Bearer ${proxyKey}" \\
+  const curlExample = `curl ${baseUrl}/v1/messages \\
+  -H "x-api-key: ${proxyKey}" \\
+  -H "anthropic-version: 2023-06-01" \\
   -H "Content-Type: application/json" \\
   -d '{
     "model": "claude-sonnet-4-6",
+    "max_tokens": 1024,
     "messages": [{"role": "user", "content": "Hello!"}]
   }'`;
 
-  const toolCallExample = `curl ${baseUrl}/chat/completions \\
-  -H "Authorization: Bearer ${proxyKey}" \\
+  const toolCallExample = `curl ${baseUrl}/v1/messages \\
+  -H "x-api-key: ${proxyKey}" \\
+  -H "anthropic-version: 2023-06-01" \\
   -H "Content-Type: application/json" \\
   -d '{
     "model": "claude-sonnet-4-6",
+    "max_tokens": 1024,
     "messages": [{"role": "user", "content": "What is 42 + 58?"}],
     "tools": [{
-      "type": "function",
-      "function": {
-        "name": "calculate",
-        "description": "Perform math calculations",
-        "parameters": {
-          "type": "object",
-          "properties": {
-            "expression": {"type": "string", "description": "Math expression"}
-          },
-          "required": ["expression"]
-        }
+      "name": "calculate",
+      "description": "Perform math calculations",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "expression": {"type": "string", "description": "Math expression"}
+        },
+        "required": ["expression"]
       }
     }],
-    "tool_choice": "auto"
+    "tool_choice": {"type": "auto"}
   }'`;
 
-  const sdkExample = `import OpenAI from "openai";
-
-const client = new OpenAI({
-  baseURL: "${baseUrl}",
-  apiKey: "${proxyKey}",
+  const fetchExample = `const response = await fetch("${baseUrl}/v1/messages", {
+  method: "POST",
+  headers: {
+    "x-api-key": "${proxyKey}",
+    "anthropic-version": "2023-06-01",
+    "content-type": "application/json",
+  },
+  body: JSON.stringify({
+    model: "claude-sonnet-4-6",
+    max_tokens: 1024,
+    messages: [{ role: "user", content: "Hello!" }],
+  }),
 });
 
-const response = await client.chat.completions.create({
-  model: "claude-sonnet-4-6",
-  messages: [{ role: "user", content: "Hello!" }],
-});
-console.log(response.choices[0].message.content);`;
+const data = await response.json();
+console.log(data);`;
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -196,8 +185,8 @@ console.log(response.choices[0].message.content);`;
               <Zap className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold tracking-tight">AI Proxy</h1>
-              <p className="text-sm text-muted-foreground">OpenAI-compatible multi-model gateway</p>
+              <h1 className="text-2xl font-bold tracking-tight">Anthropic Proxy</h1>
+              <p className="text-sm text-muted-foreground">Only Anthropic native endpoints are exposed</p>
             </div>
             <div className="ml-auto flex items-center gap-2">
               <span className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-medium ${
@@ -222,7 +211,7 @@ console.log(response.choices[0].message.content);`;
           <div className="rounded-xl border border-card-border bg-card p-5">
             <div className="flex items-center gap-2 mb-3">
               <Globe className="w-4 h-4 text-primary" />
-              <span className="text-sm font-semibold text-foreground">Base URL</span>
+              <span className="text-sm font-semibold text-foreground">Anthropic Base URL</span>
             </div>
             <div className="flex items-center gap-2">
               <code className="flex-1 text-xs font-mono text-cyan-400 bg-black/30 rounded-lg px-3 py-2 border border-white/8 truncate">
@@ -231,7 +220,7 @@ console.log(response.choices[0].message.content);`;
               {baseUrl && <CopyButton text={baseUrl} id="base-url" />}
             </div>
             <p className="text-xs text-muted-foreground mt-2">
-              Use as <code className="text-xs bg-white/5 px-1 rounded">baseURL</code> in OpenAI SDK
+              Use as the request prefix for Anthropic-compatible calls
             </p>
           </div>
 
@@ -255,7 +244,7 @@ console.log(response.choices[0].message.content);`;
               <CopyButton text={proxyKey} id="api-key" />
             </div>
             <p className="text-xs text-muted-foreground mt-2">
-              Pass as <code className="text-xs bg-white/5 px-1 rounded">apiKey</code> in OpenAI SDK
+              Send as <code className="text-xs bg-white/5 px-1 rounded">x-api-key</code> or <code className="text-xs bg-white/5 px-1 rounded">Authorization: Bearer</code>
             </p>
           </div>
         </div>
@@ -268,8 +257,8 @@ console.log(response.choices[0].message.content);`;
           </div>
           <div className="grid gap-2 sm:grid-cols-2">
             {[
-              { method: "GET", path: "/v1/models", desc: "List all available models" },
-              { method: "POST", path: "/v1/chat/completions", desc: "Chat completions (streaming supported)" },
+              { method: "GET", path: "/v1/models", desc: "List available Claude models" },
+              { method: "POST", path: "/v1/messages", desc: "Anthropic native messages API (streaming supported)" },
             ].map((ep) => (
               <div key={ep.path} className="flex items-start gap-3 p-3 rounded-lg bg-black/20 border border-white/5">
                 <span className={`mt-0.5 shrink-0 text-xs font-bold px-1.5 py-0.5 rounded font-mono ${
@@ -290,26 +279,17 @@ console.log(response.choices[0].message.content);`;
         <div className="rounded-xl border border-card-border bg-card p-5 mb-8">
           <div className="flex items-center gap-2 mb-4">
             <Code2 className="w-4 h-4 text-primary" />
-            <span className="text-sm font-semibold text-foreground">Available Models</span>
+            <span className="text-sm font-semibold text-foreground">Available Claude Models</span>
             <span className="ml-auto text-xs text-muted-foreground">{MODELS.length} models</span>
           </div>
-          <div className="space-y-1.5">
-            {(["anthropic", "openai", "google"] as const).map((provider) => (
-              <div key={provider}>
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 mt-3 first:mt-0">
-                  {PROVIDER_LABELS[provider]}
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {MODELS.filter((m) => m.provider === provider).map((model) => (
-                    <div
-                      key={model.id}
-                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium ${PROVIDER_COLORS[provider]}`}
-                    >
-                      <span className="font-mono">{model.id}</span>
-                      <CopyButton text={model.id} id={`model-${model.id}`} />
-                    </div>
-                  ))}
-                </div>
+          <div className="flex flex-wrap gap-2">
+            {MODELS.map((model) => (
+              <div
+                key={model}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium text-orange-400 bg-orange-500/10 border-orange-500/20"
+              >
+                <span className="font-mono">{model}</span>
+                <CopyButton text={model} id={`model-${model}`} />
               </div>
             ))}
           </div>
@@ -320,10 +300,10 @@ console.log(response.choices[0].message.content);`;
           <span className="text-sm font-semibold text-foreground block mb-4">Claude Tool Calling Support</span>
           <div className="grid gap-2 sm:grid-cols-2">
             {[
-              { icon: "✦", label: "OpenAI → Anthropic tool conversion", desc: "tools, tool_choice fields translated" },
-              { icon: "✦", label: "Anthropic → OpenAI response mapping", desc: "tool_use blocks → tool_calls format" },
-              { icon: "✦", label: "Multi-turn tool conversations", desc: "tool results passed back correctly" },
-              { icon: "✦", label: "Streaming tool calls", desc: "input_json_delta events proxied as SSE" },
+              { icon: "*", label: "Native Anthropic request body", desc: "Use messages, max_tokens, tools, and tool_choice directly" },
+              { icon: "*", label: "Prompt caching normalization", desc: "cache_control fields are cleaned up before the upstream call" },
+              { icon: "*", label: "Usage adjustment", desc: "Anthropic usage fields keep the existing billing normalization" },
+              { icon: "*", label: "Streaming passthrough", desc: "text/event-stream responses are proxied directly" },
             ].map((f, i) => (
               <div key={i} className="flex items-start gap-3 p-3 rounded-lg bg-purple-500/5 border border-purple-500/15">
                 <span className="text-purple-400 text-base mt-0.5">{f.icon}</span>
@@ -345,7 +325,7 @@ console.log(response.choices[0].message.content);`;
             >
               <div className="flex items-center gap-2">
                 <Code2 className="w-4 h-4 text-primary" />
-                <span className="text-sm font-semibold">curl — Basic Chat</span>
+                <span className="text-sm font-semibold">curl - Basic Message</span>
               </div>
               {showCurl ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
             </button>
@@ -363,7 +343,7 @@ console.log(response.choices[0].message.content);`;
             >
               <div className="flex items-center gap-2">
                 <Code2 className="w-4 h-4 text-primary" />
-                <span className="text-sm font-semibold">curl — Tool Calling (Claude)</span>
+                <span className="text-sm font-semibold">curl - Tool Calling</span>
               </div>
               {showToolCall ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
             </button>
@@ -379,14 +359,14 @@ console.log(response.choices[0].message.content);`;
         <div className="rounded-xl border border-card-border bg-card p-5 mb-8">
           <div className="flex items-center gap-2 mb-4">
             <Code2 className="w-4 h-4 text-primary" />
-            <span className="text-sm font-semibold">OpenAI SDK Example</span>
+            <span className="text-sm font-semibold">JavaScript Fetch Example</span>
           </div>
-          <CodeBlock code={sdkExample} language="TypeScript" id="sdk-example" />
+          <CodeBlock code={fetchExample} language="TypeScript" id="fetch-example" />
         </div>
 
         {/* Footer */}
         <div className="text-center text-xs text-muted-foreground pt-4 border-t border-white/5">
-          <p>OpenAI Chat Completions compatible proxy · Powered by Replit AI Integrations</p>
+          <p>Anthropic native proxy · Powered by Replit AI Integrations</p>
         </div>
       </div>
     </div>

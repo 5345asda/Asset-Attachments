@@ -8,35 +8,6 @@ function writeKeepAlive(res: Response): void {
   }
 }
 
-export async function pipeReaderToResponse(
-  reader: ReadableStreamDefaultReader<Uint8Array>,
-  res: Response,
-): Promise<void> {
-  const keepalive = setInterval(() => writeKeepAlive(res), 15000);
-
-  try {
-    for (;;) {
-      if (res.destroyed) {
-        reader.cancel().catch(() => {});
-        break;
-      }
-
-      const { done, value } = await reader.read();
-      if (done) {
-        break;
-      }
-
-      res.write(value);
-    }
-
-    if (!res.destroyed) {
-      res.end();
-    }
-  } finally {
-    clearInterval(keepalive);
-  }
-}
-
 export async function pipeAnthropicStreamWithUsageAdjust(
   reader: ReadableStreamDefaultReader<Uint8Array>,
   res: Response,

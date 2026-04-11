@@ -22,6 +22,6 @@ export function getHealthzUrl(input: RuntimeConfigInput): string {
   return `${getApiOrigin(input)}/api/healthz`;
 }
 
-export function getOpenAIBaseUrl(input: RuntimeConfigInput): string {
-  return `${getApiOrigin(input)}/api/v1`;
+export function getAnthropicBaseUrl(input: RuntimeConfigInput): string {
+  return `${getApiOrigin(input)}/api/anthropic`;
 }

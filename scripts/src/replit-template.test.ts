@@ -5,7 +5,7 @@ import {
   getApiOrigin,
   getHealthzUrl,
   getProxyInfoUrl,
-  getOpenAIBaseUrl,
+  getAnthropicBaseUrl,
 } from "../../artifacts/status-page/src/lib/runtime-config.ts";
 
 test("getApiOrigin preserves the current origin port when no override is provided", () => {
@@ -43,9 +43,9 @@ test("runtime config URLs are derived from the resolved API origin", () => {
     `${expectedOrigin}/api/healthz`,
   );
   assert.equal(
-    getOpenAIBaseUrl({
+    getAnthropicBaseUrl({
       locationOrigin: expectedOrigin,
     }),
-    `${expectedOrigin}/api/v1`,
+    `${expectedOrigin}/api/anthropic`,
   );
 });

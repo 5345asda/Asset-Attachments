@@ -12,7 +12,7 @@ router.get("/healthz", (_req, res) => {
 router.get("/proxy-info", (_req, res) => {
   res.json({
     proxyKey: PROXY_API_KEY,
-    providers: ["anthropic", "openai", "gemini"],
+    providers: ["anthropic"],
   });
 });
 

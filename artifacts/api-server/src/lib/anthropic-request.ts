@@ -558,6 +558,8 @@ export function validateAnthropicMessages(messages: unknown): void {
 }
 
 export function sanitizeAnthropicBody(body: JsonObject): JsonObject {
+  validateAnthropicMessages(body.messages);
+
   let result = stripUnsignedThinkingBlocks(body);
   result = stripAllCacheControlScopes(result);
 

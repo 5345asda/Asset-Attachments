@@ -2,16 +2,16 @@
 
 ## Overview
 
-这是一个 Replit 风格的 AI Proxy 单仓库：
+这是一个 Replit 风格的 Anthropic 代理单仓库：
 
-- `artifacts/api-server` 提供统一 API 入口和 provider 转发
+- `artifacts/api-server` 提供 Anthropic 原生接口代理
 - `artifacts/status-page` 提供状态页和使用说明
 - 最终以一个统一入口对外暴露：根路径是状态页，`/api/*` 是服务端接口
 
 当前维护目标很明确：
 
-- 对外接口稳定，客户端继续按 OpenAI 兼容方式调用
-- 对内结构保持轻量，避免把 provider 分支重新堆回 `proxy.ts`
+- 对外只支持 `/api/anthropic`
+- 对内直接围绕 Anthropic 原生请求格式维护
 
 ## Stack
 
@@ -31,7 +31,7 @@
 
 - 新建一个 Replit 项目并导入这个仓库之后
 - 不能只做 `pnpm install` / `pnpm dev`
-- 必须先在**当前 Replit 项目**里启用你要用的 AI provider 集成
+- 必须先在**当前 Replit 项目**里启用 Anthropic 集成
 
 原因很简单：
 
@@ -44,10 +44,6 @@
 | Provider | URL env var | Key env var |
 |----------|-------------|-------------|
 | Anthropic | `AI_INTEGRATIONS_ANTHROPIC_BASE_URL` | `AI_INTEGRATIONS_ANTHROPIC_API_KEY` |
-| OpenAI | `AI_INTEGRATIONS_OPENAI_BASE_URL` | `AI_INTEGRATIONS_OPENAI_API_KEY` |
-| Gemini | `AI_INTEGRATIONS_GEMINI_BASE_URL` | `AI_INTEGRATIONS_GEMINI_API_KEY` |
-
-如果只启用部分 provider，也可以正常跑；只是访问未启用 provider 时会得到 503 配置错误。
 
 ### 本地开发
 
@@ -92,11 +88,8 @@
 |------|------|-------------|
 | `GET /api/healthz` | No | Health check |
 | `GET /api/proxy-info` | No | Returns proxy key + provider info |
-| `GET /api/v1/models` | Yes | Unified model list |
-| `POST /api/v1/chat/completions` | Yes | Unified OpenAI-compatible entry |
-| `/api/anthropic/*` | Yes | Anthropic passthrough |
-| `/api/openai/*` | Yes | OpenAI passthrough |
-| `/api/gemini/*` | Yes | Gemini passthrough |
+| `GET /api/anthropic/v1/models` | Yes | Anthropic model list |
+| `POST /api/anthropic/v1/messages` | Yes | Anthropic native messages entry |
 
 ### API 服务内部职责
 
@@ -104,35 +97,22 @@
 artifacts/api-server/src/
 ├── lib/
 │   ├── api-error.ts
+│   ├── anthropic-request.ts
 │   ├── proxy-key.ts
+│   ├── stream.ts
 │   └── request-context.ts
 └── routes/
-    ├── proxy.ts
-    ├── passthrough.ts
-    └── providers/chat-completions/
-        ├── index.ts
-        ├── catalog.ts
-        ├── request.ts
-        ├── openai.ts
-        ├── anthropic.ts
-        ├── gemini.ts
-        └── types.ts
+    └── passthrough.ts
 ```
 
 ### 维护边界
 
-- `proxy.ts`
-  保持薄。这里只做统一入口、请求日志、request resolve、provider dispatch。
-- `providers/chat-completions/index.ts`
-  只做 registry / re-export，不写 provider 细节。
-- `providers/chat-completions/catalog.ts`
-  维护统一 `/models` 返回。
-- `providers/chat-completions/request.ts`
-  维护模型校验、provider 解析、provider 凭证解析。
-- `providers/chat-completions/{openai,anthropic,gemini}.ts`
-  各 provider 实际转发逻辑。
-
-如果后面要加新 provider，优先按这个结构加，不要把 `if/else` 再塞回 `proxy.ts`。
+- `routes/passthrough.ts`
+  只保留 Anthropic 原生透传逻辑，不再做多 provider 分发。
+- `lib/anthropic-request.ts`
+  处理 Anthropic body 清洗和本地校验。
+- `lib/stream.ts`
+  处理 Anthropic streaming 和 usage 调整。
 
 ## Provider Environment
 
@@ -143,8 +123,6 @@ artifacts/api-server/src/
 | Provider | URL env var | Key env var |
 |----------|-------------|-------------|
 | Anthropic | `AI_INTEGRATIONS_ANTHROPIC_BASE_URL` | `AI_INTEGRATIONS_ANTHROPIC_API_KEY` |
-| OpenAI | `AI_INTEGRATIONS_OPENAI_BASE_URL` | `AI_INTEGRATIONS_OPENAI_API_KEY` |
-| Gemini | `AI_INTEGRATIONS_GEMINI_BASE_URL` | `AI_INTEGRATIONS_GEMINI_API_KEY` |
 
 额外变量：
 
@@ -160,13 +138,13 @@ artifacts/api-server/src/
 ## First-Deploy Checklist
 
 1. 在新的 Replit 项目里导入这个仓库
-2. 先启用需要的 AI provider 集成
+2. 先启用 Anthropic 集成
 3. 确认对应 `AI_INTEGRATIONS_*` 变量已经存在
 4. 再运行 `pnpm install`
 5. 再运行 `pnpm run build`
 6. 再运行 `pnpm dev` 或 `pnpm start`
 
-如果跳过第 2 步，服务可以启动，但 provider 调用会在运行时失败。
+如果跳过第 2 步，服务可以启动，但 Anthropic 调用会在运行时失败。
 如果跳过第 5 步，服务也可能继续跑旧构建产物。
 
 ## Proxy Key
@@ -202,36 +180,32 @@ artifacts/api-server/src/
 
 ## Missing-Integration Failure Mode
 
-新项目最容易踩的坑不是安装失败，而是 provider 集成没启用导致的运行时 503。
+新项目最容易踩的坑不是安装失败，而是 Anthropic 集成没启用导致的运行时 503。
 
 实际表现：
 
-- 统一 OpenAI 兼容入口：`Provider credentials for '<provider>' are not configured`
-- 原生透传入口：`<PROVIDER> integration not configured`
+- 原生透传入口：`ANTHROPIC integration not configured`
 - `/api/proxy-info` 这类源码中已存在的接口仍然返回 404；这通常说明还在跑旧构建产物
 
-所以文档和部署脚本都应该把“先启用 Replit AI Integrations”当成前置条件，而不是默认环境已经配好。
+所以文档和部署脚本都应该把“先启用 Replit Anthropic Integration”当成前置条件，而不是默认环境已经配好。
 
 ## Startup Visibility
 
 服务启动时会打印一条 `Provider integration status` 日志，直接显示：
 
 - `anthropic: true/false`
-- `openai: true/false`
-- `gemini: true/false`
 
 这条日志用来尽早暴露“服务能启动，但 provider 变量没注入”的状态，避免部署阶段只看到 `Server listening` 就误以为一切都配好了。
 
 ## Behavior Notes
 
-- `claude-*` 路由到 Anthropic
-- `gemini-*` 路由到 Gemini
-- 其他模型默认走 OpenAI / OpenRouter 兼容逻辑
+- 所有对外 AI 请求都只走 `/api/anthropic/*`
+- 只接受 Anthropic 原生请求格式
 - Anthropic assistant prefill 会在本地先拒绝，不等上游报错
 
 ## Validation
 
-改完 API 路由或 provider 逻辑后，至少跑这两条：
+改完 API 路由或 Anthropic 处理逻辑后，至少跑这两条：
 
 ```bash
 pnpm test:template

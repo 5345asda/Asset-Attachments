@@ -1,6 +1,5 @@
 import app from "./app";
 import { logger } from "./lib/logger";
-import { getProviderIntegrationStatus } from "./lib/utils";
 
 const rawPort = process.env["PORT"];
 
@@ -23,7 +22,12 @@ app.listen(port, (err) => {
   }
 
   logger.info(
-    { providers: getProviderIntegrationStatus() },
+    {
+      providers: {
+        anthropic: !!process.env["AI_INTEGRATIONS_ANTHROPIC_BASE_URL"]
+          && !!process.env["AI_INTEGRATIONS_ANTHROPIC_API_KEY"],
+      },
+    },
     "Provider integration status",
   );
   logger.info({ port }, "Server listening");

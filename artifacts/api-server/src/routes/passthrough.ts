@@ -7,54 +7,28 @@ import {
 import { getRequestLogger } from "../lib/request-context";
 import {
   pipeAnthropicStreamWithUsageAdjust,
-  pipeReaderToResponse,
 } from "../lib/stream";
 import { applyBillingAnthropic } from "../lib/billing";
 
 const router = Router();
 
-interface ProviderConfig {
-  envPrefix: string;
-  stripV1: boolean;
-  transformBody?: (body: Record<string, unknown>) => Record<string, unknown>;
-  adjustUsage?: boolean;
-}
-
-const PROVIDERS: Record<string, ProviderConfig> = {
-  anthropic: {
-    envPrefix: "ANTHROPIC",
-    stripV1: true,
-    transformBody: sanitizeAnthropicBody,
-    adjustUsage: true,
-  },
-  openai: {
-    envPrefix: "OPENAI",
-    stripV1: true,
-  },
-  gemini: {
-    envPrefix: "GEMINI",
-    stripV1: false,
-  },
-};
-
-function buildTargetUrl(baseUrl: string, request: Request, stripV1: boolean): string {
+function buildTargetUrl(baseUrl: string, request: Request): string {
   const cleanBaseUrl = baseUrl.replace(/\/$/, "");
-  const upstreamPath = (stripV1 ? request.path.replace(/^\/v1\//, "") : request.path).replace(/^\//, "");
+  const upstreamPath = request.path.replace(/^\/v1\//, "").replace(/^\//, "");
   const query = request.url.includes("?") ? request.url.slice(request.url.indexOf("?")) : "";
   return `${cleanBaseUrl}/${upstreamPath}${query}`;
 }
 
-function buildPassthroughHeaders(request: Request, authHeader: string): Record<string, string> {
+function buildAnthropicHeaders(request: Request, apiKey: string): Record<string, string> {
   const headers: Record<string, string> = {
-    Authorization: authHeader,
+    "x-api-key": apiKey,
+    "anthropic-version": typeof request.headers["anthropic-version"] === "string"
+      ? request.headers["anthropic-version"] as string
+      : "2023-06-01",
   };
 
   if (request.headers["content-type"]) {
     headers["Content-Type"] = request.headers["content-type"] as string;
-  }
-
-  if (request.headers["anthropic-version"]) {
-    headers["anthropic-version"] = request.headers["anthropic-version"] as string;
   }
 
   const clientBeta = request.headers["anthropic-beta"] as string | undefined;
@@ -92,30 +66,29 @@ async function readUpstreamError(upstream: globalThis.Response): Promise<unknown
 async function passthrough(
   request: Request,
   response: Response,
-  config: ProviderConfig,
 ): Promise<void> {
   const requestLogger = getRequestLogger(request);
-  const baseUrl = process.env[`AI_INTEGRATIONS_${config.envPrefix}_BASE_URL`] || "";
-  const apiKey = process.env[`AI_INTEGRATIONS_${config.envPrefix}_API_KEY`] || "";
+  const baseUrl = process.env["AI_INTEGRATIONS_ANTHROPIC_BASE_URL"] || "";
+  const apiKey = process.env["AI_INTEGRATIONS_ANTHROPIC_API_KEY"] || "";
 
   if (!baseUrl || !apiKey) {
     throw new ApiError({
       status: 503,
-      message: `${config.envPrefix} integration not configured`,
+      message: "ANTHROPIC integration not configured",
       type: "service_unavailable",
       code: "provider_integration_not_configured",
-      details: { provider: config.envPrefix.toLowerCase() },
+      details: { provider: "anthropic" },
       logLevel: "warn",
     });
   }
 
   let body = readRequestBody(request);
-  if (body && config.transformBody) {
-    body = config.transformBody(body);
+  if (body) {
+    body = sanitizeAnthropicBody(body);
   }
 
-  const target = buildTargetUrl(baseUrl, request, config.stripV1);
-  const headers = buildPassthroughHeaders(request, `Bearer ${apiKey}`);
+  const target = buildTargetUrl(baseUrl, request);
+  const headers = buildAnthropicHeaders(request, apiKey);
 
   const { model, temperature, top_p, max_tokens, stream, tools } = body ?? {};
   requestLogger.info(
@@ -171,15 +144,11 @@ async function passthrough(
     response.setHeader("Connection", "keep-alive");
 
     const reader = upstream.body.getReader() as ReadableStreamDefaultReader<Uint8Array>;
-    if (config.adjustUsage) {
-      await pipeAnthropicStreamWithUsageAdjust(reader, response);
-    } else {
-      await pipeReaderToResponse(reader, response);
-    }
+    await pipeAnthropicStreamWithUsageAdjust(reader, response);
     return;
   }
 
-  if (config.adjustUsage) {
+  {
     const arrayBuffer = await upstream.arrayBuffer();
     try {
       const data = JSON.parse(Buffer.from(arrayBuffer).toString());
@@ -190,28 +159,13 @@ async function passthrough(
     } catch {
       response.end(Buffer.from(arrayBuffer));
     }
-    return;
   }
-
-  response.end(Buffer.from(await upstream.arrayBuffer()));
 }
 
-function makeHandler(config: ProviderConfig) {
-  return async (request: Request, response: Response) => {
-    await passthrough(request, response, config);
-  };
-}
-
-for (const [providerName, config] of Object.entries(PROVIDERS)) {
-  const subRouter = Router();
-
-  if (providerName === "anthropic") {
-    subRouter.get("/v1/models", (_req, res) => res.json(anthropicModelList));
-    subRouter.get("/models", (_req, res) => res.json(anthropicModelList));
-  }
-
-  subRouter.use("/", makeHandler(config));
-  router.use(`/${providerName}`, subRouter);
-}
+router.get("/v1/models", (_req, res) => res.json(anthropicModelList));
+router.get("/models", (_req, res) => res.json(anthropicModelList));
+router.use("/", async (request, response) => {
+  await passthrough(request, response);
+});
 
 export default router;

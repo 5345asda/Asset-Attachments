@@ -1,143 +1,76 @@
 # AI Proxy Gateway
 
-OpenAI 兼容的多模型代理网关。统一入口是 `/api/v1/chat/completions`，按 `model` 自动转发到 Anthropic、OpenAI / OpenRouter 或 Gemini；同时提供一个 React 状态页，方便拿到 Base URL、Proxy Key 和示例代码。
+这个仓库现在只保留 Anthropic 原生接口代理。
 
-这个仓库现在的重点是两件事：
-
-- 对外接口保持稳定，客户端直接按 OpenAI SDK / curl 用就行。
-- 对内结构保持轻量，`proxy.ts` 只做路由分发，provider 细节都放到 provider 级模块。
+- 对外只支持 `/api/anthropic/*`
+- 不再提供 `/api/v1/chat/completions`
+- 不再提供 OpenAI / Gemini / OpenRouter 路由
 
 ## 架构
 
 ```text
-客户端 (OpenAI SDK / curl)
-      │  Authorization: Bearer <proxy-key>
-      ▼
+客户端
+  │  x-api-key: <proxy-key>
+  ▼
 ┌─────────────────────────────┐
 │ Express API Server          │
-│ /api/v1/models              │
-│ /api/v1/chat/completions    │
-│ /api/{provider}/*           │
+│ /api/healthz                │
+│ /api/proxy-info             │
+│ /api/anthropic/v1/models    │
+│ /api/anthropic/v1/messages  │
 └──────────┬──────────────────┘
-           │  按 model 路由
-     ┌─────┼──────┐
-     ▼     ▼      ▼
-Anthropic OpenAI Gemini
+           │
+           ▼
+       Anthropic
 ```
 
 ## 快速开始
 
-### 1. 新 Replit 项目先激活 AI provider 集成
+### 1. 先启用 Replit Anthropic 集成
 
-这一条是新项目首次部署的前置条件，不是可选项。
+首次在新的 Replit 项目里运行前，必须先启用 Anthropic 集成。仓库自身不会生成这些环境变量。
 
-如果你是：
-
-- 刚把这个仓库导入 / 克隆到一个新的 Replit 项目
-- 第一次在这个 Replit 项目里运行这个代理
-
-那你必须先在当前 Replit 项目里，把要用到的 AI provider 集成启用一次。只有启用之后，Replit 才会把对应的 `AI_INTEGRATIONS_*` 环境变量注入运行环境。
-
-至少需要按实际使用场景启用这些 provider：
-
-- Anthropic
-- OpenAI
-- Gemini
-
-对应变量是：
+需要的变量：
 
 - `AI_INTEGRATIONS_ANTHROPIC_BASE_URL`
 - `AI_INTEGRATIONS_ANTHROPIC_API_KEY`
-- `AI_INTEGRATIONS_OPENAI_BASE_URL`
-- `AI_INTEGRATIONS_OPENAI_API_KEY`
-- `AI_INTEGRATIONS_GEMINI_BASE_URL`
-- `AI_INTEGRATIONS_GEMINI_API_KEY`
-
-注意：
-
-- 这些变量**不是**“克隆仓库后天然就有”
-- 这些变量**不是**运行 `pnpm install` / `pnpm dev` 后自动生成
-- 这些变量只会在对应 provider 集成被当前 Replit 项目启用后出现
-
-如果你只打算用其中一部分 provider，也可以只启用那一部分；未启用的 provider 在实际请求时会返回 503，而不是在启动阶段自动补齐。
 
 ### 2. 启动
 
 ```bash
 pnpm install
-
-# 本地单入口，行为和 Replit Run 接近
 pnpm dev
 ```
 
-注意：
-
-- `pnpm dev` 不是轻量热启动，它会先执行一次完整构建，再启动统一入口
-- 首次运行或刚导入大改动后，通常会先经过 `typecheck + 前端 build + 后端 build`
-- 在 Replit 里这一步可能需要 1-2 分钟，端口起来前看起来像“卡住”，不要把它误判成代码没启动
-
 启动后：
 
-- 状态页默认由统一入口托管
-- API 根路径是 `/api/v1`
-- 状态页会显示当前 Base URL 和 Proxy Key
-- 服务日志会打印 `Provider integration status`，直接告诉你 Anthropic / OpenAI / Gemini 哪些已经注入完成
+- 状态页由统一入口托管
+- Anthropic 根路径是 `/api/anthropic`
+- 页面会显示当前 Base URL 和 Proxy Key
+- 服务日志会打印 `Provider integration status`，只显示 `anthropic`
 
-### 3. 先验证 provider 凭证已经注入
-
-第一次部署建议先验证一次，不要直接开始调 Anthropic / OpenAI / Gemini。
-
-最简单的判断方式：
-
-- 你已经在当前 Replit 项目里完成了 provider 集成启用
-- 对应 `AI_INTEGRATIONS_*` 变量在运行环境里已经存在
-- 访问某个 provider 的实际模型时，不会立刻收到“provider credentials not configured / integration not configured”这类 503
-
-如果这里只做仓库导入、安装依赖、启动服务，但**没有先启用 Replit AI Integrations**，那 README 里后面所有 Anthropic / OpenAI / Gemini 调用示例都不成立。
-
-### 4. 获取 Base URL 和 Proxy Key
+### 3. 获取 Base URL 和 Proxy Key
 
 部署后访问根路径 `/`，页面会显示：
 
-- Base URL，例如 `https://your-app.replit.app/api/v1`
+- Base URL，例如 `https://your-app.replit.app/api/anthropic`
 - Proxy Key，例如 `sk-proxy-xxxxx`
 
-### 5. 用 OpenAI SDK 调用
-
-```python
-from openai import OpenAI
-
-client = OpenAI(
-    base_url="https://your-app.replit.app/api/v1",
-    api_key="sk-proxy-xxxxx",
-)
-
-response = client.chat.completions.create(
-    model="gpt-4o",
-    messages=[{"role": "user", "content": "Hello!"}],
-)
-
-response = client.chat.completions.create(
-    model="claude-opus-4-6",
-    messages=[{"role": "user", "content": "Hello!"}],
-)
-
-response = client.chat.completions.create(
-    model="gemini-2.5-flash",
-    messages=[{"role": "user", "content": "Hello!"}],
-)
-```
-
-### 6. 用 curl 调用
+### 4. 用 curl 调用
 
 ```bash
-BASE_URL="https://your-app.replit.app/api/v1"
+BASE_URL="https://your-app.replit.app/api/anthropic"
 PROXY_KEY="sk-proxy-xxxxx"
 
-curl "$BASE_URL/chat/completions" \
-  -H "Authorization: Bearer $PROXY_KEY" \
+curl "$BASE_URL/v1/messages" \
+  -H "x-api-key: $PROXY_KEY" \
+  -H "anthropic-version: 2023-06-01" \
   -H "Content-Type: application/json" \
-  -d '{"model":"gpt-4o","messages":[{"role":"user","content":"Hello!"}]}'
+  -d '{
+    "model": "claude-sonnet-4-6",
+    "max_tokens": 1024,
+    "messages": [{"role":"user","content":"Hello!"}]
+  }'
 ```
 
 ## API 概览
@@ -146,19 +79,8 @@ curl "$BASE_URL/chat/completions" \
 |------|------|------|
 | `GET /api/healthz` | 否 | 健康检查 |
 | `GET /api/proxy-info` | 否 | 返回当前 Proxy Key 和 provider 信息 |
-| `GET /api/v1/models` | 是 | 返回统一模型列表 |
-| `POST /api/v1/chat/completions` | 是 | OpenAI 兼容入口，自动路由 |
-| `POST /api/anthropic/*` | 是 | Anthropic 原生接口透传 |
-| `POST /api/openai/*` | 是 | OpenAI 原生接口透传 |
-| `POST /api/gemini/*` | 是 | Gemini 原生接口透传 |
-
-### 模型路由规则
-
-| `model` | provider |
-|---------|----------|
-| `claude-*` | Anthropic |
-| `gemini-*` | Gemini |
-| 其他 | OpenAI / OpenRouter |
+| `GET /api/anthropic/v1/models` | 是 | 返回 Claude 模型列表 |
+| `POST /api/anthropic/v1/messages` | 是 | Anthropic 原生 messages 接口 |
 
 ## 认证
 
@@ -195,16 +117,10 @@ Proxy Key 的优先级是：
 | `TOKEN_MARKUP` | Token 计费倍率 | `1.0` |
 | `PORT` | API 服务端口 | 由运行环境分配 |
 
-AI provider 凭证默认走 Replit 注入的环境变量。
-
-但这里的前提是：你已经在**当前 Replit 项目**里把对应 provider 集成启用过一次。这个仓库不会替你自动完成那一步。
+Anthropic 凭证默认走 Replit 注入的环境变量：
 
 - `AI_INTEGRATIONS_ANTHROPIC_BASE_URL`
 - `AI_INTEGRATIONS_ANTHROPIC_API_KEY`
-- `AI_INTEGRATIONS_OPENAI_BASE_URL`
-- `AI_INTEGRATIONS_OPENAI_API_KEY`
-- `AI_INTEGRATIONS_GEMINI_BASE_URL`
-- `AI_INTEGRATIONS_GEMINI_API_KEY`
 
 ## 本地开发和部署
 
@@ -252,7 +168,7 @@ pnpm start
 ### 新项目首次部署 checklist
 
 1. 在 Replit 里创建 / 导入当前仓库
-2. 先启用需要的 AI provider 集成，而不是直接启动
+2. 先启用 Anthropic 集成，而不是直接启动
 3. 确认对应 `AI_INTEGRATIONS_*` 变量已经存在
 4. 再执行 `pnpm install`
 5. 如果要跑当前最新源码，先执行 `pnpm run build`
@@ -260,8 +176,8 @@ pnpm start
 
 如果你是在 Replit 里交给别的 AI 继续部署，文档默认的推荐路径是：
 
-- 优先使用 Replit AI Integrations 自动配置 provider 变量
-- 不要默认向用户索要 Anthropic / OpenAI / Gemini 的单独 API key
+- 优先使用 Replit AI Integrations 自动配置 Anthropic 变量
+- 不要默认向用户索要单独的 Anthropic API key
 
 ## 代码结构
 
@@ -271,34 +187,24 @@ artifacts/
 │   └── src/
 │       ├── lib/
 │       │   ├── api-error.ts
+│       │   ├── anthropic-request.ts
 │       │   ├── proxy-key.ts
+│       │   ├── stream.ts
 │       │   └── request-context.ts
 │       └── routes/
-│           ├── proxy.ts
-│           ├── passthrough.ts
-│           └── providers/chat-completions/
-│               ├── index.ts
-│               ├── catalog.ts
-│               ├── request.ts
-│               ├── openai.ts
-│               ├── anthropic.ts
-│               └── gemini.ts
+│           └── passthrough.ts
 └── status-page/
     └── src/
 ```
 
 ### 关键职责
 
-- `routes/proxy.ts`
-  只保留统一入口本身：记录请求、解析目标 provider、调用 forwarder。
-- `routes/providers/chat-completions/catalog.ts`
-  维护统一模型列表。
-- `routes/providers/chat-completions/request.ts`
-  做模型校验、provider 解析、凭证解析。
-- `routes/providers/chat-completions/{openai,anthropic,gemini}.ts`
-  各 provider 的实际转发逻辑。
-- `routes/providers/chat-completions/index.ts`
-  provider registry，`proxy.ts` 只从这里拿 forwarder。
+- `routes/passthrough.ts`
+  只保留 Anthropic 原生透传。
+- `lib/anthropic-request.ts`
+  处理 Anthropic body 清洗和本地校验。
+- `lib/stream.ts`
+  处理 Anthropic stream 和 usage 调整。
 
 ## 排错
 
@@ -327,18 +233,17 @@ artifacts/
 - 直接 `pnpm install`
 - 直接 `pnpm dev`
 
-但没有先启用 Replit AI provider 集成，那么最容易遇到的是 provider 相关 503，而不是启动报错。
+但没有先启用 Replit Anthropic 集成，那么最容易遇到的是 provider 相关 503，而不是启动报错。
 
 常见表现：
 
-- 统一聊天入口会报 `Provider credentials for '<provider>' are not configured`
-- 原生透传入口会报 `<PROVIDER> integration not configured`
+- 原生透传入口会报 `ANTHROPIC integration not configured`
 - `/api/proxy-info` 这类源码里已经存在的接口，在运行时却返回 404；这通常说明当前跑的还是旧构建产物，而不是最新源码
 
-前两类通常是 provider 变量没注入；最后一类通常是旧构建产物没更新，不是同一个问题。
+前一类通常是 provider 变量没注入；后一类通常是旧构建产物没更新，不是同一个问题。
 
 ### 当前约束
 
-- 不要在 `proxy.ts` 里重新堆回 provider 细节。
-- 新增 provider 时，优先新增 provider 模块和 registry 映射，不要把分支继续堆进主路由。
+- 不再恢复 `/api/v1/chat/completions` 统一入口。
+- 不再恢复 OpenAI / Gemini / OpenRouter 路由。
 - Anthropic 的 assistant prefill 仍然在本地先拦截，不等上游返回。

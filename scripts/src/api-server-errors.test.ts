@@ -88,7 +88,7 @@ test("auth failures expose a request id in both header and body", async (t) => {
     }
   });
 
-  const response = await fetch(`http://127.0.0.1:${server.port}/api/v1/models`);
+  const response = await fetch(`http://127.0.0.1:${server.port}/api/anthropic/v1/models`);
   const body = await response.json() as {
     error: {
       message?: string;
@@ -106,7 +106,7 @@ test("auth failures expose a request id in both header and body", async (t) => {
   assert.ok(response.headers.get("x-request-id"));
 });
 
-test("chat completions validation errors stay local and expose a request id", async (t) => {
+test("legacy /api/v1 routes are no longer supported", async (t) => {
   const previousProxyKey = process.env.PROXY_API_KEY;
   process.env.PROXY_API_KEY = "sk-proxy-test";
 
@@ -132,21 +132,38 @@ test("chat completions validation errors stay local and expose a request id", as
       messages: [{ role: "user", content: "hello" }],
     }),
   });
-  const body = await response.json() as {
-    error: {
-      message?: string;
-      type?: string;
-    };
-  };
+  assert.equal(response.status, 404);
+});
 
-  assert.equal(response.status, 400);
-  assert.deepEqual(body, {
-    error: {
-      message: "model is required",
-      type: "invalid_request_error",
-    },
+test("non-anthropic provider passthrough routes are no longer supported", async (t) => {
+  const previousProxyKey = process.env.PROXY_API_KEY;
+  process.env.PROXY_API_KEY = "sk-proxy-test";
+
+  const server = await startAppServer();
+
+  t.after(async () => {
+    await server.close();
+
+    if (previousProxyKey === undefined) {
+      delete process.env.PROXY_API_KEY;
+    } else {
+      process.env.PROXY_API_KEY = previousProxyKey;
+    }
   });
-  assert.ok(response.headers.get("x-request-id"));
+
+  const response = await fetch(`http://127.0.0.1:${server.port}/api/openai/v1/chat/completions`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: "Bearer sk-proxy-test",
+    },
+    body: JSON.stringify({
+      model: "gpt-5",
+      messages: [{ role: "user", content: "hello" }],
+    }),
+  });
+
+  assert.equal(response.status, 404);
 });
 
 test("anthropic assistant-prefill is rejected before any upstream call", async (t) => {
@@ -186,9 +203,10 @@ test("anthropic assistant-prefill is rejected before any upstream call", async (
     }
   });
 
-  const response = await postJson(`http://127.0.0.1:${server.port}/api/v1/chat/completions`, {
+  const response = await postJson(`http://127.0.0.1:${server.port}/api/anthropic/v1/messages`, {
     headers: {
       authorization: "Bearer sk-proxy-test",
+      "anthropic-version": "2023-06-01",
     },
     body: {
       model: "claude-opus-4-6",
