@@ -116,3 +116,17 @@ test(".replit pins the one-click deployment commands at the repo root", async ()
   assert.match(replitConfig, /^run = "pnpm start"$/m);
   assert.match(replitConfig, /^router = "application"$/m);
 });
+
+test("replit.md tells AI not to patch app code just to fix empty deployment commands", async () => {
+  const guide = await readFile(path.join(repoRoot, "replit.md"), "utf8");
+
+  assert.match(guide, /不要为了修复空的 Run command 去改应用代码/);
+  assert.match(guide, /不要为了修复发布配置去新增 workflow、artifact 或临时脚本/);
+});
+
+test("replit.md gives a short deployment acceptance check", async () => {
+  const guide = await readFile(path.join(repoRoot, "replit.md"), "utf8");
+
+  assert.match(guide, /GET \/api\/healthz/);
+  assert.match(guide, /根路径 `\/` 能打开状态页/);
+});

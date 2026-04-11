@@ -12,6 +12,8 @@
 - 不要先 `git clone` 到临时目录再复制文件。
 - 不要把前后端拆成两个独立公开服务。
 - 不要提交 Replit 自动生成的 `.replit-artifact` 元数据。
+- 不要为了修复空的 Run command 去改应用代码。
+- 不要为了修复发布配置去新增 workflow、artifact 或临时脚本。
 
 ## 直接部署步骤
 
@@ -26,6 +28,7 @@
 - 如果你看到已有的 API Server workflow、mockup workflow、旧 preview 端口或历史 artifact 配置，不要尝试在原项目里覆盖式修复。
 - 不要先 `git clone` 到 `/tmp` 再 `cp` 回工作区。
 - 不要手工拼 `STATIC_DIR=$PWD/...` 这种项目级补丁。
+- 不要为了让 Deploy 面板不报错去改业务路由、端口绑定或静态资源路径。
 - 正确做法只有一个：新建干净 Replit，直接导入仓库，然后按上面的 5 步执行。
 
 ## 必要环境变量
@@ -48,9 +51,16 @@
 - 想手工改路径、端口、preview 拓扑：不要改，仓库已经固定成根目录单入口部署。
 - 部署界面仍然显示旧 workflow 或空的 Run command：通常说明你导入的是历史 Replit 项目，不是干净的新项目，直接新建并重新导入。
 
-## 验证
+## 部署验收
 
-至少跑这两条：
+完成部署后，最少确认这 4 件事：
+
+- 根路径 `/` 能打开状态页。
+- `GET /api/healthz` 返回成功。
+- 页面不是 `Setup Required`，或者你能明确判断这是因为当前项目还没启用 Anthropic integration。
+- Deploy 用的命令仍然是 build=`pnpm run build`、run=`pnpm start`。
+
+如果需要补充验证，再跑这两条：
 
 ```bash
 pnpm --filter @workspace/scripts run test:replit-template

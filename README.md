@@ -24,6 +24,7 @@
 - 不要忽略根目录 `.replit`，它就是这个仓库的唯一部署入口。
 - 不要把 Replit 自动生成的 `.replit-artifact` 元数据重新提交回仓库。
 - 不要把仓库里的测试、规划文件或历史实验目录当成部署路径的一部分。
+- 不要为了修复 Deploy 面板里的空命令去改业务代码、路由或静态资源路径。
 
 ## 部署真相源
 
@@ -96,3 +97,9 @@ Proxy Key 查找顺序：
 - 新项目最常见的问题不是安装失败，而是没先启用 Anthropic integration，表现为运行时 503 或页面显示 `Setup Required`。
 - 如果源码里明明有接口，运行时却还是旧行为，优先怀疑旧 `dist` 产物没有重建，先执行 `pnpm run build`。
 - 如果部署界面还残留旧 workflow、旧 artifact 服务，或者 Run command 仍然是空的，优先判断当前 Replit 是历史项目；这种情况不要继续修，直接新建 Replit 并重新导入仓库。
+
+## 部署完成后最少验收
+
+- 根路径 `/` 能打开状态页
+- `GET /api/healthz` 返回成功
+- Deploy 里仍然是 build=`pnpm run build`、run=`pnpm start`
