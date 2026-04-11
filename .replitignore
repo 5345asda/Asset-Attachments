@@ -3,3 +3,7 @@
 
 # No need to store the pnpm store twice.
 .local
+task_plan.md
+findings.md
+progress.md
+scripts/src/*.test.ts
