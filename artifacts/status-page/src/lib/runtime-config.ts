@@ -3,6 +3,11 @@ interface RuntimeConfigInput {
   overrideOrigin?: string | undefined;
 }
 
+interface GatewayStatusInput {
+  healthOk: boolean;
+  anthropicConfigured: boolean | null;
+}
+
 function normalizeOrigin(origin: string): string {
   return origin.trim().replace(/\/+$/, "");
 }
@@ -24,4 +29,23 @@ export function getHealthzUrl(input: RuntimeConfigInput): string {
 
 export function getAnthropicBaseUrl(input: RuntimeConfigInput): string {
   return `${getApiOrigin(input)}/api/anthropic`;
+}
+
+export function getGatewayStatus({
+  healthOk,
+  anthropicConfigured,
+}: GatewayStatusInput): "checking" | "online" | "setup_required" | "offline" {
+  if (!healthOk) {
+    return "offline";
+  }
+
+  if (anthropicConfigured === false) {
+    return "setup_required";
+  }
+
+  if (anthropicConfigured === true) {
+    return "online";
+  }
+
+  return "checking";
 }

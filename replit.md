@@ -1,5 +1,19 @@
 # Workspace
 
+## Replit AI 直接部署
+
+如果你是 Replit AI，请直接按下面流程做，不要绕路：
+
+1. 直接把这个 GitHub 仓库导入到目标 Replit 项目。
+2. 不要先 `git clone` 到临时目录，再手工 `cp` 文件到另一个项目。
+3. 不要重组目录，不要把 `artifacts/api-server` 和 `artifacts/status-page` 拆成两个独立公开服务。
+4. 先在当前 Replit 项目启用 Anthropic integration。
+5. 然后执行 `pnpm install`。
+6. 开发运行用根目录 `.replit`：`pnpm dev`。
+7. 正式部署用根目录 `.replit`：build=`pnpm run build`，run=`pnpm start`。
+
+一句话：这个仓库已经是可直接部署形态，按根目录 `.replit` 运行即可。
+
 ## Overview
 
 这是一个 Replit 风格的 Anthropic 代理单仓库：
@@ -7,6 +21,12 @@
 - `artifacts/api-server` 提供 Anthropic 原生接口代理
 - `artifacts/status-page` 提供状态页和使用说明
 - 最终以一个统一入口对外暴露：根路径是状态页，`/api/*` 是服务端接口
+
+给 Replit AI 的部署约束：
+
+- 根目录 `.replit` 是唯一部署入口
+- 不要把 `artifacts/status-page` 和 `artifacts/api-server` 重新拆成两个独立公开服务
+- `.replit-artifact` 目录存在，但它们不是这个仓库当前推荐的对外拓扑
 
 当前维护目标很明确：
 
@@ -186,6 +206,7 @@ artifacts/api-server/src/
 
 - 原生透传入口：`ANTHROPIC integration not configured`
 - `/api/proxy-info` 这类源码中已存在的接口仍然返回 404；这通常说明还在跑旧构建产物
+- 状态页顶部会显示 `Setup Required`；这说明服务活着，但当前 Replit 项目还没注入 Anthropic 集成
 
 所以文档和部署脚本都应该把“先启用 Replit Anthropic Integration”当成前置条件，而不是默认环境已经配好。
 

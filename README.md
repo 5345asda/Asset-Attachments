@@ -6,6 +6,22 @@
 - 不再提供 `/api/v1/chat/completions`
 - 不再提供 OpenAI / Gemini / OpenRouter 路由
 
+## Replit 直接部署
+
+最简单的方式就是直接部署，不要中转复制：
+
+1. 在 Replit 里直接导入这个 GitHub 仓库。
+2. 先启用当前项目的 Anthropic integration。
+3. 执行 `pnpm install`。
+4. 点 Run，根目录 `.replit` 会跑 `pnpm dev`。
+5. 点 Deploy，根目录 `.replit` 会用 build=`pnpm run build`、run=`pnpm start`。
+
+不要做这些事：
+
+- 不要先 clone 到临时目录再把文件 copy 到另一个 Replit 项目。
+- 不要把 `artifacts/status-page` 和 `artifacts/api-server` 当成两个独立应用重新部署。
+- 不要忽略根目录 `.replit`，它就是这个仓库的唯一部署入口。
+
 ## 架构
 
 ```text
@@ -25,6 +41,15 @@
 ```
 
 ## 快速开始
+
+### Replit AI 部署约定
+
+如果你是在 Replit 里交给 AI 自动部署，先按这条理解仓库，不要自己重组结构：
+
+- 根目录 `.replit` 就是唯一的部署入口
+- 对外是单入口：`/` 为状态页，`/api/*` 为 API
+- 不要把 `artifacts/status-page` 和 `artifacts/api-server` 当成两个独立对外服务重新拆分发布
+- `.replit-artifact` 目录只保留给 Replit artifact 元数据，不是让 AI 重新设计部署拓扑的依据
 
 ### 1. 先启用 Replit Anthropic 集成
 
@@ -47,6 +72,7 @@ pnpm dev
 - 状态页由统一入口托管
 - Anthropic 根路径是 `/api/anthropic`
 - 页面会显示当前 Base URL 和 Proxy Key
+- 如果当前 Replit 项目还没启用 Anthropic 集成，页面状态会显示 `Setup Required`
 - 服务日志会打印 `Provider integration status`，只显示 `anthropic`
 
 ### 3. 获取 Base URL 和 Proxy Key

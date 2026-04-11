@@ -1,3 +1,5 @@
+# Replit deployment source of truth:
+# run/build/start use the unified root entrypoint. Do not re-split status-page and api-server into separate public services.
 modules = ["nodejs-24"]
 run = "pnpm dev"
 

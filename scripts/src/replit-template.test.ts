@@ -6,6 +6,7 @@ import {
   getHealthzUrl,
   getProxyInfoUrl,
   getAnthropicBaseUrl,
+  getGatewayStatus,
 } from "../../artifacts/status-page/src/lib/runtime-config.ts";
 
 test("getApiOrigin preserves the current origin port when no override is provided", () => {
@@ -47,5 +48,15 @@ test("runtime config URLs are derived from the resolved API origin", () => {
       locationOrigin: expectedOrigin,
     }),
     `${expectedOrigin}/api/anthropic`,
+  );
+});
+
+test("gateway status reports setup_required when provider integration is missing", () => {
+  assert.equal(
+    getGatewayStatus({
+      healthOk: true,
+      anthropicConfigured: false,
+    }),
+    "setup_required",
   );
 });

@@ -117,3 +117,65 @@ test("api-server dev script starts a local server", async (t) => {
   const health = await fetch(`http://127.0.0.1:${port}/api/healthz`);
   assert.equal(health.status, 200);
 });
+
+test("proxy-info exposes Anthropic integration readiness for deployment checks", async () => {
+  const previousBaseUrl = process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL;
+  const previousApiKey = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY;
+  const previousProxyKey = process.env.PROXY_API_KEY;
+  const port = await getFreePort();
+
+  delete process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL;
+  delete process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY;
+  process.env.PROXY_API_KEY = "sk-proxy-test";
+
+  try {
+    const { default: app } = await import("../../artifacts/api-server/src/app.ts");
+    const server = app.listen(port);
+
+    try {
+      const response = await fetch(`http://127.0.0.1:${port}/api/proxy-info`);
+      assert.equal(response.status, 200);
+
+      const body = await response.json() as {
+        ready?: boolean;
+        integrations?: {
+          anthropic?: {
+            configured?: boolean;
+          };
+        };
+      };
+
+      assert.equal(body.ready, false);
+      assert.equal(body.integrations?.anthropic?.configured, false);
+    } finally {
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+
+          resolve();
+        });
+      });
+    }
+  } finally {
+    if (previousBaseUrl === undefined) {
+      delete process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL;
+    } else {
+      process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL = previousBaseUrl;
+    }
+
+    if (previousApiKey === undefined) {
+      delete process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY;
+    } else {
+      process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY = previousApiKey;
+    }
+
+    if (previousProxyKey === undefined) {
+      delete process.env.PROXY_API_KEY;
+    } else {
+      process.env.PROXY_API_KEY = previousProxyKey;
+    }
+  }
+});

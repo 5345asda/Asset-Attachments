@@ -4,6 +4,7 @@ import {
   getHealthzUrl,
   getAnthropicBaseUrl,
   getProxyInfoUrl,
+  getGatewayStatus,
 } from "@/lib/runtime-config";
 
 const MODELS = [
@@ -88,7 +89,8 @@ export default function StatusPage() {
   const [proxyKey, setProxyKey] = useState("");
   const [showCurl, setShowCurl] = useState(false);
   const [showToolCall, setShowToolCall] = useState(false);
-  const [status, setStatus] = useState<"checking" | "online" | "offline">("checking");
+  const [healthOk, setHealthOk] = useState(false);
+  const [anthropicConfigured, setAnthropicConfigured] = useState<boolean | null>(null);
 
   useEffect(() => {
     const runtimeConfig = {
@@ -101,7 +103,10 @@ export default function StatusPage() {
 
     fetch(getProxyInfoUrl(runtimeConfig))
       .then((r) => r.json())
-      .then((d) => setProxyKey(d.proxyKey || ""))
+      .then((d) => {
+        setProxyKey(d.proxyKey || "");
+        setAnthropicConfigured(d.integrations?.anthropic?.configured === true);
+      })
       .catch(() => {});
   }, [apiOriginOverride]);
 
@@ -114,9 +119,14 @@ export default function StatusPage() {
         overrideOrigin: apiOriginOverride,
       }),
     )
-      .then((r) => setStatus(r.ok ? "online" : "offline"))
-      .catch(() => setStatus("offline"));
+      .then((r) => setHealthOk(r.ok))
+      .catch(() => setHealthOk(false));
   }, [apiOriginOverride, baseUrl]);
+
+  const status = getGatewayStatus({
+    healthOk,
+    anthropicConfigured,
+  });
 
   const maskedKey = showKey ? proxyKey : (proxyKey ? proxyKey.slice(0, 10) + "••••••••••••••••••••" : "loading...");
 
@@ -192,18 +202,40 @@ console.log(data);`;
               <span className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-medium ${
                 status === "online"
                   ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                  : status === "setup_required"
+                    ? "bg-amber-500/10 text-amber-300 border-amber-500/20"
                   : status === "offline"
                     ? "bg-red-500/10 text-red-400 border-red-500/20"
                     : "bg-yellow-500/10 text-yellow-400 border-yellow-500/20"
               }`}>
                 <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${
-                  status === "online" ? "bg-emerald-400" : status === "offline" ? "bg-red-400" : "bg-yellow-400"
+                  status === "online"
+                    ? "bg-emerald-400"
+                    : status === "setup_required"
+                      ? "bg-amber-300"
+                      : status === "offline"
+                        ? "bg-red-400"
+                        : "bg-yellow-400"
                 }`} />
-                {status === "checking" ? "Checking..." : status === "online" ? "Online" : "Offline"}
+                {status === "checking"
+                  ? "Checking..."
+                  : status === "online"
+                    ? "Online"
+                    : status === "setup_required"
+                      ? "Setup Required"
+                      : "Offline"}
               </span>
             </div>
           </div>
         </div>
+
+        {status === "setup_required" && (
+          <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 mb-8">
+            <p className="text-sm text-amber-100">
+              Replit 项目还没有注入 Anthropic integration。先在当前项目启用 Replit Anthropic 集成，再重新运行。
+            </p>
+          </div>
+        )}
 
         {/* Credentials Section */}
         <div className="grid gap-4 sm:grid-cols-2 mb-8">
