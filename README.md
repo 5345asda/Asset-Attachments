@@ -19,6 +19,7 @@
 不要做这些事：
 
 - 不要先 clone 到临时目录再把文件 copy 到另一个 Replit 项目。
+- 不要把这个仓库导入到一个已经带历史 artifact workflow 的旧 Replit 项目里继续修补；最稳的做法是新建一个干净 Replit 再导入。
 - 不要把 `artifacts/status-page` 和 `artifacts/api-server` 当成两个独立应用重新部署。
 - 不要忽略根目录 `.replit`，它就是这个仓库的唯一部署入口。
 - 不要把 Replit 自动生成的 `.replit-artifact` 元数据重新提交回仓库。
@@ -94,3 +95,4 @@ Proxy Key 查找顺序：
 - 每个请求都会返回或透传 `x-request-id`，查日志时优先用它串联请求。
 - 新项目最常见的问题不是安装失败，而是没先启用 Anthropic integration，表现为运行时 503 或页面显示 `Setup Required`。
 - 如果源码里明明有接口，运行时却还是旧行为，优先怀疑旧 `dist` 产物没有重建，先执行 `pnpm run build`。
+- 如果部署界面还残留旧 workflow、旧 artifact 服务，或者 Run command 仍然是空的，优先判断当前 Replit 是历史项目；这种情况不要继续修，直接新建 Replit 并重新导入仓库。
