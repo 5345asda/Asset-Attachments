@@ -23,6 +23,14 @@ export function getProxyInfoUrl(input: RuntimeConfigInput): string {
   return `${getApiOrigin(input)}/api/proxy-info`;
 }
 
+export function getAxonHubOrigin(): string {
+  return "https://axonhub.qwqtao.com";
+}
+
+export function getAxonHubSyncUrl(input: RuntimeConfigInput): string {
+  return `${getApiOrigin(input)}/api/axonhub/channel-sync`;
+}
+
 export function getHealthzUrl(input: RuntimeConfigInput): string {
   return `${getApiOrigin(input)}/api/healthz`;
 }

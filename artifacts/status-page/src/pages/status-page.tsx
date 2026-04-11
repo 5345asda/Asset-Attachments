@@ -1,6 +1,9 @@
 import { useState, useEffect } from "react";
 import { Check, Copy, Eye, EyeOff, Zap, Server, Key, Code2, Globe, ChevronDown, ChevronUp } from "lucide-react";
 import {
+  getApiOrigin,
+  getAxonHubOrigin,
+  getAxonHubSyncUrl,
   getHealthzUrl,
   getAnthropicBaseUrl,
   getProxyInfoUrl,
@@ -85,12 +88,27 @@ function CodeBlock({ code, language = "bash", id }: { code: string; language?: s
 export default function StatusPage() {
   const apiOriginOverride = import.meta.env.VITE_API_ORIGIN;
   const [showKey, setShowKey] = useState(false);
+  const [showAxonHubToken, setShowAxonHubToken] = useState(false);
   const [baseUrl, setBaseUrl] = useState("");
   const [proxyKey, setProxyKey] = useState("");
+  const [axonhubToken, setAxonhubToken] = useState("");
+  const [syncingAxonHub, setSyncingAxonHub] = useState(false);
+  const [axonhubSyncError, setAxonhubSyncError] = useState("");
+  const [axonhubSyncResult, setAxonhubSyncResult] = useState<null | {
+    axonhubOrigin: string;
+    mode: "created" | "updated";
+    channel: {
+      id: string;
+      name: string;
+      baseURL: string;
+      status?: string | null;
+    };
+  }>(null);
   const [showCurl, setShowCurl] = useState(false);
   const [showToolCall, setShowToolCall] = useState(false);
   const [healthOk, setHealthOk] = useState(false);
   const [anthropicConfigured, setAnthropicConfigured] = useState<boolean | null>(null);
+  const axonhubOrigin = getAxonHubOrigin();
 
   useEffect(() => {
     const runtimeConfig = {
@@ -129,6 +147,7 @@ export default function StatusPage() {
   });
 
   const maskedKey = showKey ? proxyKey : (proxyKey ? proxyKey.slice(0, 10) + "••••••••••••••••••••" : "loading...");
+  const canSyncAxonHub = !!axonhubToken.trim() && !!proxyKey && !!baseUrl;
 
   const curlExample = `curl ${baseUrl}/v1/messages \\
   -H "x-api-key: ${proxyKey}" \\
@@ -178,6 +197,68 @@ export default function StatusPage() {
 
 const data = await response.json();
 console.log(data);`;
+
+  async function handleAxonHubSync() {
+    if (!canSyncAxonHub) {
+      return;
+    }
+
+    const runtimeConfig = {
+      locationOrigin: window.location.origin,
+      overrideOrigin: apiOriginOverride,
+    };
+
+    setSyncingAxonHub(true);
+    setAxonhubSyncError("");
+    setAxonhubSyncResult(null);
+
+    try {
+      const response = await fetch(getAxonHubSyncUrl(runtimeConfig), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          token: axonhubToken,
+          projectOrigin: getApiOrigin(runtimeConfig),
+        }),
+      });
+
+      const body = await response.json() as {
+        mode?: "created" | "updated";
+        axonhubOrigin?: string;
+        channel?: {
+          id: string;
+          name: string;
+          baseURL: string;
+          status?: string | null;
+        };
+        error?: {
+          message?: string;
+        };
+      };
+
+      if (!response.ok) {
+        throw new Error(body.error?.message || "Failed to sync channel to AxonHub");
+      }
+
+      if (!body.mode || !body.channel || !body.axonhubOrigin) {
+        throw new Error("AxonHub sync response was incomplete");
+      }
+
+      setAxonhubSyncResult({
+        mode: body.mode,
+        channel: body.channel,
+        axonhubOrigin: body.axonhubOrigin,
+      });
+    } catch (error) {
+      setAxonhubSyncError(
+        error instanceof Error ? error.message : "Failed to sync channel to AxonHub",
+      );
+    } finally {
+      setSyncingAxonHub(false);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -279,6 +360,104 @@ console.log(data);`;
               Send as <code className="text-xs bg-white/5 px-1 rounded">x-api-key</code> or <code className="text-xs bg-white/5 px-1 rounded">Authorization: Bearer</code>
             </p>
           </div>
+        </div>
+
+        <div className="rounded-xl border border-card-border bg-card p-5 mb-8">
+          <div className="flex items-center gap-2 mb-4">
+            <Server className="w-4 h-4 text-primary" />
+            <span className="text-sm font-semibold text-foreground">AxonHub Sync</span>
+            <span className="ml-auto text-xs text-muted-foreground">Fixed target</span>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+            <div className="space-y-4">
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <Globe className="w-4 h-4 text-primary" />
+                  <span className="text-sm font-medium text-foreground">AxonHub URL</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 text-xs font-mono text-cyan-400 bg-black/30 rounded-lg px-3 py-2 border border-white/8 truncate">
+                    {axonhubOrigin}
+                  </code>
+                  <CopyButton text={axonhubOrigin} id="axonhub-origin" />
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <Key className="w-4 h-4 text-primary" />
+                  <span className="text-sm font-medium text-foreground">AxonHub Admin Token</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type={showAxonHubToken ? "text" : "password"}
+                    value={axonhubToken}
+                    onChange={(event) => setAxonhubToken(event.target.value)}
+                    placeholder="Paste AxonHub token here"
+                    className="flex-1 text-xs font-mono text-foreground bg-black/30 rounded-lg px-3 py-2 border border-white/8 outline-none placeholder:text-muted-foreground/70 focus:border-cyan-500/40"
+                  />
+                  <button
+                    onClick={() => setShowAxonHubToken(!showAxonHubToken)}
+                    className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-white/10 transition-all"
+                    title={showAxonHubToken ? "Hide token" : "Show token"}
+                  >
+                    {showAxonHubToken ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  只手填 AxonHub token。当前项目的 base URL、proxy key、模型列表会自动按固定格式同步过去。
+                </p>
+              </div>
+
+              <div className="rounded-lg bg-black/20 border border-white/5 p-3">
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Sync payload is fixed to:
+                  <span className="text-foreground"> type=anthropic</span>,
+                  <span className="text-foreground"> baseURL={baseUrl || " /api/anthropic"}</span>,
+                  <span className="text-foreground"> defaultTestModel=claude-opus-4-5</span>,
+                  <span className="text-foreground"> supportedModels=claude-opus-4-6 / claude-opus-4-5 / claude-sonnet-4-6</span>.
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={handleAxonHubSync}
+              disabled={!canSyncAxonHub || syncingAxonHub}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-cyan-500/90 text-slate-950 font-semibold transition-all hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Zap className="w-4 h-4" />
+              {syncingAxonHub ? "Syncing..." : "Sync to AxonHub"}
+            </button>
+          </div>
+
+          {axonhubSyncError && (
+            <div className="mt-4 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-200">
+              {axonhubSyncError}
+            </div>
+          )}
+
+          {axonhubSyncResult && (
+            <div className="mt-4 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-3">
+              <p className="text-xs font-medium text-emerald-200">
+                AxonHub channel {axonhubSyncResult.mode === "created" ? "created" : "updated"} successfully.
+              </p>
+              <div className="mt-2 grid gap-2 sm:grid-cols-3 text-xs">
+                <div>
+                  <span className="text-muted-foreground">Name</span>
+                  <p className="text-foreground font-mono mt-1 break-all">{axonhubSyncResult.channel.name}</p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Base URL</span>
+                  <p className="text-foreground font-mono mt-1 break-all">{axonhubSyncResult.channel.baseURL}</p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Status</span>
+                  <p className="text-foreground font-mono mt-1 break-all">{axonhubSyncResult.channel.status || "unknown"}</p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Server Info */}

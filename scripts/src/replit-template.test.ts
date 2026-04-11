@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 
 import {
   getApiOrigin,
+  getAxonHubOrigin,
+  getAxonHubSyncUrl,
   getHealthzUrl,
   getProxyInfoUrl,
   getAnthropicBaseUrl,
@@ -49,6 +51,16 @@ test("runtime config URLs are derived from the resolved API origin", () => {
     }),
     `${expectedOrigin}/api/anthropic`,
   );
+  assert.equal(
+    getAxonHubSyncUrl({
+      locationOrigin: expectedOrigin,
+    }),
+    `${expectedOrigin}/api/axonhub/channel-sync`,
+  );
+});
+
+test("AxonHub origin is fixed to the shared deployment", () => {
+  assert.equal(getAxonHubOrigin(), "https://axonhub.qwqtao.com");
 });
 
 test("gateway status reports setup_required when provider integration is missing", () => {

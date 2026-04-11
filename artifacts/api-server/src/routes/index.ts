@@ -1,5 +1,6 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import healthRouter from "./health";
+import axonhubRouter from "./axonhub";
 import passthroughRouter from "./passthrough";
 import { PROXY_API_KEY } from "../lib/proxy-key";
 import { ApiError } from "../lib/api-error";
@@ -54,6 +55,7 @@ function proxyAuth(req: Request, res: Response, next: NextFunction) {
 }
 
 router.use(healthRouter);
+router.use(axonhubRouter);
 
 router.use("/anthropic", proxyAuth, passthroughRouter);
 
