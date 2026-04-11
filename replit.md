@@ -8,6 +8,7 @@
 - 根目录 `package.json` 的 `dev` / `build` / `start` 是唯一需要执行的脚本。
 - 参与部署的目录只有 `artifacts/api-server` 和 `artifacts/status-page`。
 - 最终对外是单入口：`/` 是状态页，`/api/*` 是服务端接口。
+- GitHub 导入识别依赖根目录 `.replit`、`package.json`、`pnpm-workspace.yaml`，不要移动、重命名或删除这些文件。
 - 如果当前 Replit 不是全新项目，或者里面已经存在旧的 artifact workflow / 旧服务预览，不要继续修补，直接新建一个 Replit 再导入这个仓库。
 - 不要先 `git clone` 到临时目录再复制文件。
 - 不要把前后端拆成两个独立公开服务。

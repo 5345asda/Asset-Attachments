@@ -16,6 +16,9 @@ env = { "CI" = "true" }
 [workflows]
 runButton = "Project"
 
+[gitHubImport]
+requiredFiles = [".replit", "package.json", "pnpm-workspace.yaml"]
+
 [agent]
 stack = "PNPM_WORKSPACE"
 expertMode = true

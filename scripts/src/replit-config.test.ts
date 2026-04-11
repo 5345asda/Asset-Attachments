@@ -117,6 +117,13 @@ test(".replit pins the one-click deployment commands at the repo root", async ()
   assert.match(replitConfig, /^router = "application"$/m);
 });
 
+test(".replit declares required files for GitHub import detection", async () => {
+  const replitConfig = await readFile(path.join(repoRoot, ".replit"), "utf8");
+
+  assert.match(replitConfig, /^\[gitHubImport\]$/m);
+  assert.match(replitConfig, /^requiredFiles = \["\.replit", "package\.json", "pnpm-workspace\.yaml"\]$/m);
+});
+
 test("replit.md tells AI not to patch app code just to fix empty deployment commands", async () => {
   const guide = await readFile(path.join(repoRoot, "replit.md"), "utf8");
 
