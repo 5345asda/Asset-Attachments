@@ -87,6 +87,7 @@ interface AxonHubChannelInput {
   type: "anthropic";
   name: string;
   baseURL: string;
+  status: "enabled";
   credentials: {
     apiKey: string;
   };
@@ -146,6 +147,7 @@ export function buildAxonHubChannelInput({
     type: "anthropic",
     name: deriveChannelName(normalizedOrigin),
     baseURL: `${normalizedOrigin}/api/anthropic`,
+    status: "enabled",
     credentials: {
       apiKey: proxyKey,
     },

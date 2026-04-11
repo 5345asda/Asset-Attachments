@@ -36,6 +36,7 @@ test("buildAxonHubChannelInput uses the fixed anthropic channel format", () => {
     type: "anthropic",
     name: "proxy",
     baseURL: "https://proxy.example:8443/api/anthropic",
+    status: "enabled",
     credentials: {
       apiKey: "sk-proxy-test",
     },
@@ -78,7 +79,7 @@ test("syncAxonHubChannel creates a new channel when the current base URL is miss
             id: "gid://axonhub/Channel/99",
             name: "proxy",
             baseURL: "https://proxy.example/api/anthropic",
-            status: "disabled",
+            status: "enabled",
           },
         },
       });
@@ -114,6 +115,7 @@ test("syncAxonHubChannel creates a new channel when the current base URL is miss
     type: "anthropic",
     name: "proxy",
     baseURL: "https://proxy.example/api/anthropic",
+    status: "enabled",
     credentials: {
       apiKey: "sk-proxy-test",
     },
@@ -164,7 +166,7 @@ test("syncAxonHubChannel updates an existing channel with the same base URL", as
             id: body.variables?.id,
             name: "proxy",
             baseURL: "https://proxy.example/api/anthropic",
-            status: "disabled",
+            status: "enabled",
           },
         },
       });
@@ -196,6 +198,7 @@ test("syncAxonHubChannel updates an existing channel with the same base URL", as
     type: "anthropic",
     name: "proxy",
     baseURL: "https://proxy.example/api/anthropic",
+    status: "enabled",
     credentials: {
       apiKey: "sk-proxy-test",
     },

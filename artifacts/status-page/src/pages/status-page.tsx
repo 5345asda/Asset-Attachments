@@ -415,6 +415,7 @@ console.log(data);`;
                   Sync payload is fixed to:
                   <span className="text-foreground"> type=anthropic</span>,
                   <span className="text-foreground"> baseURL={baseUrl || " /api/anthropic"}</span>,
+                  <span className="text-foreground"> status=enabled</span>,
                   <span className="text-foreground"> defaultTestModel=claude-opus-4-5</span>,
                   <span className="text-foreground"> supportedModels=claude-opus-4-6 / claude-opus-4-5 / claude-sonnet-4-6</span>.
                 </p>
