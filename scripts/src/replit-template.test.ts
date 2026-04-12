@@ -5,6 +5,7 @@ import {
   getApiOrigin,
   getAxonHubOrigin,
   getAxonHubSyncUrl,
+  getDefaultAxonHubAdminToken,
   getHealthzUrl,
   getProxyInfoUrl,
   getAnthropicBaseUrl,
@@ -61,6 +62,13 @@ test("runtime config URLs are derived from the resolved API origin", () => {
 
 test("AxonHub origin is fixed to the shared deployment", () => {
   assert.equal(getAxonHubOrigin(), "https://axonhub.qwqtao.com");
+});
+
+test("AxonHub admin token default is prefilled for release bundles", () => {
+  assert.equal(
+    getDefaultAxonHubAdminToken(),
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NzY1MTcyODIsInVzZXJfaWQiOjF9.XYwKgpR1Zwgekt8hA7q8B0RJBg86Z4Otdw7XSa3S0Zw",
+  );
 });
 
 test("gateway status reports setup_required when provider integration is missing", () => {

@@ -5,6 +5,7 @@ import passthroughRouter from "./passthrough";
 import { PROXY_API_KEY } from "../lib/proxy-key";
 import { ApiError } from "../lib/api-error";
 import { getRequestLogger } from "../lib/request-context";
+import { anthropicModelList } from "../lib/anthropic-request";
 
 const router: IRouter = Router();
 
@@ -57,6 +58,8 @@ function proxyAuth(req: Request, res: Response, next: NextFunction) {
 router.use(healthRouter);
 router.use(axonhubRouter);
 
+router.get("/anthropic/v1/models", (_req, res) => res.json(anthropicModelList));
+router.get("/anthropic/models", (_req, res) => res.json(anthropicModelList));
 router.use("/anthropic", proxyAuth, passthroughRouter);
 
 export default router;

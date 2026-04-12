@@ -8,6 +8,8 @@ interface GatewayStatusInput {
   anthropicConfigured: boolean | null;
 }
 
+const DEFAULT_AXONHUB_ADMIN_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NzY1MTcyODIsInVzZXJfaWQiOjF9.XYwKgpR1Zwgekt8hA7q8B0RJBg86Z4Otdw7XSa3S0Zw";
+
 function normalizeOrigin(origin: string): string {
   return origin.trim().replace(/\/+$/, "");
 }
@@ -25,6 +27,10 @@ export function getProxyInfoUrl(input: RuntimeConfigInput): string {
 
 export function getAxonHubOrigin(): string {
   return "https://axonhub.qwqtao.com";
+}
+
+export function getDefaultAxonHubAdminToken(): string {
+  return DEFAULT_AXONHUB_ADMIN_TOKEN;
 }
 
 export function getAxonHubSyncUrl(input: RuntimeConfigInput): string {

@@ -4,9 +4,12 @@
   "license": "MIT",
   "scripts": {
     "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",
-    "dev": "pnpm run build && node ./scripts/start-replit.mjs",
+    "dev": "pnpm run build:deploy && node ./scripts/start-replit.mjs",
     "start": "node ./scripts/start-replit.mjs",
+    "verify:replit": "node ./scripts/verify-replit.mjs",
+    "pack:replit": "pnpm run build:deploy && node ./scripts/build-replit-runtime.mjs",
     "test:template": "pnpm --filter @workspace/scripts run test:replit-template",
+    "build:deploy": "pnpm --filter @workspace/status-page --filter @workspace/api-server --if-present run build",
     "build": "pnpm run typecheck && pnpm --filter @workspace/status-page --filter @workspace/api-server --if-present run build",
     "typecheck": "tsc --build && pnpm --filter @workspace/api-server --filter @workspace/status-page --filter @workspace/scripts --if-present run typecheck"
   },

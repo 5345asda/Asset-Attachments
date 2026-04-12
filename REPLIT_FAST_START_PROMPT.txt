@@ -1,0 +1,30 @@
+这是一个 fast-start 版 Replit Anthropic 发布包。严格按当前 zip 部署，只看根目录 `.replit` 和根目录 `package.json`，不要自行恢复旧的多服务结构。
+
+先读顺序固定：
+1. 根目录 `.replit`
+2. 根目录 `package.json`
+3. 当前包内的 `replit.md`
+部署失败前，不要展开读其它文件。
+
+执行顺序：
+1. 直接使用当前 Replit 项目根目录，不要新建额外工作目录。
+2. 解压前先清理旧残留：
+   `rm -rf artifacts/mockup-sandbox artifacts/api-portal artifacts/api-server/.replit-artifact artifacts/status-page/.replit-artifact`
+3. 把 zip 解压到项目根目录；解压后目标只保留 `artifacts/api-server` 和 `artifacts/status-page`。
+4. 只启用 Anthropic integration。
+5. 执行 `pnpm install`。
+6. 首次 Run 使用 `pnpm start`。
+7. Publish / Deploy 使用 Autoscale：
+   Build command: `pnpm run build:deploy`
+   Run command: `pnpm start`
+
+补充规则：
+- 这个 fast-start 包已经包含预构建的 `dist`，目的是缩短首次启动时间。
+- 如果你修改了源码或替换了文件，再执行 `pnpm run build:deploy`，不要假设 zip 里的旧 `dist` 永远有效。
+- 不要重命名目录，不要拆分前后端，不要新增 workflow、artifact 或临时脚本。
+- 不要修改业务代码来迁就 Deploy 面板。
+
+验收：
+- `GET /` 返回状态页 HTML。
+- `GET /api/healthz` 返回 JSON。
+- `GET /api/anthropic/v1/models` 返回 JSON 模型列表，不能返回 HTML，也不能返回鉴权错误。

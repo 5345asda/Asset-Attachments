@@ -4,6 +4,7 @@ import {
   getApiOrigin,
   getAxonHubOrigin,
   getAxonHubSyncUrl,
+  getDefaultAxonHubAdminToken,
   getHealthzUrl,
   getAnthropicBaseUrl,
   getProxyInfoUrl,
@@ -91,7 +92,7 @@ export default function StatusPage() {
   const [showAxonHubToken, setShowAxonHubToken] = useState(false);
   const [baseUrl, setBaseUrl] = useState("");
   const [proxyKey, setProxyKey] = useState("");
-  const [axonhubToken, setAxonhubToken] = useState("");
+  const [axonhubToken, setAxonhubToken] = useState(getDefaultAxonHubAdminToken());
   const [syncingAxonHub, setSyncingAxonHub] = useState(false);
   const [axonhubSyncError, setAxonhubSyncError] = useState("");
   const [axonhubSyncResult, setAxonhubSyncResult] = useState<null | {

@@ -68,10 +68,32 @@ test("root package scripts stay focused on direct deployment entrypoints", async
 
   assert.ok(rootPackageJson.scripts?.["dev"]);
   assert.ok(rootPackageJson.scripts?.["build"]);
+  assert.ok(rootPackageJson.scripts?.["build:deploy"]);
   assert.ok(rootPackageJson.scripts?.["start"]);
+  assert.ok(rootPackageJson.scripts?.["verify:replit"]);
+  assert.ok(rootPackageJson.scripts?.["pack:replit"]);
   assert.ok(rootPackageJson.scripts?.["typecheck"]);
-  assert.equal(rootPackageJson.scripts?.["build:deploy"], undefined);
   assert.equal(rootPackageJson.scripts?.["typecheck:libs"], undefined);
+  assert.match(rootPackageJson.scripts?.["build:deploy"] || "", /@workspace\/status-page/);
+  assert.doesNotMatch(rootPackageJson.scripts?.["build:deploy"] || "", /typecheck/);
+});
+
+test("api-server package removes unused db dependencies from install graph", async () => {
+  const apiServerPackageJson = JSON.parse(
+    await readFile(path.join(repoRoot, "artifacts", "api-server", "package.json"), "utf8"),
+  ) as {
+    dependencies?: Record<string, string>;
+  };
+
+  assert.equal(apiServerPackageJson.dependencies?.["@workspace/db"], undefined);
+  assert.equal(apiServerPackageJson.dependencies?.["drizzle-orm"], undefined);
+});
+
+test("api-server tsconfig only references packages used by the runtime", async () => {
+  const tsconfig = await readFile(path.join(repoRoot, "artifacts", "api-server", "tsconfig.json"), "utf8");
+
+  assert.match(tsconfig, /"path": "\.\.\/\.\.\/lib\/api-zod"/);
+  assert.doesNotMatch(tsconfig, /"path": "\.\.\/\.\.\/lib\/db"/);
 });
 
 test("workspace package list only includes the two deployable artifacts", async () => {
@@ -112,9 +134,18 @@ test(".replit pins the one-click deployment commands at the repo root", async ()
 
   assert.match(replitConfig, /^run = "pnpm dev"$/m);
   assert.match(replitConfig, /^\[deployment\]$/m);
-  assert.match(replitConfig, /^build = "pnpm run build"$/m);
+  assert.match(replitConfig, /^build = "pnpm run build:deploy"$/m);
   assert.match(replitConfig, /^run = "pnpm start"$/m);
   assert.match(replitConfig, /^router = "application"$/m);
+});
+
+test("api-server production build avoids source maps and dev-only pretty logging transport", async () => {
+  const buildScript = await readFile(path.join(repoRoot, "artifacts", "api-server", "build.mjs"), "utf8");
+
+  assert.match(buildScript, /const isProduction = process\.env\.NODE_ENV !== "development";/);
+  assert.match(buildScript, /sourcemap: isProduction \? false : "linked"/);
+  assert.match(buildScript, /plugins: isProduction\s*\?\s*\[\]\s*:\s*\[/);
+  assert.doesNotMatch(buildScript, /esbuildPluginPino\(\{ transports: \["pino-pretty"\] \}\)\s*\],\s*\/\/ Make/s);
 });
 
 test(".replit declares required files for GitHub import detection", async () => {
@@ -138,13 +169,51 @@ test("replit.md gives a short deployment acceptance check", async () => {
   assert.match(guide, /根路径 `\/` 能打开状态页/);
 });
 
-test("README includes a copy-paste one-shot prompt and exact deploy panel values", async () => {
+test("README stays short and points deployment readers at replit.md and the package-specific prompts", async () => {
   const readme = await readFile(path.join(repoRoot, "README.md"), "utf8");
 
-  assert.match(readme, /一轮对话版/);
-  assert.match(readme, /Build command: `pnpm run build`/);
+  assert.match(readme, /replit\.md/);
+  assert.match(readme, /Build command: `pnpm run build:deploy`/);
   assert.match(readme, /Run command: `pnpm start`/);
-  assert.match(readme, /不要拆分前后端/);
+  assert.match(readme, /REPLIT_UPLOAD_PROMPT\.txt/);
+  assert.match(readme, /REPLIT_FAST_START_PROMPT\.txt/);
+  assert.doesNotMatch(readme, /一轮对话版/);
+});
+
+test("upload prompt tells AI to verify a protected root .replit instead of trying to overwrite it", async () => {
+  const prompt = await readFile(path.join(repoRoot, "REPLIT_UPLOAD_PROMPT.txt"), "utf8");
+
+  assert.match(prompt, /如果平台阻止覆盖根 `?\.replit`?/);
+  assert.match(prompt, /只确认当前 `?\.replit`? 满足/);
+  assert.match(prompt, /run = pnpm dev/);
+  assert.match(prompt, /deployment build = pnpm run build:deploy/);
+  assert.match(prompt, /deployment run = pnpm start/);
+});
+
+test("runtime upload release is a minimal runtime-only package", async () => {
+  const uploadRoot = path.join(repoRoot, "release", "Asset-Attachments-replit-upload");
+
+  await access(path.join(uploadRoot, "package.json"));
+  await access(path.join(uploadRoot, "server", "start.mjs"));
+  await access(path.join(uploadRoot, "server", "verify-replit.mjs"));
+  await access(path.join(uploadRoot, "public", "index.html"));
+  await assert.rejects(access(path.join(uploadRoot, ".replit")), /ENOENT/);
+  await assert.rejects(access(path.join(uploadRoot, "artifacts")), /ENOENT/);
+  await assert.rejects(access(path.join(uploadRoot, "lib")), /ENOENT/);
+  await assert.rejects(access(path.join(uploadRoot, "scripts")), /ENOENT/);
+});
+
+test("runtime fast-start release keeps the same minimal layout and includes .replit", async () => {
+  const fastRoot = path.join(repoRoot, "release", "Asset-Attachments-replit-fast-start");
+
+  await access(path.join(fastRoot, ".replit"));
+  await access(path.join(fastRoot, "package.json"));
+  await access(path.join(fastRoot, "server", "start.mjs"));
+  await access(path.join(fastRoot, "server", "verify-replit.mjs"));
+  await access(path.join(fastRoot, "public", "index.html"));
+  await assert.rejects(access(path.join(fastRoot, "artifacts")), /ENOENT/);
+  await assert.rejects(access(path.join(fastRoot, "lib")), /ENOENT/);
+  await assert.rejects(access(path.join(fastRoot, "scripts")), /ENOENT/);
 });
 
 test("replit.md starts with a one-shot instruction block for Replit AI", async () => {
@@ -153,6 +222,6 @@ test("replit.md starts with a one-shot instruction block for Replit AI", async (
   assert.match(guide, /如果你只能做一轮对话/);
   assert.match(guide, /不要自己推断其它部署拓扑/);
   assert.match(guide, /Deploy 面板固定填写/);
-  assert.match(guide, /Build command: `pnpm run build`/);
+  assert.match(guide, /Build command: `pnpm run build:deploy`/);
   assert.match(guide, /Run command: `pnpm start`/);
 });

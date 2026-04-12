@@ -4,75 +4,62 @@
 
 ## 一轮对话优先
 
-如果你只能做一轮对话，就直接执行下面这段，不要自己推断其它部署拓扑，不要扩展成多服务：
+如果你只能做一轮对话，就直接执行下面这段，不要自己推断其它部署拓扑：
 
 ```text
-这是一个单入口 Replit Anthropic 模板。唯一入口是根目录 .replit。不要自己推断其它部署拓扑，不要拆分前后端，不要新建 workflow、artifact 或临时脚本，不要修改业务代码来迁就 Deploy 面板。先启用 Anthropic integration，然后 pnpm install。Run 用 pnpm dev。Deploy 面板固定填写：Build command: pnpm run build；Run command: pnpm start。部署后只检查 / 和 /api/healthz。
+这是一个单入口 Replit Anthropic 模板。只看根目录 .replit 和根 package.json，不要根据 README、旧 prompt、历史 artifact 说明推断部署方式。解压前如发现旧残留，先在项目根目录执行 rm -rf artifacts/mockup-sandbox artifacts/api-portal artifacts/api-server/.replit-artifact artifacts/status-page/.replit-artifact；解压后目标只保留 artifacts/api-server 和 artifacts/status-page。普通 upload 包故意不覆盖根 .replit；如果平台阻止覆盖根 .replit，不要停下来，只确认当前 .replit 满足 run=pnpm dev、deployment build=pnpm run build:deploy、deployment run=pnpm start。不要拆分前后端，不要新建、修改或切换 workflow、artifact 或临时脚本，不要修改业务代码来迁就 Deploy 面板。先启用 Anthropic integration，再执行 pnpm install。Run 用 pnpm dev。Deploy 面板固定填写：Build command: pnpm run build:deploy；Run command: pnpm start。部署后检查 /、/api/healthz、/api/anthropic/v1/models；其中 models 路由必须返回 JSON，不能返回 HTML 或鉴权错误。
 ```
 
 Deploy 面板固定填写：
 
-- Build command: `pnpm run build`
+- Build command: `pnpm run build:deploy`
 - Run command: `pnpm start`
 
-## 先读这个
+## 只看这几个事实
 
 - 根目录 `.replit` 是唯一部署入口。
 - 根目录 `package.json` 的 `dev` / `build` / `start` 是唯一需要执行的脚本。
-- 参与部署的目录只有 `artifacts/api-server` 和 `artifacts/status-page`。
-- 最终对外是单入口：`/` 是状态页，`/api/*` 是服务端接口。
-- GitHub 导入识别依赖根目录 `.replit`、`package.json`、`pnpm-workspace.yaml`，不要移动、重命名或删除这些文件。
-- 如果当前 Replit 不是全新项目，或者里面已经存在旧的 artifact workflow / 旧服务预览，不要继续修补，直接新建一个 Replit 再导入这个仓库。
-- 不要先 `git clone` 到临时目录再复制文件。
-- 不要把前后端拆成两个独立公开服务。
-- 不要提交 Replit 自动生成的 `.replit-artifact` 元数据。
+- 解压后目标结构只保留 `artifacts/api-server` 和 `artifacts/status-page`。
+- 最终对外只有一个入口：`/` 是状态页，`/api/*` 是服务端接口。
 - 不要为了修复空的 Run command 去改应用代码。
 - 不要为了修复发布配置去新增 workflow、artifact 或临时脚本。
 
-## 直接部署步骤
+## 少读文件
 
-1. 直接导入这个 GitHub 仓库到当前 Replit 项目。
-2. 先启用当前项目的 Anthropic integration。
-3. 执行 `pnpm install`。
-4. 运行 `pnpm dev`。
-5. 发布时使用 build=`pnpm run build`，run=`pnpm start`。
+- 先读顺序固定：根目录 `.replit` -> 根目录 `package.json` -> 当前 `replit.md`。
+- 不要读 `lib/api-client-react/src/generated/` 和 `lib/api-zod/src/generated/`，除非你正在修生成代码或类型生成问题。
+- 不要先展开阅读测试文件，除非部署验收失败后需要定位问题。
 
-## 遇到旧项目时怎么处理
+## 执行顺序
 
-- 如果你看到已有的 API Server workflow、mockup workflow、旧 preview 端口或历史 artifact 配置，不要尝试在原项目里覆盖式修复。
-- 不要先 `git clone` 到 `/tmp` 再 `cp` 回工作区。
-- 不要手工拼 `STATIC_DIR=$PWD/...` 这种项目级补丁。
-- 不要为了让 Deploy 面板不报错去改业务路由、端口绑定或静态资源路径。
-- 正确做法只有一个：新建干净 Replit，直接导入仓库，然后按上面的 5 步执行。
+1. 如果是 zip 上传，先在项目根目录清理旧残留：
+   `rm -rf artifacts/mockup-sandbox artifacts/api-portal artifacts/api-server/.replit-artifact artifacts/status-page/.replit-artifact`
+2. 把 zip 解压到当前 Replit 项目根目录。
+3. 只启用 Anthropic integration。
+4. 执行 `pnpm install`。
+5. Run 使用 `pnpm dev`。
+6. Publish / Deploy 使用 Autoscale，Build command=`pnpm run build:deploy`，Run command=`pnpm start`。
 
-## 必要环境变量
+## 端口口径
 
-这些变量通常由 Replit AI Integrations 注入：
+- 应用监听 `PORT`，开发默认按 `3000` 理解。
+- 本地进程验证优先请求实际监听端口，例如 `http://127.0.0.1:$PORT/...`。
+- 对外验收看公开域名上的 `/`、`/api/healthz`、`/api/anthropic/v1/models`，不要混用本地端口和公网路由概念。
 
-- `AI_INTEGRATIONS_ANTHROPIC_BASE_URL`
-- `AI_INTEGRATIONS_ANTHROPIC_API_KEY`
+## 不要做
 
-额外可选：
-
-- `PROXY_API_KEY`
-- `TOKEN_MARKUP`
-- `PORT`
-
-## 最常见的坑
-
-- 服务能启动，但页面显示 `Setup Required`：当前 Replit 项目还没启用 Anthropic integration。
-- 源码已经更新，运行时还是旧行为：你还在跑旧的 `dist`，先执行 `pnpm run build`。
-- 想手工改路径、端口、preview 拓扑：不要改，仓库已经固定成根目录单入口部署。
-- 部署界面仍然显示旧 workflow 或空的 Run command：通常说明你导入的是历史 Replit 项目，不是干净的新项目，直接新建并重新导入。
+- 不要把前后端拆成两个独立公开服务。
+- 不要根据旧提示词里的历史结构或旧路由改当前仓库。
+- 不要提交 Replit 自动生成的 `.replit-artifact` 元数据。
+- 不要先 `git clone` 到临时目录再复制回当前项目。
+- 不要在带旧 workflow 的历史 Replit 项目里继续修补；那种情况直接新建干净项目再导入。
 
 ## 部署验收
 
-完成部署后，最少确认这 4 件事：
-
 - 根路径 `/` 能打开状态页。
 - `GET /api/healthz` 返回成功。
-- 页面不是 `Setup Required`，或者你能明确判断这是因为当前项目还没启用 Anthropic integration。
-- Deploy 用的命令仍然是 build=`pnpm run build`、run=`pnpm start`。
+- `GET /api/anthropic/v1/models` 返回 JSON 模型列表，不是 HTML，也不是 401。
+- 页面如果显示 `Setup Required`，优先判断当前项目是否尚未启用 Anthropic integration。
 
 如果需要补充验证，再跑这两条：
 

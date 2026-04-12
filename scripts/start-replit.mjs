@@ -5,19 +5,32 @@ import { fileURLToPath } from "node:url";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(scriptDir, "..");
-const apiEntry = path.resolve(rootDir, "artifacts", "api-server", "dist", "index.mjs");
+const runtimePaths = {
+  apiEntry: path.resolve(scriptDir, "index.mjs"),
+  staticDir: path.resolve(rootDir, "public"),
+};
+const workspacePaths = {
+  apiEntry: path.resolve(rootDir, "artifacts", "api-server", "dist", "index.mjs"),
+  staticDir: path.resolve(rootDir, "artifacts", "status-page", "dist", "public"),
+};
 const port = process.env.PORT || "3000";
 
-function resolveStaticDir() {
-  if (!process.env.STATIC_DIR) {
-    return path.resolve(rootDir, "artifacts", "status-page", "dist", "public");
-  }
-
-  return path.isAbsolute(process.env.STATIC_DIR)
-    ? process.env.STATIC_DIR
-    : path.resolve(rootDir, process.env.STATIC_DIR);
+function pickRuntimePath(runtimePath, workspacePath) {
+  return existsSync(runtimePath) ? runtimePath : workspacePath;
 }
 
+function resolveStaticDir() {
+  const configuredStaticDir = process.env.STATIC_DIR;
+  if (!configuredStaticDir) {
+    return pickRuntimePath(runtimePaths.staticDir, workspacePaths.staticDir);
+  }
+
+  return path.isAbsolute(configuredStaticDir)
+    ? configuredStaticDir
+    : path.resolve(rootDir, configuredStaticDir);
+}
+
+const apiEntry = pickRuntimePath(runtimePaths.apiEntry, workspacePaths.apiEntry);
 const staticDir = resolveStaticDir();
 const missingPaths = [
   !existsSync(apiEntry) ? apiEntry : null,
@@ -26,7 +39,7 @@ const missingPaths = [
 
 if (missingPaths.length > 0) {
   console.error("Missing build output required for the unified Replit start flow.");
-  console.error("Run `pnpm run build` before `pnpm start`.");
+  console.error("Run `pnpm run build:deploy` before `pnpm start`.");
   for (const missingPath of missingPaths) {
     console.error(`- ${missingPath}`);
   }
@@ -35,7 +48,7 @@ if (missingPaths.length > 0) {
 
 const child = spawn(
   process.execPath,
-  ["--enable-source-maps", apiEntry],
+  [apiEntry],
   {
     cwd: rootDir,
     stdio: "inherit",
