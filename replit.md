@@ -21,6 +21,7 @@ Deploy 面板固定填写：
 - 根目录 `package.json` 的 `dev` / `build` / `start` 是唯一需要执行的脚本。
 - 解压后目标结构只保留 `artifacts/api-server` 和 `artifacts/status-page`。
 - 最终对外只有一个入口：`/` 是状态页，`/api/*` 是服务端接口。
+- 默认 Proxy Key 已固定，不会因为重启变化；需要自定义时再设置 `PROXY_API_KEY`。
 - 不要为了修复空的 Run command 去改应用代码。
 - 不要为了修复发布配置去新增 workflow、artifact 或临时脚本。
 

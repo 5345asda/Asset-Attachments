@@ -26,6 +26,13 @@
 - Build command: `pnpm run build:deploy`
 - Run command: `pnpm start`
 
+## Proxy Key
+
+- 默认鉴权 key 现在是固定值，不会因为重启、重新部署或容器切换而变化：
+  `sk-proxy-6f2d0c9a47b13e8d5f71a2c46be93d07f8c1a54e692db3fc`
+- 如需覆盖，直接设置环境变量 `PROXY_API_KEY`
+- `GET /api/proxy-info` 会返回当前实际生效的 proxy key
+
 ## 两个发布包
 
 - 常规包：`release/Asset-Attachments-replit-upload-20260412.zip`

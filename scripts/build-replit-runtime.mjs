@@ -57,6 +57,8 @@ Deploy:
 
 - Build command: \`pnpm run build:deploy\`
 - Run command: \`pnpm start\`
+- Default Proxy Key: \`sk-proxy-6f2d0c9a47b13e8d5f71a2c46be93d07f8c1a54e692db3fc\`
+- To override, set \`PROXY_API_KEY\`
 `,
   "replit.md": `# Replit Runtime
 
@@ -68,6 +70,11 @@ Deploy:
 2. 运行 \`pnpm install\`。
 3. 运行 \`pnpm start\`。
 4. 运行 \`pnpm run verify:replit\`。
+
+补充：
+
+- 默认 Proxy Key 已固定，不会因为重启变化
+- 需要自定义时再设置 \`PROXY_API_KEY\`
 
 验收必须通过：
 
