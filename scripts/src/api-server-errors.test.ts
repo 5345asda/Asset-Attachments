@@ -72,7 +72,7 @@ async function postJson(url: string, options: {
   });
 }
 
-test("auth failures expose a request id in both header and body", async (t) => {
+test("public anthropic model list routes bypass proxy auth", async (t) => {
   const previousProxyKey = process.env.PROXY_API_KEY;
   process.env.PROXY_API_KEY = "sk-proxy-test";
 
@@ -88,22 +88,34 @@ test("auth failures expose a request id in both header and body", async (t) => {
     }
   });
 
-  const response = await fetch(`http://127.0.0.1:${server.port}/api/anthropic/v1/models`);
-  const body = await response.json() as {
-    error: {
-      message?: string;
+  const v1Response = await fetch(`http://127.0.0.1:${server.port}/api/anthropic/v1/models`);
+  const v1Body = await v1Response.json() as {
+    data?: Array<{
       type?: string;
-    };
+      id?: string;
+      display_name?: string;
+      created_at?: string;
+    }>;
   };
 
-  assert.equal(response.status, 401);
-  assert.deepEqual(body, {
-    error: {
-      message: "Unauthorized - invalid or missing API key",
-      type: "invalid_request_error",
-    },
+  assert.equal(v1Response.status, 200);
+  assert.ok(Array.isArray(v1Body.data));
+  assert.ok(v1Body.data.length > 0);
+  assert.deepEqual(v1Body.data[0], {
+    type: "model",
+    id: "claude-opus-4-7",
+    display_name: "claude-opus-4-7",
+    created_at: v1Body.data[0]?.created_at,
   });
-  assert.ok(response.headers.get("x-request-id"));
+  assert.match(v1Body.data[0]?.created_at ?? "", /^\d{4}-\d{2}-\d{2}T/);
+  assert.ok(v1Response.headers.get("x-request-id"));
+
+  const legacyResponse = await fetch(`http://127.0.0.1:${server.port}/api/anthropic/models`);
+  const legacyBody = await legacyResponse.json() as typeof v1Body;
+
+  assert.equal(legacyResponse.status, 200);
+  assert.deepEqual(legacyBody, v1Body);
+  assert.ok(legacyResponse.headers.get("x-request-id"));
 });
 
 test("legacy /api/v1 routes are no longer supported", async (t) => {
@@ -233,4 +245,144 @@ test("anthropic assistant-prefill is rejected before any upstream call", async (
   });
   assert.equal(fetchCalls, 0);
   assert.ok(response.headers["x-request-id"]);
+});
+
+test("anthropic passthrough accepts direct Anthropic secrets without Replit integration", async (t) => {
+  const previousEnv = {
+    PROXY_API_KEY: process.env.PROXY_API_KEY,
+    AI_INTEGRATIONS_ANTHROPIC_BASE_URL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL,
+    AI_INTEGRATIONS_ANTHROPIC_API_KEY: process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY,
+    ANTHROPIC_BASE_URL: process.env.ANTHROPIC_BASE_URL,
+    ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+  };
+
+  process.env.PROXY_API_KEY = "sk-proxy-test";
+  delete process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL;
+  delete process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY;
+  process.env.ANTHROPIC_BASE_URL = "https://anthropic.byok.test";
+  process.env.ANTHROPIC_API_KEY = "anthropic-direct-test-key";
+
+  const originalFetch = globalThis.fetch;
+  let fetchCalled = false;
+  let lastRequestUrl = "";
+  let lastRequestHeaders: unknown;
+
+  globalThis.fetch = (async (input, init) => {
+    fetchCalled = true;
+    lastRequestUrl = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    lastRequestHeaders = init?.headers;
+
+    return new Response(JSON.stringify({ id: "msg_123", type: "message" }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  }) as typeof fetch;
+
+  const server = await startAppServer();
+
+  t.after(async () => {
+    globalThis.fetch = originalFetch;
+    await server.close();
+
+    for (const [key, value] of Object.entries(previousEnv)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  });
+
+  const response = await postJson(`http://127.0.0.1:${server.port}/api/anthropic/v1/messages`, {
+    headers: {
+      authorization: "Bearer sk-proxy-test",
+      "anthropic-version": "2023-06-01",
+    },
+    body: {
+      model: "claude-opus-4-6",
+      max_tokens: 64,
+      messages: [{ role: "user", content: "hello" }],
+    },
+  });
+
+  assert.equal(response.status, 200);
+  if (!fetchCalled) {
+    throw new Error("Expected passthrough fetch to be called.");
+  }
+
+  assert.equal(lastRequestUrl, "https://anthropic.byok.test/messages");
+  const headers = new Headers(lastRequestHeaders as Record<string, string>);
+  assert.equal(headers.get("x-api-key"), "anthropic-direct-test-key");
+});
+
+test("anthropic passthrough adds task budget beta for opus 4.7 and drops obsolete effort beta", async (t) => {
+  const previousEnv = {
+    PROXY_API_KEY: process.env.PROXY_API_KEY,
+    AI_INTEGRATIONS_ANTHROPIC_BASE_URL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL,
+    AI_INTEGRATIONS_ANTHROPIC_API_KEY: process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY,
+  };
+
+  process.env.PROXY_API_KEY = "sk-proxy-test";
+  process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL = "https://anthropic.example.test";
+  process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY = "anthropic-test-key";
+
+  const originalFetch = globalThis.fetch;
+  let lastRequestHeaders: unknown;
+
+  globalThis.fetch = (async (_input, init) => {
+    lastRequestHeaders = init?.headers;
+
+    return new Response(JSON.stringify({ id: "msg_123", type: "message" }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  }) as typeof fetch;
+
+  const server = await startAppServer();
+
+  t.after(async () => {
+    globalThis.fetch = originalFetch;
+    await server.close();
+
+    for (const [key, value] of Object.entries(previousEnv)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  });
+
+  const response = await postJson(`http://127.0.0.1:${server.port}/api/anthropic/v1/messages`, {
+    headers: {
+      authorization: "Bearer sk-proxy-test",
+      "anthropic-version": "2023-06-01",
+      "anthropic-beta": "effort-2025-11-24, interleaved-thinking-2025-05-14",
+    },
+    body: {
+      model: "claude-opus-4-7",
+      max_tokens: 64,
+      output_config: {
+        task_budget: {
+          type: "tokens",
+          total: 128000,
+        },
+      },
+      messages: [{ role: "user", content: "hello" }],
+    },
+  });
+
+  assert.equal(response.status, 200);
+
+  const headers = new Headers(lastRequestHeaders as Record<string, string>);
+  const betaValues = (headers.get("anthropic-beta") ?? "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .sort();
+
+  assert.deepEqual(betaValues, [
+    "prompt-caching-2024-07-31",
+    "task-budgets-2026-03-13",
+  ]);
 });

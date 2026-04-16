@@ -3,7 +3,7 @@ import { spawn } from "node:child_process";
 import net from "node:net";
 import path from "node:path";
 import test from "node:test";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const testDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(testDir, "..", "..");
@@ -34,21 +34,23 @@ async function getFreePort(): Promise<number> {
   });
 }
 
-test("proxy key file stays under artifacts/api-server/.data", async () => {
+test("proxy key falls back to the fixed repo default when no env override is set", async () => {
   const previousProxyKey = process.env.PROXY_API_KEY;
-  process.env.PROXY_API_KEY = "sk-proxy-test";
+  delete process.env.PROXY_API_KEY;
 
   try {
     const proxyKeyModule = await import(
-      "../../artifacts/api-server/src/lib/proxy-key.ts"
+      `${pathToFileURL(path.join(repoRoot, "artifacts", "api-server", "src", "lib", "proxy-key.ts")).href}?default-proxy-key-test=${Date.now()}`
     ) as {
-      PROXY_KEY_FILE: string;
+      DEFAULT_PROXY_API_KEY: string;
+      PROXY_API_KEY: string;
     };
 
     assert.equal(
-      proxyKeyModule.PROXY_KEY_FILE,
-      path.resolve(repoRoot, "artifacts", "api-server", ".data", "proxy-key"),
+      proxyKeyModule.DEFAULT_PROXY_API_KEY,
+      "sk-proxy-6f2d0c9a47b13e8d5f71a2c46be93d07f8c1a54e692db3fc",
     );
+    assert.equal(proxyKeyModule.PROXY_API_KEY, proxyKeyModule.DEFAULT_PROXY_API_KEY);
   } finally {
     if (previousProxyKey === undefined) {
       delete process.env.PROXY_API_KEY;
@@ -121,11 +123,15 @@ test("api-server dev script starts a local server", async (t) => {
 test("proxy-info exposes Anthropic integration readiness for deployment checks", async () => {
   const previousBaseUrl = process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL;
   const previousApiKey = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY;
+  const previousDirectBaseUrl = process.env.ANTHROPIC_BASE_URL;
+  const previousDirectApiKey = process.env.ANTHROPIC_API_KEY;
   const previousProxyKey = process.env.PROXY_API_KEY;
   const port = await getFreePort();
 
   delete process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL;
   delete process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY;
+  delete process.env.ANTHROPIC_BASE_URL;
+  delete process.env.ANTHROPIC_API_KEY;
   process.env.PROXY_API_KEY = "sk-proxy-test";
 
   try {
@@ -170,6 +176,96 @@ test("proxy-info exposes Anthropic integration readiness for deployment checks",
       delete process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY;
     } else {
       process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY = previousApiKey;
+    }
+
+    if (previousDirectBaseUrl === undefined) {
+      delete process.env.ANTHROPIC_BASE_URL;
+    } else {
+      process.env.ANTHROPIC_BASE_URL = previousDirectBaseUrl;
+    }
+
+    if (previousDirectApiKey === undefined) {
+      delete process.env.ANTHROPIC_API_KEY;
+    } else {
+      process.env.ANTHROPIC_API_KEY = previousDirectApiKey;
+    }
+
+    if (previousProxyKey === undefined) {
+      delete process.env.PROXY_API_KEY;
+    } else {
+      process.env.PROXY_API_KEY = previousProxyKey;
+    }
+  }
+});
+
+test("proxy-info reports Anthropic ready when direct Anthropic secrets are provided", async () => {
+  const previousBaseUrl = process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL;
+  const previousApiKey = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY;
+  const previousDirectBaseUrl = process.env.ANTHROPIC_BASE_URL;
+  const previousDirectApiKey = process.env.ANTHROPIC_API_KEY;
+  const previousProxyKey = process.env.PROXY_API_KEY;
+  const port = await getFreePort();
+
+  delete process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL;
+  delete process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY;
+  process.env.ANTHROPIC_BASE_URL = "https://anthropic.byok.test";
+  process.env.ANTHROPIC_API_KEY = "anthropic-direct-test-key";
+  process.env.PROXY_API_KEY = "sk-proxy-test";
+
+  try {
+    const { default: app } = await import("../../artifacts/api-server/src/app.ts");
+    const server = app.listen(port);
+
+    try {
+      const response = await fetch(`http://127.0.0.1:${port}/api/proxy-info`);
+      assert.equal(response.status, 200);
+
+      const body = await response.json() as {
+        ready?: boolean;
+        integrations?: {
+          anthropic?: {
+            configured?: boolean;
+          };
+        };
+      };
+
+      assert.equal(body.ready, true);
+      assert.equal(body.integrations?.anthropic?.configured, true);
+    } finally {
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+
+          resolve();
+        });
+      });
+    }
+  } finally {
+    if (previousBaseUrl === undefined) {
+      delete process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL;
+    } else {
+      process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL = previousBaseUrl;
+    }
+
+    if (previousApiKey === undefined) {
+      delete process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY;
+    } else {
+      process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY = previousApiKey;
+    }
+
+    if (previousDirectBaseUrl === undefined) {
+      delete process.env.ANTHROPIC_BASE_URL;
+    } else {
+      process.env.ANTHROPIC_BASE_URL = previousDirectBaseUrl;
+    }
+
+    if (previousDirectApiKey === undefined) {
+      delete process.env.ANTHROPIC_API_KEY;
+    } else {
+      process.env.ANTHROPIC_API_KEY = previousDirectApiKey;
     }
 
     if (previousProxyKey === undefined) {

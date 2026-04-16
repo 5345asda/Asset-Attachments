@@ -1,5 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
+import { getAnthropicProviderConfig } from "./lib/anthropic-provider";
 
 const rawPort = process.env["PORT"];
 
@@ -21,12 +22,13 @@ app.listen(port, (err) => {
     process.exit(1);
   }
 
+  const anthropic = getAnthropicProviderConfig();
   logger.info(
     {
       providers: {
-        anthropic: !!process.env["AI_INTEGRATIONS_ANTHROPIC_BASE_URL"]
-          && !!process.env["AI_INTEGRATIONS_ANTHROPIC_API_KEY"],
+        anthropic: anthropic.configured,
       },
+      providerSource: anthropic.source,
     },
     "Provider integration status",
   );

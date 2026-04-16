@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { HealthCheckResponse } from "@workspace/api-zod";
 import { PROXY_API_KEY } from "../lib/proxy-key";
+import { getAnthropicProviderConfig } from "../lib/anthropic-provider";
 
 const router: IRouter = Router();
 
@@ -10,16 +11,15 @@ router.get("/healthz", (_req, res) => {
 });
 
 router.get("/proxy-info", (_req, res) => {
-  const anthropicConfigured = !!process.env["AI_INTEGRATIONS_ANTHROPIC_BASE_URL"]
-    && !!process.env["AI_INTEGRATIONS_ANTHROPIC_API_KEY"];
+  const anthropic = getAnthropicProviderConfig();
 
   res.json({
     proxyKey: PROXY_API_KEY,
-    ready: anthropicConfigured,
+    ready: anthropic.configured,
     providers: ["anthropic"],
     integrations: {
       anthropic: {
-        configured: anthropicConfigured,
+        configured: anthropic.configured,
       },
     },
   });

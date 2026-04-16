@@ -9,8 +9,16 @@ import {
   pipeAnthropicStreamWithUsageAdjust,
 } from "../lib/stream";
 import { applyBillingAnthropic } from "../lib/billing";
+import { getAnthropicProviderConfig } from "../lib/anthropic-provider";
 
 const router = Router();
+const PROMPT_CACHING_BETA = "prompt-caching-2024-07-31";
+const TASK_BUDGETS_BETA = "task-budgets-2026-03-13";
+const OBSOLETE_BETAS = new Set([
+  "effort-2025-11-24",
+  "fine-grained-tool-streaming-2025-05-14",
+]);
+const OPUS_47_OBSOLETE_BETAS = new Set(["interleaved-thinking-2025-05-14"]);
 
 function buildTargetUrl(baseUrl: string, request: Request): string {
   const cleanBaseUrl = baseUrl.replace(/\/$/, "");
@@ -19,7 +27,19 @@ function buildTargetUrl(baseUrl: string, request: Request): string {
   return `${cleanBaseUrl}/${upstreamPath}${query}`;
 }
 
-function buildAnthropicHeaders(request: Request, apiKey: string): Record<string, string> {
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function needsTaskBudgetBeta(body: Record<string, unknown> | undefined): boolean {
+  return isRecord(body?.output_config) && isRecord(body.output_config.task_budget);
+}
+
+function buildAnthropicHeaders(
+  request: Request,
+  apiKey: string,
+  body?: Record<string, unknown>,
+): Record<string, string> {
   const headers: Record<string, string> = {
     "x-api-key": apiKey,
     "anthropic-version": typeof request.headers["anthropic-version"] === "string"
@@ -32,9 +52,20 @@ function buildAnthropicHeaders(request: Request, apiKey: string): Record<string,
   }
 
   const clientBeta = request.headers["anthropic-beta"] as string | undefined;
-  const requiredBetas = ["prompt-caching-2024-07-31"];
+  const isClaudeOpus47 = body?.model === "claude-opus-4-7";
+  const requiredBetas = [PROMPT_CACHING_BETA];
+  if (needsTaskBudgetBeta(body)) {
+    requiredBetas.push(TASK_BUDGETS_BETA);
+  }
   const mergedBetas = Array.from(new Set([
-    ...(clientBeta ? clientBeta.split(",").map((value) => value.trim()).filter(Boolean) : []),
+    ...(clientBeta
+      ? clientBeta
+        .split(",")
+        .map((value) => value.trim())
+        .filter(Boolean)
+        .filter((value) => !OBSOLETE_BETAS.has(value))
+        .filter((value) => !isClaudeOpus47 || !OPUS_47_OBSOLETE_BETAS.has(value))
+      : []),
     ...requiredBetas,
   ]));
   headers["anthropic-beta"] = mergedBetas.join(",");
@@ -68,13 +99,12 @@ async function passthrough(
   response: Response,
 ): Promise<void> {
   const requestLogger = getRequestLogger(request);
-  const baseUrl = process.env["AI_INTEGRATIONS_ANTHROPIC_BASE_URL"] || "";
-  const apiKey = process.env["AI_INTEGRATIONS_ANTHROPIC_API_KEY"] || "";
+  const anthropic = getAnthropicProviderConfig();
 
-  if (!baseUrl || !apiKey) {
+  if (!anthropic.configured) {
     throw new ApiError({
       status: 503,
-      message: "ANTHROPIC integration not configured",
+      message: "Anthropic provider not configured",
       type: "service_unavailable",
       code: "provider_integration_not_configured",
       details: { provider: "anthropic" },
@@ -87,8 +117,8 @@ async function passthrough(
     body = sanitizeAnthropicBody(body);
   }
 
-  const target = buildTargetUrl(baseUrl, request);
-  const headers = buildAnthropicHeaders(request, apiKey);
+  const target = buildTargetUrl(anthropic.baseUrl, request);
+  const headers = buildAnthropicHeaders(request, anthropic.apiKey, body);
 
   const { model, temperature, top_p, max_tokens, stream, tools } = body ?? {};
   requestLogger.info(
@@ -100,6 +130,7 @@ async function passthrough(
       top_p,
       max_tokens,
       stream: !!stream,
+      providerSource: anthropic.source,
       tools: Array.isArray(tools) ? tools.length : undefined,
     },
     "Passthrough request",

@@ -16,7 +16,9 @@ export const ANTHROPIC_MODELS = [
   "claude-3-haiku-20240307",
 ];
 
+const CLAUDE_OPUS_4_7 = "claude-opus-4-7";
 const TEMPERATURE_DEPRECATED_MODELS = new Set(["claude-opus-4-7"]);
+const STRICT_SAMPLING_DISABLED_MODELS = new Set(["claude-opus-4-7"]);
 
 const now = new Date().toISOString();
 
@@ -34,6 +36,14 @@ type Message = {
   role?: unknown;
   content?: unknown;
 };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function isClaudeOpus47(model: unknown): boolean {
+  return model === CLAUDE_OPUS_4_7;
+}
 
 // Strip unsupported `scope` field from a cache_control object.
 function stripCacheControlScope(cacheControl: unknown): unknown {
@@ -506,6 +516,95 @@ function stripUnsignedThinkingBlocks(body: JsonObject): JsonObject {
   return dropped > 0 ? { ...body, messages } : body;
 }
 
+function migrateDeprecatedOutputFormat(body: JsonObject): JsonObject {
+  if (body.output_format === undefined) {
+    return body;
+  }
+
+  const outputConfig = isRecord(body.output_config) ? { ...body.output_config } : {};
+  const { output_format, ...rest } = body;
+
+  if (outputConfig.format === undefined) {
+    outputConfig.format = output_format;
+  }
+
+  logger.warn({ model: body.model }, "Anthropic: migrated deprecated output_format to output_config.format");
+  return {
+    ...rest,
+    output_config: outputConfig,
+  };
+}
+
+function migrateClaudeOpus47Thinking(body: JsonObject): JsonObject {
+  if (!isClaudeOpus47(body.model) || !isRecord(body.thinking)) {
+    return body;
+  }
+
+  const thinking = body.thinking;
+  const hasLegacyShape =
+    thinking.type === "enabled"
+    || "budget_tokens" in thinking
+    || "enabled" in thinking;
+
+  if (!hasLegacyShape) {
+    return body;
+  }
+
+  const result: JsonObject = { ...body };
+  const outputConfig = isRecord(body.output_config) ? { ...body.output_config } : {};
+  const display = typeof thinking.display === "string" ? thinking.display : undefined;
+
+  if (thinking.enabled === false || thinking.type === "disabled") {
+    delete result.thinking;
+    logger.warn(
+      { model: body.model },
+      "Anthropic: removed disabled legacy thinking config for Claude Opus 4.7",
+    );
+    return result;
+  }
+
+  result.thinking = display ? { type: "adaptive", display } : { type: "adaptive" };
+
+  if (outputConfig.effort === undefined) {
+    outputConfig.effort = "high";
+  }
+
+  if (Object.keys(outputConfig).length > 0) {
+    result.output_config = outputConfig;
+  }
+
+  logger.warn(
+    { model: body.model },
+    "Anthropic: migrated legacy Claude Opus 4.7 thinking config to adaptive thinking",
+  );
+  return result;
+}
+
+function stripUnsupportedSamplingParameters(body: JsonObject): JsonObject {
+  if (typeof body.model !== "string" || !STRICT_SAMPLING_DISABLED_MODELS.has(body.model)) {
+    return body;
+  }
+
+  let changed = false;
+  const result = { ...body };
+
+  for (const key of ["temperature", "top_p", "top_k"] as const) {
+    if (result[key] !== undefined) {
+      delete result[key];
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    logger.warn(
+      { model: body.model },
+      "Anthropic: removed sampling parameters that are unsupported for this model",
+    );
+  }
+
+  return changed ? result : body;
+}
+
 function hasEnabledThinking(body: JsonObject): boolean {
   const thinking = body.thinking;
 
@@ -564,7 +663,10 @@ export function sanitizeAnthropicBody(body: JsonObject): JsonObject {
   validateAnthropicMessages(body.messages);
 
   let result = stripUnsignedThinkingBlocks(body);
+  result = migrateDeprecatedOutputFormat(result);
+  result = migrateClaudeOpus47Thinking(result);
   result = stripAllCacheControlScopes(result);
+  result = stripUnsupportedSamplingParameters(result);
 
   if (
     typeof result.model === "string" &&
