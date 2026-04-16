@@ -12,6 +12,7 @@ import {
 } from "@/lib/runtime-config";
 
 const MODELS = [
+  "claude-opus-4-7",
   "claude-opus-4-6",
   "claude-opus-4-5",
   "claude-sonnet-4-6",
@@ -418,7 +419,7 @@ console.log(data);`;
                   <span className="text-foreground"> baseURL={baseUrl || " /api/anthropic"}</span>,
                   <span className="text-foreground"> status=enabled</span>,
                   <span className="text-foreground"> defaultTestModel=claude-opus-4-5</span>,
-                  <span className="text-foreground"> supportedModels=claude-opus-4-6 / claude-opus-4-5 / claude-sonnet-4-6</span>.
+                  <span className="text-foreground"> supportedModels=claude-opus-4-7 / claude-opus-4-6 / claude-opus-4-5 / claude-sonnet-4-6</span>.
                 </p>
               </div>
             </div>
