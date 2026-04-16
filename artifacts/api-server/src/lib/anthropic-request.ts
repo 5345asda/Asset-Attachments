@@ -16,6 +16,8 @@ export const ANTHROPIC_MODELS = [
   "claude-3-haiku-20240307",
 ];
 
+const TEMPERATURE_DEPRECATED_MODELS = new Set(["claude-opus-4-7"]);
+
 const now = new Date().toISOString();
 
 export const anthropicModelList = {
@@ -563,6 +565,19 @@ export function sanitizeAnthropicBody(body: JsonObject): JsonObject {
 
   let result = stripUnsignedThinkingBlocks(body);
   result = stripAllCacheControlScopes(result);
+
+  if (
+    typeof result.model === "string" &&
+    TEMPERATURE_DEPRECATED_MODELS.has(result.model) &&
+    result.temperature !== undefined
+  ) {
+    const { temperature, ...rest } = result;
+    logger.warn(
+      { temperature, model: result.model },
+      "Anthropic: removed deprecated temperature for model",
+    );
+    result = rest;
+  }
 
   if (hasEnabledThinking(result) && result.temperature !== undefined && result.temperature !== 1) {
     logger.warn(
