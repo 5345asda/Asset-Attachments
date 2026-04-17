@@ -6,16 +6,28 @@ import { pipeReaderToResponse } from "../lib/stream";
 
 const router = Router();
 
+function isGoogleGeminiBaseUrl(baseUrl: string): boolean {
+  try {
+    return new URL(baseUrl).hostname === "generativelanguage.googleapis.com";
+  } catch {
+    return false;
+  }
+}
+
 function buildTargetUrl(baseUrl: string, request: Request): string {
   const cleanBaseUrl = baseUrl.replace(/\/$/, "");
+  const googleUpstream = isGoogleGeminiBaseUrl(cleanBaseUrl);
+  const normalizedBaseUrl = googleUpstream
+    ? cleanBaseUrl.replace(/\/v\d+(beta)?$/i, "")
+    : cleanBaseUrl;
   const normalizedPath = request.path.replace(/^\/gemini\//, "/");
   const upstreamPath = (
-    /\/v\d+(beta)?$/i.test(cleanBaseUrl)
+    googleUpstream || /\/v\d+(beta)?$/i.test(cleanBaseUrl)
       ? normalizedPath.replace(/^\/v\d+(beta)?\//i, "/")
       : normalizedPath
   ).replace(/^\//, "");
   const query = request.url.includes("?") ? request.url.slice(request.url.indexOf("?")) : "";
-  return `${cleanBaseUrl}/${upstreamPath}${query}`;
+  return `${normalizedBaseUrl}/${upstreamPath}${query}`;
 }
 
 function buildGeminiHeaders(request: Request, apiKey: string): Record<string, string> {

@@ -553,7 +553,7 @@ test("gemini passthrough accepts direct Gemini secrets and forwards native gener
 
   assert.equal(
     lastRequestUrl,
-    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+    "https://generativelanguage.googleapis.com/models/gemini-2.5-flash:generateContent",
   );
   assert.deepEqual(JSON.parse(lastRequestBody), requestBody);
 
@@ -622,7 +622,7 @@ test("gemini passthrough preserves native streamGenerateContent SSE responses", 
   assert.equal(response.headers.get("content-type"), "text/event-stream");
   assert.equal(
     lastRequestUrl,
-    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse",
+    "https://generativelanguage.googleapis.com/models/gemini-2.5-flash:streamGenerateContent?alt=sse",
   );
   assert.equal(
     await response.text(),
