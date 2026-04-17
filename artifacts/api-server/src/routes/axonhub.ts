@@ -62,6 +62,7 @@ router.post("/axonhub/channel-sync", async (req, res, next) => {
     res.json({
       axonhubOrigin: AXONHUB_ORIGIN,
       mode: result.mode,
+      provider: result.provider,
       channel: result.channel,
     });
   } catch (error) {

@@ -105,6 +105,7 @@ export default function StatusPage() {
   const [axonhubSyncResult, setAxonhubSyncResult] = useState<null | {
     axonhubOrigin: string;
     mode: "created" | "updated";
+    provider: "anthropic" | "gemini";
     channel: {
       id: string;
       name: string;
@@ -268,6 +269,7 @@ console.log(data);`;
 
       const body = await response.json() as {
         mode?: "created" | "updated";
+        provider?: "anthropic" | "gemini";
         axonhubOrigin?: string;
         channel?: {
           id: string;
@@ -284,12 +286,13 @@ console.log(data);`;
         throw new Error(body.error?.message || "Failed to sync channel to AxonHub");
       }
 
-      if (!body.mode || !body.channel || !body.axonhubOrigin) {
+      if (!body.mode || !body.provider || !body.channel || !body.axonhubOrigin) {
         throw new Error("AxonHub sync response was incomplete");
       }
 
       setAxonhubSyncResult({
         mode: body.mode,
+        provider: body.provider,
         channel: body.channel,
         axonhubOrigin: body.axonhubOrigin,
       });
@@ -429,7 +432,7 @@ console.log(data);`;
           <div className="flex items-center gap-2 mb-4">
             <Server className="w-4 h-4 text-primary" />
             <span className="text-sm font-semibold text-foreground">AxonHub Sync</span>
-            <span className="ml-auto text-xs text-muted-foreground">Fixed target</span>
+            <span className="ml-auto text-xs text-muted-foreground">Auto 8:1 routing</span>
           </div>
 
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
@@ -469,18 +472,25 @@ console.log(data);`;
                   </button>
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
-                  只手填 AxonHub token。当前项目的 base URL、proxy key、模型列表会自动按固定格式同步过去。
+                  只手填 AxonHub token。系统会只统计由当前仓库托管的 channel，并自动保持 gemini:anthropic = 8:1；哪边不足，这次就同步哪边。
                 </p>
               </div>
 
               <div className="rounded-lg bg-black/20 border border-white/5 p-3">
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  Sync payload is fixed to:
+                  Current sync rule:
+                  <span className="text-foreground"> gemini</span> uses
+                  <span className="text-foreground"> type=gemini</span>,
+                  <span className="text-foreground"> baseURL={geminiBaseUrl || " /api/gemini"}</span>,
+                  <span className="text-foreground"> defaultTestModel=gemini-2.5-flash</span>,
+                  <span className="text-foreground"> supportedModels=gemini-2.5-pro / gemini-2.5-flash</span>.
+                  <span className="text-foreground"> anthropic</span> uses
                   <span className="text-foreground"> type=anthropic</span>,
                   <span className="text-foreground"> baseURL={baseUrl || " /api/anthropic"}</span>,
-                  <span className="text-foreground"> status=enabled</span>,
                   <span className="text-foreground"> defaultTestModel=claude-opus-4-5</span>,
                   <span className="text-foreground"> supportedModels=claude-opus-4-7 / claude-opus-4-6 / claude-opus-4-5 / claude-sonnet-4-6</span>.
+                  Both paths are synced back with
+                  <span className="text-foreground"> status=enabled</span>.
                 </p>
               </div>
             </div>
@@ -504,9 +514,13 @@ console.log(data);`;
           {axonhubSyncResult && (
             <div className="mt-4 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-3">
               <p className="text-xs font-medium text-emerald-200">
-                AxonHub channel {axonhubSyncResult.mode === "created" ? "created" : "updated"} successfully.
+                AxonHub {axonhubSyncResult.provider} channel {axonhubSyncResult.mode === "created" ? "created" : "updated"} successfully.
               </p>
-              <div className="mt-2 grid gap-2 sm:grid-cols-3 text-xs">
+              <div className="mt-2 grid gap-2 sm:grid-cols-4 text-xs">
+                <div>
+                  <span className="text-muted-foreground">Provider</span>
+                  <p className="text-foreground font-mono mt-1 break-all">{axonhubSyncResult.provider}</p>
+                </div>
                 <div>
                   <span className="text-muted-foreground">Name</span>
                   <p className="text-foreground font-mono mt-1 break-all">{axonhubSyncResult.channel.name}</p>

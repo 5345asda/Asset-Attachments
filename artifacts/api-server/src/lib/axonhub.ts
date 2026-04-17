@@ -6,9 +6,15 @@ export const AXONHUB_SUPPORTED_MODELS = [
   "claude-opus-4-5",
   "claude-sonnet-4-6",
 ] as const;
+export const AXONHUB_GEMINI_DEFAULT_TEST_MODEL = "gemini-2.5-flash";
+export const AXONHUB_GEMINI_SUPPORTED_MODELS = [
+  "gemini-2.5-pro",
+  "gemini-2.5-flash",
+] as const;
 
 const AXONHUB_GRAPHQL_URL = `${AXONHUB_ORIGIN}/admin/graphql`;
 const AXONHUB_REMARK = "Managed by Asset-Attachments";
+const AXONHUB_GEMINI_PER_ANTHROPIC = 8;
 
 const LOOKUP_CHANNELS_QUERY = `
   query SyncAxonHubChannelLookup($input: QueryChannelInput!) {
@@ -17,7 +23,10 @@ const LOOKUP_CHANNELS_QUERY = `
         node {
           id
           name
+          type
           baseURL
+          remark
+          status
         }
       }
     }
@@ -49,7 +58,9 @@ const UPDATE_CHANNEL_MUTATION = `
 interface GraphQlChannelNode {
   id: string;
   name: string;
+  type?: AxonHubProvider | string | null;
   baseURL: string;
+  remark?: string | null;
   status?: string | null;
 }
 
@@ -70,22 +81,28 @@ interface UpdateChannelResponse {
 }
 
 interface BuildAxonHubChannelInputOptions {
+  provider: AxonHubProvider;
   projectOrigin: string;
   proxyKey: string;
 }
 
-export interface SyncAxonHubChannelOptions extends BuildAxonHubChannelInputOptions {
+export interface SyncAxonHubChannelOptions {
+  projectOrigin: string;
+  proxyKey: string;
   adminToken: string;
   fetchImpl?: typeof fetch;
 }
 
 export interface SyncAxonHubChannelResult {
   mode: "created" | "updated";
+  provider: AxonHubProvider;
   channel: GraphQlChannelNode;
 }
 
+export type AxonHubProvider = "anthropic" | "gemini";
+
 interface AxonHubCreateChannelInput {
-  type: "anthropic";
+  type: AxonHubProvider;
   name: string;
   baseURL: string;
   credentials: {
@@ -142,26 +159,49 @@ export function normalizeAxonHubToken(token: string): string {
 }
 
 export function buildAxonHubChannelInput({
+  provider,
   projectOrigin,
   proxyKey,
 }: BuildAxonHubChannelInputOptions): AxonHubCreateChannelInput {
   const normalizedOrigin = normalizeOrigin(projectOrigin);
+  const supportedModels = provider === "gemini"
+    ? [...AXONHUB_GEMINI_SUPPORTED_MODELS]
+    : [...AXONHUB_SUPPORTED_MODELS];
+  const defaultTestModel = provider === "gemini"
+    ? AXONHUB_GEMINI_DEFAULT_TEST_MODEL
+    : AXONHUB_DEFAULT_TEST_MODEL;
 
   return {
-    type: "anthropic",
+    type: provider,
     name: deriveChannelName(normalizedOrigin),
-    baseURL: `${normalizedOrigin}/api/anthropic`,
+    baseURL: `${normalizedOrigin}/api/${provider}`,
     credentials: {
       apiKey: proxyKey,
     },
-    supportedModels: [...AXONHUB_SUPPORTED_MODELS],
-    defaultTestModel: AXONHUB_DEFAULT_TEST_MODEL,
-    manualModels: [...AXONHUB_SUPPORTED_MODELS],
+    supportedModels,
+    defaultTestModel,
+    manualModels: supportedModels,
     autoSyncSupportedModels: false,
     autoSyncModelPattern: "",
     tags: [],
     remark: AXONHUB_REMARK,
   };
+}
+
+export function pickAxonHubChannelProvider(
+  channels: ReadonlyArray<GraphQlChannelNode | null | undefined>,
+): AxonHubProvider {
+  const managedChannels = channels.filter((channel): channel is GraphQlChannelNode => {
+    return !!channel
+      && channel.remark === AXONHUB_REMARK
+      && channel.status !== "archived";
+  });
+  const geminiCount = managedChannels.filter((channel) => channel.type === "gemini").length;
+  const anthropicCount = managedChannels.filter((channel) => channel.type === "anthropic").length;
+
+  return geminiCount < (anthropicCount + 1) * AXONHUB_GEMINI_PER_ANTHROPIC
+    ? "gemini"
+    : "anthropic";
 }
 
 function buildAxonHubUpdateChannelInput(
@@ -230,11 +270,6 @@ export async function syncAxonHubChannel({
   adminToken,
   fetchImpl = fetch,
 }: SyncAxonHubChannelOptions): Promise<SyncAxonHubChannelResult> {
-  const input = buildAxonHubChannelInput({
-    projectOrigin,
-    proxyKey,
-  });
-
   const lookup = await postGraphQl<SyncLookupResponse>(
     LOOKUP_CHANNELS_QUERY,
     {
@@ -246,10 +281,19 @@ export async function syncAxonHubChannel({
     fetchImpl,
   );
 
-  const existingChannel = lookup.queryChannels?.edges
-    ?.map((edge) => edge.node)
+  const channels = lookup.queryChannels?.edges?.map((edge) => edge.node) ?? [];
+  const provider = pickAxonHubChannelProvider(channels);
+  const input = buildAxonHubChannelInput({
+    provider,
+    projectOrigin,
+    proxyKey,
+  });
+
+  const existingChannel = channels
     .find((channel): channel is GraphQlChannelNode => {
-      return !!channel && channel.baseURL === input.baseURL;
+      return !!channel
+        && channel.type === provider
+        && channel.baseURL === input.baseURL;
     });
 
   if (existingChannel) {
@@ -271,6 +315,7 @@ export async function syncAxonHubChannel({
 
     return {
       mode: "updated",
+      provider,
       channel: updated.updateChannel,
     };
   }
@@ -290,6 +335,7 @@ export async function syncAxonHubChannel({
 
   return {
     mode: "created",
+    provider,
     channel: created.createChannel,
   };
 }
