@@ -123,13 +123,6 @@ async function passthrough(
   response.end(Buffer.from(await upstream.arrayBuffer()));
 }
 
-export async function proxyGeminiRequest(
-  request: Request,
-  response: Response,
-): Promise<void> {
-  await passthrough(request, response);
-}
-
 router.use("/", async (request, response) => {
   await passthrough(request, response);
 });

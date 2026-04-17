@@ -118,7 +118,7 @@ test("public anthropic model list routes bypass proxy auth", async (t) => {
   assert.ok(legacyResponse.headers.get("x-request-id"));
 });
 
-test("public gemini model list routes return a static list without provider config", async (t) => {
+test("public gemini model routes expose native and compatibility list shapes without provider config", async (t) => {
   const previousEnv = {
     PROXY_API_KEY: process.env.PROXY_API_KEY,
     AI_INTEGRATIONS_GEMINI_BASE_URL: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL,
@@ -167,17 +167,37 @@ test("public gemini model list routes return a static list without provider conf
     }>;
   };
   const legacyResponse = await originalFetch(`http://127.0.0.1:${server.port}/api/gemini/models`);
-  const legacyBody = await legacyResponse.json() as typeof body;
+  const legacyBody = await legacyResponse.json() as Array<{
+    name?: string;
+    version?: string;
+    displayName?: string;
+    supportedGenerationMethods?: string[];
+  }>;
+  const compatibilityV1Response = await originalFetch(`http://127.0.0.1:${server.port}/api/gemini/v1/models`);
+  const compatibilityV1Body = await compatibilityV1Response.json() as Array<{
+    name?: string;
+    version?: string;
+    displayName?: string;
+    supportedGenerationMethods?: string[];
+  }>;
 
   assert.equal(response.status, 200);
   assert.equal(legacyResponse.status, 200);
+  assert.equal(compatibilityV1Response.status, 200);
   assert.equal(upstreamCalls, 0);
   assert.equal(body.models?.[0]?.name, "models/gemini-3.1-pro-preview");
   assert.equal(body.models?.[0]?.version, "gemini-3.1-pro-preview");
   assert.deepEqual(body.models?.[0]?.supportedGenerationMethods, ["generateContent", "streamGenerateContent"]);
-  assert.deepEqual(legacyBody, body);
+  assert.ok(Array.isArray(legacyBody));
+  assert.equal(legacyBody[0]?.name, "models/gemini-3.1-pro-preview");
+  assert.equal(legacyBody[0]?.version, "gemini-3.1-pro-preview");
+  assert.deepEqual(legacyBody[0]?.supportedGenerationMethods, ["generateContent", "streamGenerateContent"]);
+  assert.deepEqual(legacyBody, body.models);
+  assert.ok(Array.isArray(compatibilityV1Body));
+  assert.deepEqual(compatibilityV1Body, body.models);
   assert.ok(response.headers.get("x-request-id"));
   assert.ok(legacyResponse.headers.get("x-request-id"));
+  assert.ok(compatibilityV1Response.headers.get("x-request-id"));
 });
 
 test("legacy /api/v1 routes are no longer supported", async (t) => {

@@ -116,9 +116,11 @@ async function verifyGeminiModels() {
   assertOk(response, pathname);
   assertJson(contentType, pathname);
   const body = parseJson(text, pathname);
-  const models = Array.isArray(body?.models)
-    ? body.models
-    : Array.isArray(body?.data)
+  const models = Array.isArray(body)
+    ? body
+    : Array.isArray(body?.models)
+      ? body.models
+      : Array.isArray(body?.data)
       ? body.data
       : null;
 

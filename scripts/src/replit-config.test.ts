@@ -89,6 +89,22 @@ test("api-server package removes unused db dependencies from install graph", asy
   assert.equal(apiServerPackageJson.dependencies?.["drizzle-orm"], undefined);
 });
 
+test("api-server removes the unused Gemini OAI formatter and cookie-parser dependency", async () => {
+  const apiServerPackageJson = JSON.parse(
+    await readFile(path.join(repoRoot, "artifacts", "api-server", "package.json"), "utf8"),
+  ) as {
+    dependencies?: Record<string, string>;
+    devDependencies?: Record<string, string>;
+  };
+
+  assert.equal(apiServerPackageJson.dependencies?.["cookie-parser"], undefined);
+  assert.equal(apiServerPackageJson.devDependencies?.["@types/cookie-parser"], undefined);
+  await assert.rejects(
+    access(path.join(repoRoot, "artifacts", "api-server", "src", "lib", "format", "gemini.ts")),
+    /ENOENT/,
+  );
+});
+
 test("api-server tsconfig only references packages used by the runtime", async () => {
   const tsconfig = await readFile(path.join(repoRoot, "artifacts", "api-server", "tsconfig.json"), "utf8");
 
@@ -127,6 +143,119 @@ test("scripts package does not expose placeholder commands unrelated to deployme
   };
 
   assert.equal(scriptsPackageJson.scripts?.["hello"], undefined);
+});
+
+test("status page removes unused shadcn template files and references", async () => {
+  const stalePaths = [
+    path.join(repoRoot, "artifacts", "status-page", "components.json"),
+    path.join(repoRoot, "artifacts", "status-page", "src", "components", "ui", "button.tsx"),
+    path.join(repoRoot, "artifacts", "status-page", "src", "hooks", "use-toast.ts"),
+    path.join(repoRoot, "artifacts", "status-page", "src", "lib", "utils.ts"),
+  ];
+
+  for (const stalePath of stalePaths) {
+    await assert.rejects(access(stalePath), /ENOENT/, `${stalePath} should be removed`);
+  }
+
+  const notFound = await readFile(
+    path.join(repoRoot, "artifacts", "status-page", "src", "pages", "not-found.tsx"),
+    "utf8",
+  );
+
+  assert.doesNotMatch(notFound, /components\/ui\/card/);
+});
+
+test("status-page package keeps only live dependencies for the current single-page UI", async () => {
+  const statusPagePackageJson = JSON.parse(
+    await readFile(path.join(repoRoot, "artifacts", "status-page", "package.json"), "utf8"),
+  ) as {
+    dependencies?: Record<string, string>;
+    devDependencies?: Record<string, string>;
+  };
+  const dependencies = {
+    ...statusPagePackageJson.dependencies,
+    ...statusPagePackageJson.devDependencies,
+  };
+
+  assert.equal(dependencies["@workspace/api-client-react"], undefined);
+  assert.ok(
+    Object.keys(dependencies).every((name) => !name.startsWith("@radix-ui/")),
+    "status-page should not keep unused Radix template dependencies",
+  );
+
+  for (const packageName of [
+    "@hookform/resolvers",
+    "class-variance-authority",
+    "clsx",
+    "cmdk",
+    "date-fns",
+    "embla-carousel-react",
+    "framer-motion",
+    "input-otp",
+    "next-themes",
+    "react-day-picker",
+    "react-hook-form",
+    "react-icons",
+    "react-resizable-panels",
+    "recharts",
+    "sonner",
+    "tailwind-merge",
+    "vaul",
+    "zod",
+  ]) {
+    assert.equal(dependencies[packageName], undefined, `${packageName} should be removed from status-page`);
+  }
+
+  const statusPageTsconfig = await readFile(
+    path.join(repoRoot, "artifacts", "status-page", "tsconfig.json"),
+    "utf8",
+  );
+  assert.doesNotMatch(statusPageTsconfig, /api-client-react/);
+});
+
+test("status-page app removes the unused react-query shell", async () => {
+  const statusPagePackageJson = JSON.parse(
+    await readFile(path.join(repoRoot, "artifacts", "status-page", "package.json"), "utf8"),
+  ) as {
+    dependencies?: Record<string, string>;
+    devDependencies?: Record<string, string>;
+  };
+
+  const dependencies = {
+    ...statusPagePackageJson.dependencies,
+    ...statusPagePackageJson.devDependencies,
+  };
+
+  assert.equal(dependencies["@tanstack/react-query"], undefined);
+
+  const appSource = await readFile(
+    path.join(repoRoot, "artifacts", "status-page", "src", "App.tsx"),
+    "utf8",
+  );
+
+  assert.doesNotMatch(appSource, /@tanstack\/react-query/);
+  assert.doesNotMatch(appSource, /QueryClientProvider/);
+  assert.doesNotMatch(appSource, /new QueryClient/);
+});
+
+test("api-server removes legacy anthropic formatter scaffolding after native passthrough migration", async () => {
+  const stalePaths = [
+    path.join(repoRoot, "artifacts", "api-server", "src", "lib", "format", "anthropic.ts"),
+    path.join(repoRoot, "artifacts", "api-server", "src", "lib", "utils.ts"),
+    path.join(repoRoot, "artifacts", "api-server", "src", "lib", ".gitkeep"),
+    path.join(repoRoot, "artifacts", "api-server", "src", "middlewares", ".gitkeep"),
+  ];
+
+  for (const stalePath of stalePaths) {
+    await assert.rejects(access(stalePath), /ENOENT/, `${stalePath} should be removed`);
+  }
+
+  const geminiRoute = await readFile(
+    path.join(repoRoot, "artifacts", "api-server", "src", "routes", "gemini.ts"),
+    "utf8",
+  );
+
+  assert.doesNotMatch(geminiRoute, /proxyGeminiRequest/);
 });
 
 test(".replit pins the one-click deployment commands at the repo root", async () => {
