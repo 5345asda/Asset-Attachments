@@ -72,7 +72,7 @@ async function postJson(url: string, options: {
   });
 }
 
-test("public anthropic model routes expose compatibility array shapes without proxy auth", async (t) => {
+test("public anthropic model routes expose { data: [...] } shapes without proxy auth", async (t) => {
   const previousProxyKey = process.env.PROXY_API_KEY;
   process.env.PROXY_API_KEY = "sk-proxy-test";
 
@@ -89,23 +89,25 @@ test("public anthropic model routes expose compatibility array shapes without pr
   });
 
   const v1Response = await fetch(`http://127.0.0.1:${server.port}/api/anthropic/v1/models`);
-  const v1Body = await v1Response.json() as Array<{
-    type?: string;
-    id?: string;
-    display_name?: string;
-    created_at?: string;
-  }>;
+  const v1Body = await v1Response.json() as {
+    data?: Array<{
+      type?: string;
+      id?: string;
+      display_name?: string;
+      created_at?: string;
+    }>;
+  };
 
   assert.equal(v1Response.status, 200);
-  assert.ok(Array.isArray(v1Body));
-  assert.ok(v1Body.length > 0);
-  assert.deepEqual(v1Body[0], {
+  assert.ok(Array.isArray(v1Body.data));
+  assert.ok(v1Body.data.length > 0);
+  assert.deepEqual(v1Body.data[0], {
     type: "model",
     id: "claude-opus-4-7",
     display_name: "claude-opus-4-7",
-    created_at: v1Body[0]?.created_at,
+    created_at: v1Body.data[0]?.created_at,
   });
-  assert.match(v1Body[0]?.created_at ?? "", /^\d{4}-\d{2}-\d{2}T/);
+  assert.match(v1Body.data[0]?.created_at ?? "", /^\d{4}-\d{2}-\d{2}T/);
   assert.ok(v1Response.headers.get("x-request-id"));
 
   const legacyResponse = await fetch(`http://127.0.0.1:${server.port}/api/anthropic/models`);

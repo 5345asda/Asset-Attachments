@@ -9,7 +9,6 @@ import { getRequestLogger } from "../lib/request-context";
 import { anthropicModelList } from "../lib/anthropic-request";
 
 const router: IRouter = Router();
-const anthropicModels = anthropicModelList.data;
 const geminiModels = [
   "gemini-3.1-pro-preview",
   "gemini-3-flash-preview",
@@ -91,8 +90,8 @@ function proxyAuth(req: Request, res: Response, next: NextFunction) {
 router.use(healthRouter);
 router.use(axonhubRouter);
 
-router.get("/anthropic/v1/models", (_req, res) => res.json(anthropicModels));
-router.get("/anthropic/models", (_req, res) => res.json(anthropicModels));
+router.get("/anthropic/v1/models", (_req, res) => res.json(anthropicModelList));
+router.get("/anthropic/models", (_req, res) => res.json(anthropicModelList));
 router.get("/gemini/v1beta/models", (_req, res) => res.json(geminiModelList));
 router.get("/gemini/v1/models", (_req, res) => res.json(geminiModels));
 router.get("/gemini/models", (_req, res) => res.json(geminiModels));
