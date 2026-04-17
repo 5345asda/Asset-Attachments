@@ -21,7 +21,7 @@
 - `artifacts/status-page`
 - 单入口部署，前端静态资源由后端统一托管
 - Anthropic 走 Replit integration
-- Gemini 需要单独配置 `GEMINI_API_KEY`，可选覆盖 `GEMINI_BASE_URL`
+- Gemini 也走 Replit integration
 
 ## 部署命令
 

@@ -355,7 +355,7 @@ console.log(data);`;
         {status === "setup_required" && (
           <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 mb-8">
             <p className="text-sm text-amber-100">
-              当前项目还没有可用 provider。Anthropic 需要启用 Replit integration；如果还要启用 Gemini 原生接口，需要额外设置 `GEMINI_API_KEY`，可选覆盖 `GEMINI_BASE_URL`。
+              当前项目还没有可用 provider。Anthropic 需要启用 Replit integration；Gemini 也需要启用 Replit integration。
             </p>
           </div>
         )}

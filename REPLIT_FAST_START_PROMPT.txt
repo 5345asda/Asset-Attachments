@@ -13,7 +13,7 @@
 3. 把 zip 解压到项目根目录；解压后目标只保留 `artifacts/api-server` 和 `artifacts/status-page`。
 4. 按需配置 provider：
    - Anthropic：启用 Replit integration。
-   - Gemini：如果要启用 Gemini 原生接口，再设置 `GEMINI_API_KEY`；可选覆盖 `GEMINI_BASE_URL`。
+   - Gemini：启用 Replit integration。
 5. 执行 `pnpm install`。
 6. 首次 Run 使用 `pnpm start`。
 7. Publish / Deploy 使用 Autoscale：
@@ -31,4 +31,4 @@
 - `GET /api/healthz` 返回 JSON。
 - `GET /api/proxy-info` 返回 JSON，且至少有一个 provider 的 `configured=true`。
 - 如果启用了 Anthropic，`GET /api/anthropic/v1/models` 返回 JSON 模型列表，不能返回 HTML，也不能返回鉴权错误。
-- 如果设置了 Gemini，`GET /api/gemini/v1beta/models` 返回 JSON 模型列表，不能返回 HTML，也不能返回鉴权错误。
+- 如果启用了 Gemini integration，`GET /api/gemini/v1beta/models` 返回 JSON 模型列表，不能返回 HTML，也不能返回鉴权错误。

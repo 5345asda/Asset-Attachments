@@ -236,3 +236,21 @@ test("status page warns that Gemini does not support OpenAI chat completions", a
   assert.match(page, /\/openai\/chat\/completions/);
   assert.match(page, /generateContent/);
 });
+
+test("replit-facing docs describe Anthropic and Gemini as Replit integrations", async () => {
+  const files = [
+    path.join(repoRoot, "README.md"),
+    path.join(repoRoot, "replit.md"),
+    path.join(repoRoot, "REPLIT_UPLOAD_PROMPT.txt"),
+    path.join(repoRoot, "REPLIT_FAST_START_PROMPT.txt"),
+    path.join(repoRoot, "scripts", "build-replit-runtime.mjs"),
+    path.join(repoRoot, "artifacts", "status-page", "src", "pages", "status-page.tsx"),
+  ];
+
+  for (const file of files) {
+    const content = await readFile(file, "utf8");
+    assert.match(content, /Anthropic.*Replit integration/i, `${file} should mention Anthropic Replit integration`);
+    assert.match(content, /Gemini.*Replit integration/i, `${file} should mention Gemini Replit integration`);
+    assert.doesNotMatch(content, /GEMINI_API_KEY/, `${file} should not tell Replit users to set GEMINI_API_KEY directly`);
+  }
+});
