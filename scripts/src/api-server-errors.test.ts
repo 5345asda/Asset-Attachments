@@ -288,6 +288,54 @@ test("gemini passthrough returns 503 when Gemini provider is not configured", as
   assert.ok(response.headers["x-request-id"]);
 });
 
+test("gemini passthrough accepts x-goog-api-key at the proxy boundary", async (t) => {
+  const previousEnv = {
+    PROXY_API_KEY: process.env.PROXY_API_KEY,
+    AI_INTEGRATIONS_GEMINI_BASE_URL: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL,
+    AI_INTEGRATIONS_GEMINI_API_KEY: process.env.AI_INTEGRATIONS_GEMINI_API_KEY,
+    GEMINI_BASE_URL: process.env.GEMINI_BASE_URL,
+    GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+  };
+
+  process.env.PROXY_API_KEY = "sk-proxy-test";
+  delete process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
+  delete process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+  delete process.env.GEMINI_BASE_URL;
+  delete process.env.GEMINI_API_KEY;
+
+  const server = await startAppServer();
+
+  t.after(async () => {
+    await server.close();
+
+    for (const [key, value] of Object.entries(previousEnv)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  });
+
+  const response = await postJson(`http://127.0.0.1:${server.port}/api/gemini/v1beta/models/gemini-2.5-flash:generateContent`, {
+    headers: {
+      "x-goog-api-key": "sk-proxy-test",
+    },
+    body: {
+      contents: [{ role: "user", parts: [{ text: "hello" }] }],
+    },
+  });
+
+  assert.equal(response.status, 503);
+  assert.deepEqual(response.body, {
+    error: {
+      message: "Gemini provider not configured",
+      type: "service_unavailable",
+    },
+  });
+  assert.ok(response.headers["x-request-id"]);
+});
+
 test("anthropic assistant-prefill is rejected before any upstream call", async (t) => {
   const previousEnv = {
     PROXY_API_KEY: process.env.PROXY_API_KEY,

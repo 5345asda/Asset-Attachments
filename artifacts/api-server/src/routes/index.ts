@@ -25,6 +25,10 @@ const geminiModelList = {
   })),
 };
 
+function isGeminiProxyRequest(req: Request): boolean {
+  return `${req.baseUrl}${req.path}`.toLowerCase().includes("/gemini");
+}
+
 function proxyAuth(req: Request, res: Response, next: NextFunction) {
   const requestLogger = getRequestLogger(req);
 
@@ -41,15 +45,23 @@ function proxyAuth(req: Request, res: Response, next: NextFunction) {
 
   const auth = req.headers["authorization"];
   const xApiKey = req.headers["x-api-key"];
+  const xGoogApiKey = req.headers["x-goog-api-key"];
+  const geminiRoute = isGeminiProxyRequest(req);
   const bearerOk = typeof auth === "string" && auth === `Bearer ${PROXY_API_KEY}`;
   const xApiKeyOk = typeof xApiKey === "string" && xApiKey === PROXY_API_KEY;
+  const xGoogApiKeyOk =
+    geminiRoute
+    && typeof xGoogApiKey === "string"
+    && xGoogApiKey === PROXY_API_KEY;
 
-  if (!bearerOk && !xApiKeyOk) {
-    const reason = !auth && !xApiKey
+  if (!bearerOk && !xApiKeyOk && !xGoogApiKeyOk) {
+    const reason = !auth && !xApiKey && !xGoogApiKey
       ? "missing_auth_header"
       : auth && !bearerOk
         ? "invalid_bearer_token"
-        : "invalid_x_api_key";
+        : xApiKey
+          ? "invalid_x_api_key"
+          : "invalid_x_goog_api_key";
 
     next(new ApiError({
       status: 401,
@@ -60,6 +72,7 @@ function proxyAuth(req: Request, res: Response, next: NextFunction) {
         reason,
         hasAuthorization: !!auth,
         hasXApiKey: !!xApiKey,
+        hasXGoogApiKey: !!xGoogApiKey,
         authScheme: auth ? auth.split(" ")[0] : undefined,
       },
       logLevel: "warn",
@@ -67,7 +80,11 @@ function proxyAuth(req: Request, res: Response, next: NextFunction) {
     return;
   }
 
-  requestLogger.debug({ url: req.url, method: req.method, via: bearerOk ? "bearer" : "x-api-key" }, "Auth passed");
+  requestLogger.debug({
+    url: req.url,
+    method: req.method,
+    via: bearerOk ? "bearer" : xApiKeyOk ? "x-api-key" : "x-goog-api-key",
+  }, "Auth passed");
   next();
 }
 
