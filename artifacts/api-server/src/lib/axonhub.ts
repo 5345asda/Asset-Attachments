@@ -8,8 +8,12 @@ export const AXONHUB_SUPPORTED_MODELS = [
 ] as const;
 export const AXONHUB_GEMINI_DEFAULT_TEST_MODEL = "gemini-2.5-flash";
 export const AXONHUB_GEMINI_SUPPORTED_MODELS = [
+  "gemini-3.1-pro-preview",
+  "gemini-3-flash-preview",
+  "gemini-3-pro-image-preview",
   "gemini-2.5-pro",
   "gemini-2.5-flash",
+  "gemini-2.5-flash-image",
 ] as const;
 
 const AXONHUB_GRAPHQL_URL = `${AXONHUB_ORIGIN}/admin/graphql`;

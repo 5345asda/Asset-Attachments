@@ -23,6 +23,14 @@ function jsonResponse(body: unknown, status = 200): Response {
 }
 
 type FetchInput = Parameters<typeof fetch>[0];
+const EXPECTED_AXONHUB_GEMINI_MODELS = [
+  "gemini-3.1-pro-preview",
+  "gemini-3-flash-preview",
+  "gemini-3-pro-image-preview",
+  "gemini-2.5-pro",
+  "gemini-2.5-flash",
+  "gemini-2.5-flash-image",
+] as const;
 
 function managedChannel({
   id,
@@ -88,9 +96,9 @@ test("buildAxonHubChannelInput uses the fixed gemini channel format", () => {
     credentials: {
       apiKey: "sk-proxy-test",
     },
-    supportedModels: AXONHUB_GEMINI_SUPPORTED_MODELS,
+    supportedModels: EXPECTED_AXONHUB_GEMINI_MODELS,
     defaultTestModel: AXONHUB_GEMINI_DEFAULT_TEST_MODEL,
-    manualModels: AXONHUB_GEMINI_SUPPORTED_MODELS,
+    manualModels: EXPECTED_AXONHUB_GEMINI_MODELS,
     autoSyncSupportedModels: false,
     autoSyncModelPattern: "",
     tags: [],
@@ -279,9 +287,9 @@ test("syncAxonHubChannel creates a new gemini channel when gemini is under targe
     credentials: {
       apiKey: "sk-proxy-test",
     },
-    supportedModels: AXONHUB_GEMINI_SUPPORTED_MODELS,
+    supportedModels: EXPECTED_AXONHUB_GEMINI_MODELS,
     defaultTestModel: AXONHUB_GEMINI_DEFAULT_TEST_MODEL,
-    manualModels: AXONHUB_GEMINI_SUPPORTED_MODELS,
+    manualModels: EXPECTED_AXONHUB_GEMINI_MODELS,
     autoSyncSupportedModels: false,
     autoSyncModelPattern: "",
     tags: [],
@@ -378,9 +386,9 @@ test("syncAxonHubChannel updates the existing gemini channel for the current pro
     credentials: {
       apiKey: "sk-proxy-test",
     },
-    supportedModels: AXONHUB_GEMINI_SUPPORTED_MODELS,
+    supportedModels: EXPECTED_AXONHUB_GEMINI_MODELS,
     defaultTestModel: AXONHUB_GEMINI_DEFAULT_TEST_MODEL,
-    manualModels: AXONHUB_GEMINI_SUPPORTED_MODELS,
+    manualModels: EXPECTED_AXONHUB_GEMINI_MODELS,
     autoSyncSupportedModels: false,
     autoSyncModelPattern: "",
     tags: [],

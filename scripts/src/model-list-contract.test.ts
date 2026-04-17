@@ -14,12 +14,20 @@ import {
 
 const testDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(testDir, "..", "..");
+const EXPECTED_AXONHUB_GEMINI_MODELS = [
+  "gemini-3.1-pro-preview",
+  "gemini-3-flash-preview",
+  "gemini-3-pro-image-preview",
+  "gemini-2.5-pro",
+  "gemini-2.5-flash",
+  "gemini-2.5-flash-image",
+] as const;
 
 test("AxonHub status-page copy stays aligned with the backend sync model lists", async () => {
   assert.equal(ANTHROPIC_MODELS[0], "claude-opus-4-7");
   assert.equal(AXONHUB_SUPPORTED_MODELS[0], "claude-opus-4-7");
   assert.equal(AXONHUB_DEFAULT_TEST_MODEL, "claude-opus-4-5");
-  assert.equal(AXONHUB_GEMINI_SUPPORTED_MODELS[0], "gemini-2.5-pro");
+  assert.deepEqual(AXONHUB_GEMINI_SUPPORTED_MODELS, EXPECTED_AXONHUB_GEMINI_MODELS);
   assert.equal(AXONHUB_GEMINI_DEFAULT_TEST_MODEL, "gemini-2.5-flash");
 
   const statusPageSource = await readFile(
@@ -30,7 +38,10 @@ test("AxonHub status-page copy stays aligned with the backend sync model lists",
   assert.match(statusPageSource, /gemini:anthropic = 8:1/);
   assert.match(statusPageSource, /Auto 8:1 routing/);
   assert.match(statusPageSource, /"claude-opus-4-7"/);
-  assert.match(statusPageSource, /supportedModels=gemini-2.5-pro \/ gemini-2.5-flash/);
+  assert.match(
+    statusPageSource,
+    /supportedModels=gemini-3\.1-pro-preview \/ gemini-3-flash-preview \/ gemini-3-pro-image-preview \/ gemini-2\.5-pro \/ gemini-2\.5-flash \/ gemini-2\.5-flash-image/,
+  );
   assert.match(
     statusPageSource,
     /supportedModels=claude-opus-4-7 \/ claude-opus-4-6 \/ claude-opus-4-5 \/ claude-sonnet-4-6/,

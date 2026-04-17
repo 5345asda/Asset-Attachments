@@ -27,8 +27,12 @@ const CLAUDE_MODELS = [
 ];
 
 const GEMINI_MODELS = [
+  "gemini-3.1-pro-preview",
+  "gemini-3-flash-preview",
+  "gemini-3-pro-image-preview",
   "gemini-2.5-pro",
   "gemini-2.5-flash",
+  "gemini-2.5-flash-image",
 ];
 
 function useCopy() {
@@ -483,7 +487,7 @@ console.log(data);`;
                   <span className="text-foreground"> type=gemini</span>,
                   <span className="text-foreground"> baseURL={geminiBaseUrl || " /api/gemini"}</span>,
                   <span className="text-foreground"> defaultTestModel=gemini-2.5-flash</span>,
-                  <span className="text-foreground"> supportedModels=gemini-2.5-pro / gemini-2.5-flash</span>.
+                  <span className="text-foreground"> supportedModels=gemini-3.1-pro-preview / gemini-3-flash-preview / gemini-3-pro-image-preview / gemini-2.5-pro / gemini-2.5-flash / gemini-2.5-flash-image</span>.
                   <span className="text-foreground"> anthropic</span> uses
                   <span className="text-foreground"> type=anthropic</span>,
                   <span className="text-foreground"> baseURL={baseUrl || " /api/anthropic"}</span>,
