@@ -1,10 +1,11 @@
 # AI Proxy Gateway
 
-这个仓库是一个给 Replit 用的单入口 Anthropic 代理单仓库。
+这个仓库是一个给 Replit 用的单入口 AI 原生接口代理单仓库。
 
-- 对外只支持 `/api/anthropic/*`
+- 对外支持 `/api/anthropic/*`
+- 对外支持 `/api/gemini/*`
 - 不再提供 `/api/v1/chat/completions`
-- 不再提供其它 provider 路由
+- 其它 provider 路由仍不开放
 
 ## 只看这几个文件
 
@@ -19,7 +20,8 @@
 - `artifacts/api-server`
 - `artifacts/status-page`
 - 单入口部署，前端静态资源由后端统一托管
-- 只依赖 Anthropic integration
+- Anthropic 走 Replit integration
+- Gemini 走 `GEMINI_API_KEY`，可选覆盖 `GEMINI_BASE_URL`
 
 ## 部署命令
 
@@ -54,3 +56,6 @@ pnpm run pack:replit
 | `GET /api/proxy-info` | 否 | 返回当前 Proxy Key 和 provider 信息 |
 | `GET /api/anthropic/v1/models` | 否 | 返回 Claude 模型列表 |
 | `POST /api/anthropic/v1/messages` | 是 | Anthropic 原生 messages 接口 |
+| `GET /api/gemini/v1beta/models` | 否 | 返回 Gemini 模型列表 |
+| `POST /api/gemini/v1beta/models/{model}:generateContent` | 是 | Gemini 原生 `generateContent` 接口 |
+| `POST /api/gemini/v1beta/models/{model}:streamGenerateContent?alt=sse` | 是 | Gemini 原生流式接口 |

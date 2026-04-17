@@ -53,3 +53,9 @@ artifacts/status-page/.replit-artifact/
 # Proxy key persistence — NEVER commit this file
 .data/
 artifacts/api-server/.data/
+
+# Local planning notes and generated release bundles
+task_plan.md
+findings.md
+progress.md
+release/

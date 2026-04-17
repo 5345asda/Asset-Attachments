@@ -6,6 +6,7 @@ interface RuntimeConfigInput {
 interface GatewayStatusInput {
   healthOk: boolean;
   anthropicConfigured: boolean | null;
+  geminiConfigured: boolean | null;
 }
 
 const DEFAULT_AXONHUB_ADMIN_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NzY1MTcyODIsInVzZXJfaWQiOjF9.XYwKgpR1Zwgekt8hA7q8B0RJBg86Z4Otdw7XSa3S0Zw";
@@ -45,19 +46,24 @@ export function getAnthropicBaseUrl(input: RuntimeConfigInput): string {
   return `${getApiOrigin(input)}/api/anthropic`;
 }
 
+export function getGeminiBaseUrl(input: RuntimeConfigInput): string {
+  return `${getApiOrigin(input)}/api/gemini`;
+}
+
 export function getGatewayStatus({
   healthOk,
   anthropicConfigured,
+  geminiConfigured,
 }: GatewayStatusInput): "checking" | "online" | "setup_required" | "offline" {
   if (!healthOk) {
     return "offline";
   }
 
-  if (anthropicConfigured === false) {
+  if (anthropicConfigured === false && geminiConfigured === false) {
     return "setup_required";
   }
 
-  if (anthropicConfigured === true) {
+  if (anthropicConfigured === true || geminiConfigured === true) {
     return "online";
   }
 

@@ -118,6 +118,74 @@ test("public anthropic model list routes bypass proxy auth", async (t) => {
   assert.ok(legacyResponse.headers.get("x-request-id"));
 });
 
+test("public gemini model list route bypasses proxy auth and uses direct Gemini secrets", async (t) => {
+  const previousEnv = {
+    PROXY_API_KEY: process.env.PROXY_API_KEY,
+    AI_INTEGRATIONS_GEMINI_BASE_URL: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL,
+    AI_INTEGRATIONS_GEMINI_API_KEY: process.env.AI_INTEGRATIONS_GEMINI_API_KEY,
+    GEMINI_BASE_URL: process.env.GEMINI_BASE_URL,
+    GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+  };
+
+  process.env.PROXY_API_KEY = "sk-proxy-test";
+  delete process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
+  delete process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+  process.env.GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
+  process.env.GEMINI_API_KEY = "gemini-direct-test-key";
+
+  const originalFetch = globalThis.fetch;
+  let lastRequestUrl = "";
+  let lastRequestHeaders: unknown;
+
+  globalThis.fetch = (async (input, init) => {
+    lastRequestUrl = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    lastRequestHeaders = init?.headers;
+
+    return new Response(JSON.stringify({
+      models: [
+        {
+          name: "models/gemini-2.5-flash",
+          displayName: "Gemini 2.5 Flash",
+        },
+      ],
+    }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  }) as typeof fetch;
+
+  const server = await startAppServer();
+
+  t.after(async () => {
+    globalThis.fetch = originalFetch;
+    await server.close();
+
+    for (const [key, value] of Object.entries(previousEnv)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  });
+
+  const response = await originalFetch(`http://127.0.0.1:${server.port}/api/gemini/v1beta/models`);
+  const body = await response.json() as {
+    models?: Array<{
+      name?: string;
+      displayName?: string;
+    }>;
+  };
+
+  assert.equal(response.status, 200);
+  assert.equal(lastRequestUrl, "https://generativelanguage.googleapis.com/v1beta/models");
+  assert.equal(body.models?.[0]?.name, "models/gemini-2.5-flash");
+
+  const headers = new Headers(lastRequestHeaders as Record<string, string>);
+  assert.equal(headers.get("x-goog-api-key"), "gemini-direct-test-key");
+  assert.ok(response.headers.get("x-request-id"));
+});
+
 test("legacy /api/v1 routes are no longer supported", async (t) => {
   const previousProxyKey = process.env.PROXY_API_KEY;
   process.env.PROXY_API_KEY = "sk-proxy-test";
@@ -147,7 +215,7 @@ test("legacy /api/v1 routes are no longer supported", async (t) => {
   assert.equal(response.status, 404);
 });
 
-test("non-anthropic provider passthrough routes are no longer supported", async (t) => {
+test("non-gemini legacy provider passthrough routes are no longer supported", async (t) => {
   const previousProxyKey = process.env.PROXY_API_KEY;
   process.env.PROXY_API_KEY = "sk-proxy-test";
 
@@ -176,6 +244,54 @@ test("non-anthropic provider passthrough routes are no longer supported", async 
   });
 
   assert.equal(response.status, 404);
+});
+
+test("gemini passthrough returns 503 when Gemini provider is not configured", async (t) => {
+  const previousEnv = {
+    PROXY_API_KEY: process.env.PROXY_API_KEY,
+    AI_INTEGRATIONS_GEMINI_BASE_URL: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL,
+    AI_INTEGRATIONS_GEMINI_API_KEY: process.env.AI_INTEGRATIONS_GEMINI_API_KEY,
+    GEMINI_BASE_URL: process.env.GEMINI_BASE_URL,
+    GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+  };
+
+  process.env.PROXY_API_KEY = "sk-proxy-test";
+  delete process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
+  delete process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+  delete process.env.GEMINI_BASE_URL;
+  delete process.env.GEMINI_API_KEY;
+
+  const server = await startAppServer();
+
+  t.after(async () => {
+    await server.close();
+
+    for (const [key, value] of Object.entries(previousEnv)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  });
+
+  const response = await postJson(`http://127.0.0.1:${server.port}/api/gemini/v1beta/models/gemini-2.5-flash:generateContent`, {
+    headers: {
+      authorization: "Bearer sk-proxy-test",
+    },
+    body: {
+      contents: [{ role: "user", parts: [{ text: "hello" }] }],
+    },
+  });
+
+  assert.equal(response.status, 503);
+  assert.deepEqual(response.body, {
+    error: {
+      message: "Gemini provider not configured",
+      type: "service_unavailable",
+    },
+  });
+  assert.ok(response.headers["x-request-id"]);
 });
 
 test("anthropic assistant-prefill is rejected before any upstream call", async (t) => {
@@ -313,6 +429,163 @@ test("anthropic passthrough accepts direct Anthropic secrets without Replit inte
   assert.equal(lastRequestUrl, "https://anthropic.byok.test/messages");
   const headers = new Headers(lastRequestHeaders as Record<string, string>);
   assert.equal(headers.get("x-api-key"), "anthropic-direct-test-key");
+});
+
+test("gemini passthrough accepts direct Gemini secrets and forwards native generateContent requests", async (t) => {
+  const previousEnv = {
+    PROXY_API_KEY: process.env.PROXY_API_KEY,
+    AI_INTEGRATIONS_GEMINI_BASE_URL: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL,
+    AI_INTEGRATIONS_GEMINI_API_KEY: process.env.AI_INTEGRATIONS_GEMINI_API_KEY,
+    GEMINI_BASE_URL: process.env.GEMINI_BASE_URL,
+    GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+  };
+
+  process.env.PROXY_API_KEY = "sk-proxy-test";
+  delete process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
+  delete process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+  process.env.GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
+  process.env.GEMINI_API_KEY = "gemini-direct-test-key";
+
+  const originalFetch = globalThis.fetch;
+  let fetchCalled = false;
+  let lastRequestUrl = "";
+  let lastRequestHeaders: unknown;
+  let lastRequestBody = "";
+
+  globalThis.fetch = (async (input, init) => {
+    fetchCalled = true;
+    lastRequestUrl = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    lastRequestHeaders = init?.headers;
+    lastRequestBody = typeof init?.body === "string" ? init.body : "";
+
+    return new Response(JSON.stringify({
+      candidates: [
+        {
+          content: {
+            role: "model",
+            parts: [{ text: "hello from gemini" }],
+          },
+          finishReason: "STOP",
+        },
+      ],
+    }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  }) as typeof fetch;
+
+  const server = await startAppServer();
+
+  t.after(async () => {
+    globalThis.fetch = originalFetch;
+    await server.close();
+
+    for (const [key, value] of Object.entries(previousEnv)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  });
+
+  const requestBody = {
+    contents: [{ role: "user", parts: [{ text: "hello" }] }],
+    generationConfig: {
+      temperature: 0.4,
+      maxOutputTokens: 128,
+    },
+  };
+
+  const response = await postJson(`http://127.0.0.1:${server.port}/api/gemini/v1beta/models/gemini-2.5-flash:generateContent`, {
+    headers: {
+      authorization: "Bearer sk-proxy-test",
+    },
+    body: requestBody,
+  });
+
+  assert.equal(response.status, 200);
+  if (!fetchCalled) {
+    throw new Error("Expected Gemini passthrough fetch to be called.");
+  }
+
+  assert.equal(
+    lastRequestUrl,
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+  );
+  assert.deepEqual(JSON.parse(lastRequestBody), requestBody);
+
+  const headers = new Headers(lastRequestHeaders as Record<string, string>);
+  assert.equal(headers.get("x-goog-api-key"), "gemini-direct-test-key");
+  assert.equal(response.body.candidates?.[0]?.content?.parts?.[0]?.text, "hello from gemini");
+});
+
+test("gemini passthrough preserves native streamGenerateContent SSE responses", async (t) => {
+  const previousEnv = {
+    PROXY_API_KEY: process.env.PROXY_API_KEY,
+    AI_INTEGRATIONS_GEMINI_BASE_URL: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL,
+    AI_INTEGRATIONS_GEMINI_API_KEY: process.env.AI_INTEGRATIONS_GEMINI_API_KEY,
+    GEMINI_BASE_URL: process.env.GEMINI_BASE_URL,
+    GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+  };
+
+  process.env.PROXY_API_KEY = "sk-proxy-test";
+  delete process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
+  delete process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+  process.env.GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
+  process.env.GEMINI_API_KEY = "gemini-direct-test-key";
+
+  const originalFetch = globalThis.fetch;
+  let lastRequestUrl = "";
+
+  globalThis.fetch = (async (input) => {
+    lastRequestUrl = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+
+    return new Response(
+      "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"hello\"}]}}]}\n\n",
+      {
+        status: 200,
+        headers: { "content-type": "text/event-stream" },
+      },
+    );
+  }) as typeof fetch;
+
+  const server = await startAppServer();
+
+  t.after(async () => {
+    globalThis.fetch = originalFetch;
+    await server.close();
+
+    for (const [key, value] of Object.entries(previousEnv)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  });
+
+  const response = await originalFetch(`http://127.0.0.1:${server.port}/api/gemini/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: "Bearer sk-proxy-test",
+    },
+    body: JSON.stringify({
+      contents: [{ role: "user", parts: [{ text: "hello" }] }],
+    }),
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("content-type"), "text/event-stream");
+  assert.equal(
+    lastRequestUrl,
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse",
+  );
+  assert.equal(
+    await response.text(),
+    "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"hello\"}]}}]}\n\n",
+  );
 });
 
 test("anthropic passthrough adds task budget beta for opus 4.7 and drops obsolete effort beta", async (t) => {

@@ -69,7 +69,25 @@ async function verifyHealthz() {
   console.log(`verify: GET ${pathname} -> JSON`);
 }
 
-async function verifyModels() {
+async function verifyProxyInfo() {
+  const pathname = "/api/proxy-info";
+  const { response, text, contentType } = await fetchText(pathname);
+
+  assertOk(response, pathname);
+  assertJson(contentType, pathname);
+  const body = parseJson(text, pathname);
+  const anthropicConfigured = body?.integrations?.anthropic?.configured === true;
+  const geminiConfigured = body?.integrations?.gemini?.configured === true;
+
+  if (!anthropicConfigured && !geminiConfigured) {
+    fail(`GET ${pathname} reported no configured providers: ${text}`);
+  }
+
+  console.log(`verify: GET ${pathname} -> anthropic=${anthropicConfigured} gemini=${geminiConfigured}`);
+  return { anthropicConfigured, geminiConfigured };
+}
+
+async function verifyAnthropicModels() {
   const pathname = "/api/anthropic/v1/models";
   const { response, text, contentType } = await fetchText(pathname);
 
@@ -91,10 +109,36 @@ async function verifyModels() {
   console.log(`verify: GET ${pathname} -> ${models.length} models`);
 }
 
+async function verifyGeminiModels() {
+  const pathname = "/api/gemini/v1beta/models";
+  const { response, text, contentType } = await fetchText(pathname);
+
+  assertOk(response, pathname);
+  assertJson(contentType, pathname);
+  const body = parseJson(text, pathname);
+  const models = Array.isArray(body?.models)
+    ? body.models
+    : Array.isArray(body?.data)
+      ? body.data
+      : null;
+
+  if (!models || models.length === 0) {
+    fail(`GET ${pathname} returned an unexpected payload: ${text}`);
+  }
+
+  console.log(`verify: GET ${pathname} -> ${models.length} models`);
+}
+
 try {
   await verifyRoot();
   await verifyHealthz();
-  await verifyModels();
+  const providers = await verifyProxyInfo();
+  if (providers.anthropicConfigured) {
+    await verifyAnthropicModels();
+  }
+  if (providers.geminiConfigured) {
+    await verifyGeminiModels();
+  }
   console.log(`verify: Replit runtime checks passed for ${baseUrl}`);
 } catch (error) {
   fail(`verify: unexpected failure: ${error instanceof Error ? error.stack || error.message : String(error)}`);

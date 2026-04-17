@@ -59,6 +59,8 @@ Deploy:
 - Run command: \`pnpm start\`
 - Default Proxy Key: \`sk-proxy-6f2d0c9a47b13e8d5f71a2c46be93d07f8c1a54e692db3fc\`
 - To override, set \`PROXY_API_KEY\`
+- Anthropic: enable Replit integration
+- Gemini: set \`GEMINI_API_KEY\` (optionally \`GEMINI_BASE_URL\`)
 `,
   "replit.md": `# Replit Runtime
 
@@ -66,7 +68,7 @@ Deploy:
 
 执行顺序：
 
-1. 启用 Anthropic integration。
+1. 启用 Anthropic integration，或设置 \`GEMINI_API_KEY\`（可选 \`GEMINI_BASE_URL\`）。
 2. 运行 \`pnpm install\`。
 3. 运行 \`pnpm start\`。
 4. 运行 \`pnpm run verify:replit\`。
@@ -80,7 +82,9 @@ Deploy:
 
 - \`GET /\` 返回状态页 HTML
 - \`GET /api/healthz\` 返回 JSON
-- \`GET /api/anthropic/v1/models\` 返回 JSON 模型列表
+- \`GET /api/proxy-info\` 返回 JSON 且至少一个 provider 已配置
+- 已启用 Anthropic 时，\`GET /api/anthropic/v1/models\` 返回 JSON 模型列表
+- 已设置 Gemini 时，\`GET /api/gemini/v1beta/models\` 返回 JSON 模型列表
 `,
 };
 const releaseVariants = [
@@ -127,7 +131,7 @@ function releasePrompt(title) {
 
 执行：
 1. 解压到 Replit 项目根目录。
-2. 只启用 Anthropic integration。
+2. 启用 Anthropic integration，或设置 \`GEMINI_API_KEY\`（可选 \`GEMINI_BASE_URL\`）。
 3. 运行 \`pnpm install\`。
 4. 运行 \`pnpm start\`。
 5. 运行 \`pnpm run verify:replit\`。

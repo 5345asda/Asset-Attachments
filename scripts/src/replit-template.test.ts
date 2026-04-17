@@ -9,6 +9,7 @@ import {
   getHealthzUrl,
   getProxyInfoUrl,
   getAnthropicBaseUrl,
+  getGeminiBaseUrl,
   getGatewayStatus,
 } from "../../artifacts/status-page/src/lib/runtime-config.ts";
 
@@ -53,6 +54,12 @@ test("runtime config URLs are derived from the resolved API origin", () => {
     `${expectedOrigin}/api/anthropic`,
   );
   assert.equal(
+    getGeminiBaseUrl({
+      locationOrigin: expectedOrigin,
+    }),
+    `${expectedOrigin}/api/gemini`,
+  );
+  assert.equal(
     getAxonHubSyncUrl({
       locationOrigin: expectedOrigin,
     }),
@@ -76,7 +83,19 @@ test("gateway status reports setup_required when provider integration is missing
     getGatewayStatus({
       healthOk: true,
       anthropicConfigured: false,
+      geminiConfigured: false,
     }),
     "setup_required",
+  );
+});
+
+test("gateway status reports online when Gemini is configured even without Anthropic", () => {
+  assert.equal(
+    getGatewayStatus({
+      healthOk: true,
+      anthropicConfigured: false,
+      geminiConfigured: true,
+    }),
+    "online",
   );
 });

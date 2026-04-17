@@ -125,6 +125,10 @@ test("proxy-info exposes Anthropic integration readiness for deployment checks",
   const previousApiKey = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY;
   const previousDirectBaseUrl = process.env.ANTHROPIC_BASE_URL;
   const previousDirectApiKey = process.env.ANTHROPIC_API_KEY;
+  const previousGeminiIntegrationBaseUrl = process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
+  const previousGeminiIntegrationApiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+  const previousGeminiDirectBaseUrl = process.env.GEMINI_BASE_URL;
+  const previousGeminiDirectApiKey = process.env.GEMINI_API_KEY;
   const previousProxyKey = process.env.PROXY_API_KEY;
   const port = await getFreePort();
 
@@ -132,6 +136,10 @@ test("proxy-info exposes Anthropic integration readiness for deployment checks",
   delete process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY;
   delete process.env.ANTHROPIC_BASE_URL;
   delete process.env.ANTHROPIC_API_KEY;
+  delete process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
+  delete process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+  delete process.env.GEMINI_BASE_URL;
+  delete process.env.GEMINI_API_KEY;
   process.env.PROXY_API_KEY = "sk-proxy-test";
 
   try {
@@ -148,11 +156,15 @@ test("proxy-info exposes Anthropic integration readiness for deployment checks",
           anthropic?: {
             configured?: boolean;
           };
+          gemini?: {
+            configured?: boolean;
+          };
         };
       };
 
       assert.equal(body.ready, false);
       assert.equal(body.integrations?.anthropic?.configured, false);
+      assert.equal(body.integrations?.gemini?.configured, false);
     } finally {
       await new Promise<void>((resolve, reject) => {
         server.close((error) => {
@@ -188,6 +200,30 @@ test("proxy-info exposes Anthropic integration readiness for deployment checks",
       delete process.env.ANTHROPIC_API_KEY;
     } else {
       process.env.ANTHROPIC_API_KEY = previousDirectApiKey;
+    }
+
+    if (previousGeminiIntegrationBaseUrl === undefined) {
+      delete process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
+    } else {
+      process.env.AI_INTEGRATIONS_GEMINI_BASE_URL = previousGeminiIntegrationBaseUrl;
+    }
+
+    if (previousGeminiIntegrationApiKey === undefined) {
+      delete process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+    } else {
+      process.env.AI_INTEGRATIONS_GEMINI_API_KEY = previousGeminiIntegrationApiKey;
+    }
+
+    if (previousGeminiDirectBaseUrl === undefined) {
+      delete process.env.GEMINI_BASE_URL;
+    } else {
+      process.env.GEMINI_BASE_URL = previousGeminiDirectBaseUrl;
+    }
+
+    if (previousGeminiDirectApiKey === undefined) {
+      delete process.env.GEMINI_API_KEY;
+    } else {
+      process.env.GEMINI_API_KEY = previousGeminiDirectApiKey;
     }
 
     if (previousProxyKey === undefined) {
@@ -203,6 +239,10 @@ test("proxy-info reports Anthropic ready when direct Anthropic secrets are provi
   const previousApiKey = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY;
   const previousDirectBaseUrl = process.env.ANTHROPIC_BASE_URL;
   const previousDirectApiKey = process.env.ANTHROPIC_API_KEY;
+  const previousGeminiIntegrationBaseUrl = process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
+  const previousGeminiIntegrationApiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+  const previousGeminiDirectBaseUrl = process.env.GEMINI_BASE_URL;
+  const previousGeminiDirectApiKey = process.env.GEMINI_API_KEY;
   const previousProxyKey = process.env.PROXY_API_KEY;
   const port = await getFreePort();
 
@@ -210,6 +250,10 @@ test("proxy-info reports Anthropic ready when direct Anthropic secrets are provi
   delete process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY;
   process.env.ANTHROPIC_BASE_URL = "https://anthropic.byok.test";
   process.env.ANTHROPIC_API_KEY = "anthropic-direct-test-key";
+  delete process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
+  delete process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+  delete process.env.GEMINI_BASE_URL;
+  delete process.env.GEMINI_API_KEY;
   process.env.PROXY_API_KEY = "sk-proxy-test";
 
   try {
@@ -226,11 +270,15 @@ test("proxy-info reports Anthropic ready when direct Anthropic secrets are provi
           anthropic?: {
             configured?: boolean;
           };
+          gemini?: {
+            configured?: boolean;
+          };
         };
       };
 
       assert.equal(body.ready, true);
       assert.equal(body.integrations?.anthropic?.configured, true);
+      assert.equal(body.integrations?.gemini?.configured, false);
     } finally {
       await new Promise<void>((resolve, reject) => {
         server.close((error) => {
@@ -266,6 +314,144 @@ test("proxy-info reports Anthropic ready when direct Anthropic secrets are provi
       delete process.env.ANTHROPIC_API_KEY;
     } else {
       process.env.ANTHROPIC_API_KEY = previousDirectApiKey;
+    }
+
+    if (previousGeminiIntegrationBaseUrl === undefined) {
+      delete process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
+    } else {
+      process.env.AI_INTEGRATIONS_GEMINI_BASE_URL = previousGeminiIntegrationBaseUrl;
+    }
+
+    if (previousGeminiIntegrationApiKey === undefined) {
+      delete process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+    } else {
+      process.env.AI_INTEGRATIONS_GEMINI_API_KEY = previousGeminiIntegrationApiKey;
+    }
+
+    if (previousGeminiDirectBaseUrl === undefined) {
+      delete process.env.GEMINI_BASE_URL;
+    } else {
+      process.env.GEMINI_BASE_URL = previousGeminiDirectBaseUrl;
+    }
+
+    if (previousGeminiDirectApiKey === undefined) {
+      delete process.env.GEMINI_API_KEY;
+    } else {
+      process.env.GEMINI_API_KEY = previousGeminiDirectApiKey;
+    }
+
+    if (previousProxyKey === undefined) {
+      delete process.env.PROXY_API_KEY;
+    } else {
+      process.env.PROXY_API_KEY = previousProxyKey;
+    }
+  }
+});
+
+test("proxy-info reports ready when direct Gemini secrets are provided", async () => {
+  const previousBaseUrl = process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL;
+  const previousApiKey = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY;
+  const previousDirectBaseUrl = process.env.ANTHROPIC_BASE_URL;
+  const previousDirectApiKey = process.env.ANTHROPIC_API_KEY;
+  const previousGeminiIntegrationBaseUrl = process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
+  const previousGeminiIntegrationApiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+  const previousGeminiDirectBaseUrl = process.env.GEMINI_BASE_URL;
+  const previousGeminiDirectApiKey = process.env.GEMINI_API_KEY;
+  const previousProxyKey = process.env.PROXY_API_KEY;
+  const port = await getFreePort();
+
+  delete process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL;
+  delete process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY;
+  delete process.env.ANTHROPIC_BASE_URL;
+  delete process.env.ANTHROPIC_API_KEY;
+  delete process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
+  delete process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+  process.env.GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
+  process.env.GEMINI_API_KEY = "gemini-direct-test-key";
+  process.env.PROXY_API_KEY = "sk-proxy-test";
+
+  try {
+    const { default: app } = await import("../../artifacts/api-server/src/app.ts");
+    const server = app.listen(port);
+
+    try {
+      const response = await fetch(`http://127.0.0.1:${port}/api/proxy-info`);
+      assert.equal(response.status, 200);
+
+      const body = await response.json() as {
+        ready?: boolean;
+        integrations?: {
+          anthropic?: {
+            configured?: boolean;
+          };
+          gemini?: {
+            configured?: boolean;
+          };
+        };
+      };
+
+      assert.equal(body.ready, true);
+      assert.equal(body.integrations?.anthropic?.configured, false);
+      assert.equal(body.integrations?.gemini?.configured, true);
+    } finally {
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+
+          resolve();
+        });
+      });
+    }
+  } finally {
+    if (previousBaseUrl === undefined) {
+      delete process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL;
+    } else {
+      process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL = previousBaseUrl;
+    }
+
+    if (previousApiKey === undefined) {
+      delete process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY;
+    } else {
+      process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY = previousApiKey;
+    }
+
+    if (previousDirectBaseUrl === undefined) {
+      delete process.env.ANTHROPIC_BASE_URL;
+    } else {
+      process.env.ANTHROPIC_BASE_URL = previousDirectBaseUrl;
+    }
+
+    if (previousDirectApiKey === undefined) {
+      delete process.env.ANTHROPIC_API_KEY;
+    } else {
+      process.env.ANTHROPIC_API_KEY = previousDirectApiKey;
+    }
+
+    if (previousGeminiIntegrationBaseUrl === undefined) {
+      delete process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
+    } else {
+      process.env.AI_INTEGRATIONS_GEMINI_BASE_URL = previousGeminiIntegrationBaseUrl;
+    }
+
+    if (previousGeminiIntegrationApiKey === undefined) {
+      delete process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+    } else {
+      process.env.AI_INTEGRATIONS_GEMINI_API_KEY = previousGeminiIntegrationApiKey;
+    }
+
+    if (previousGeminiDirectBaseUrl === undefined) {
+      delete process.env.GEMINI_BASE_URL;
+    } else {
+      process.env.GEMINI_BASE_URL = previousGeminiDirectBaseUrl;
+    }
+
+    if (previousGeminiDirectApiKey === undefined) {
+      delete process.env.GEMINI_API_KEY;
+    } else {
+      process.env.GEMINI_API_KEY = previousGeminiDirectApiKey;
     }
 
     if (previousProxyKey === undefined) {

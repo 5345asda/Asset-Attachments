@@ -7,11 +7,12 @@ import {
   getDefaultAxonHubAdminToken,
   getHealthzUrl,
   getAnthropicBaseUrl,
+  getGeminiBaseUrl,
   getProxyInfoUrl,
   getGatewayStatus,
 } from "@/lib/runtime-config";
 
-const MODELS = [
+const CLAUDE_MODELS = [
   "claude-opus-4-7",
   "claude-opus-4-6",
   "claude-opus-4-5",
@@ -23,6 +24,11 @@ const MODELS = [
   "claude-3-opus-20240229",
   "claude-3-sonnet-20240229",
   "claude-3-haiku-20240307",
+];
+
+const GEMINI_MODELS = [
+  "gemini-2.5-pro",
+  "gemini-2.5-flash",
 ];
 
 function useCopy() {
@@ -108,8 +114,11 @@ export default function StatusPage() {
   }>(null);
   const [showCurl, setShowCurl] = useState(false);
   const [showToolCall, setShowToolCall] = useState(false);
+  const [showGeminiCurl, setShowGeminiCurl] = useState(false);
   const [healthOk, setHealthOk] = useState(false);
   const [anthropicConfigured, setAnthropicConfigured] = useState<boolean | null>(null);
+  const [geminiConfigured, setGeminiConfigured] = useState<boolean | null>(null);
+  const [geminiBaseUrl, setGeminiBaseUrl] = useState("");
   const axonhubOrigin = getAxonHubOrigin();
 
   useEffect(() => {
@@ -117,21 +126,24 @@ export default function StatusPage() {
       locationOrigin: window.location.origin,
       overrideOrigin: apiOriginOverride,
     };
-    const base = getAnthropicBaseUrl(runtimeConfig);
+    const anthropicBase = getAnthropicBaseUrl(runtimeConfig);
+    const geminiBase = getGeminiBaseUrl(runtimeConfig);
 
-    setBaseUrl(base);
+    setBaseUrl(anthropicBase);
+    setGeminiBaseUrl(geminiBase);
 
     fetch(getProxyInfoUrl(runtimeConfig))
       .then((r) => r.json())
       .then((d) => {
         setProxyKey(d.proxyKey || "");
         setAnthropicConfigured(d.integrations?.anthropic?.configured === true);
+        setGeminiConfigured(d.integrations?.gemini?.configured === true);
       })
       .catch(() => {});
   }, [apiOriginOverride]);
 
   useEffect(() => {
-    if (!baseUrl) return;
+    if (!baseUrl && !geminiBaseUrl) return;
 
     fetch(
       getHealthzUrl({
@@ -146,6 +158,7 @@ export default function StatusPage() {
   const status = getGatewayStatus({
     healthOk,
     anthropicConfigured,
+    geminiConfigured,
   });
 
   const maskedKey = showKey ? proxyKey : (proxyKey ? proxyKey.slice(0, 10) + "••••••••••••••••••••" : "loading...");
@@ -181,6 +194,16 @@ export default function StatusPage() {
       }
     }],
     "tool_choice": {"type": "auto"}
+  }'`;
+
+  const geminiCurlExample = `curl ${geminiBaseUrl}/v1beta/models/gemini-2.5-flash:generateContent \\
+  -H "x-api-key: ${proxyKey}" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "contents": [{
+      "role": "user",
+      "parts": [{"text": "Hello!"}]
+    }]
   }'`;
 
   const fetchExample = `const response = await fetch("${baseUrl}/v1/messages", {
@@ -278,8 +301,8 @@ console.log(data);`;
               <Zap className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold tracking-tight">Anthropic Proxy</h1>
-              <p className="text-sm text-muted-foreground">Only Anthropic native endpoints are exposed</p>
+              <h1 className="text-2xl font-bold tracking-tight">AI Proxy Gateway</h1>
+              <p className="text-sm text-muted-foreground">Anthropic + Gemini native endpoints are exposed</p>
             </div>
             <div className="ml-auto flex items-center gap-2">
               <span className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-medium ${
@@ -315,13 +338,13 @@ console.log(data);`;
         {status === "setup_required" && (
           <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 mb-8">
             <p className="text-sm text-amber-100">
-              Replit 项目还没有注入 Anthropic integration。先在当前项目启用 Replit Anthropic 集成，再重新运行。
+              当前项目还没有可用 provider。Anthropic 需要启用 Replit integration；Gemini 需要设置 `GEMINI_API_KEY`，可选覆盖 `GEMINI_BASE_URL`。
             </p>
           </div>
         )}
 
         {/* Credentials Section */}
-        <div className="grid gap-4 sm:grid-cols-2 mb-8">
+        <div className="grid gap-4 lg:grid-cols-3 mb-8">
           {/* Base URL */}
           <div className="rounded-xl border border-card-border bg-card p-5">
             <div className="flex items-center gap-2 mb-3">
@@ -336,6 +359,22 @@ console.log(data);`;
             </div>
             <p className="text-xs text-muted-foreground mt-2">
               Use as the request prefix for Anthropic-compatible calls
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-card-border bg-card p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <Globe className="w-4 h-4 text-primary" />
+              <span className="text-sm font-semibold text-foreground">Gemini Base URL</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 text-xs font-mono text-emerald-400 bg-black/30 rounded-lg px-3 py-2 border border-white/8 truncate">
+                {geminiBaseUrl || "Loading..."}
+              </code>
+              {geminiBaseUrl && <CopyButton text={geminiBaseUrl} id="gemini-base-url" />}
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              Use as the request prefix for Gemini native REST calls
             </p>
           </div>
 
@@ -473,6 +512,8 @@ console.log(data);`;
             {[
               { method: "GET", path: "/v1/models", desc: "List available Claude models" },
               { method: "POST", path: "/v1/messages", desc: "Anthropic native messages API (streaming supported)" },
+              { method: "GET", path: "/v1beta/models", desc: "List available Gemini models" },
+              { method: "POST", path: "/v1beta/models/{model}:generateContent", desc: "Gemini native generateContent API" },
             ].map((ep) => (
               <div key={ep.path} className="flex items-start gap-3 p-3 rounded-lg bg-black/20 border border-white/5">
                 <span className={`mt-0.5 shrink-0 text-xs font-bold px-1.5 py-0.5 rounded font-mono ${
@@ -493,19 +534,38 @@ console.log(data);`;
         <div className="rounded-xl border border-card-border bg-card p-5 mb-8">
           <div className="flex items-center gap-2 mb-4">
             <Code2 className="w-4 h-4 text-primary" />
-            <span className="text-sm font-semibold text-foreground">Available Claude Models</span>
-            <span className="ml-auto text-xs text-muted-foreground">{MODELS.length} models</span>
+            <span className="text-sm font-semibold text-foreground">Available Models</span>
+            <span className="ml-auto text-xs text-muted-foreground">{CLAUDE_MODELS.length + GEMINI_MODELS.length} models</span>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {MODELS.map((model) => (
-              <div
-                key={model}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium text-orange-400 bg-orange-500/10 border-orange-500/20"
-              >
-                <span className="font-mono">{model}</span>
-                <CopyButton text={model} id={`model-${model}`} />
+          <div className="space-y-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Claude</p>
+              <div className="flex flex-wrap gap-2">
+                {CLAUDE_MODELS.map((model) => (
+                  <div
+                    key={model}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium text-orange-400 bg-orange-500/10 border-orange-500/20"
+                  >
+                    <span className="font-mono">{model}</span>
+                    <CopyButton text={model} id={`model-${model}`} />
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Gemini</p>
+              <div className="flex flex-wrap gap-2">
+                {GEMINI_MODELS.map((model) => (
+                  <div
+                    key={model}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
+                  >
+                    <span className="font-mono">{model}</span>
+                    <CopyButton text={model} id={`model-${model}`} />
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -539,7 +599,7 @@ console.log(data);`;
             >
               <div className="flex items-center gap-2">
                 <Code2 className="w-4 h-4 text-primary" />
-                <span className="text-sm font-semibold">curl - Basic Message</span>
+                <span className="text-sm font-semibold">Anthropic curl - Basic Message</span>
               </div>
               {showCurl ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
             </button>
@@ -557,13 +617,31 @@ console.log(data);`;
             >
               <div className="flex items-center gap-2">
                 <Code2 className="w-4 h-4 text-primary" />
-                <span className="text-sm font-semibold">curl - Tool Calling</span>
+                <span className="text-sm font-semibold">Anthropic curl - Tool Calling</span>
               </div>
               {showToolCall ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
             </button>
             {showToolCall && (
               <div className="mt-2">
                 <CodeBlock code={toolCallExample} language="bash" id="curl-tools" />
+              </div>
+            )}
+          </div>
+
+          <div>
+            <button
+              onClick={() => setShowGeminiCurl(!showGeminiCurl)}
+              className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-card-border bg-card hover:bg-white/5 transition-all group"
+            >
+              <div className="flex items-center gap-2">
+                <Code2 className="w-4 h-4 text-primary" />
+                <span className="text-sm font-semibold">Gemini curl - generateContent</span>
+              </div>
+              {showGeminiCurl ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+            </button>
+            {showGeminiCurl && (
+              <div className="mt-2">
+                <CodeBlock code={geminiCurlExample} language="bash" id="curl-gemini" />
               </div>
             )}
           </div>
@@ -580,7 +658,7 @@ console.log(data);`;
 
         {/* Footer */}
         <div className="text-center text-xs text-muted-foreground pt-4 border-t border-white/5">
-          <p>Anthropic native proxy · Powered by Replit AI Integrations</p>
+          <p>Anthropic + Gemini native proxy · Powered by Replit AI Integrations</p>
         </div>
       </div>
     </div>
