@@ -61,6 +61,7 @@ Deploy:
 - To override, set \`PROXY_API_KEY\`
 - Anthropic: enable Replit integration
 - Gemini: set \`GEMINI_API_KEY\` (optionally \`GEMINI_BASE_URL\`)
+- If you need both providers, configure both separately
 `,
   "replit.md": `# Replit Runtime
 
@@ -68,7 +69,7 @@ Deploy:
 
 执行顺序：
 
-1. 启用 Anthropic integration，或设置 \`GEMINI_API_KEY\`（可选 \`GEMINI_BASE_URL\`）。
+1. 按需分别配置 provider：Anthropic 启用 Replit integration；如果要启用 Gemini 原生接口，再设置 \`GEMINI_API_KEY\`（可选 \`GEMINI_BASE_URL\`）。
 2. 运行 \`pnpm install\`。
 3. 运行 \`pnpm start\`。
 4. 运行 \`pnpm run verify:replit\`。
@@ -131,7 +132,7 @@ function releasePrompt(title) {
 
 执行：
 1. 解压到 Replit 项目根目录。
-2. 启用 Anthropic integration，或设置 \`GEMINI_API_KEY\`（可选 \`GEMINI_BASE_URL\`）。
+2. 按需分别配置 provider：Anthropic 启用 Replit integration；如果要启用 Gemini 原生接口，再设置 \`GEMINI_API_KEY\`（可选 \`GEMINI_BASE_URL\`）。
 3. 运行 \`pnpm install\`。
 4. 运行 \`pnpm start\`。
 5. 运行 \`pnpm run verify:replit\`。

@@ -223,6 +223,23 @@ export default function StatusPage() {
 const data = await response.json();
 console.log(data);`;
 
+  const geminiFetchExample = `const response = await fetch("${geminiBaseUrl}/v1beta/models/gemini-2.5-flash:generateContent", {
+  method: "POST",
+  headers: {
+    "x-api-key": "${proxyKey}",
+    "content-type": "application/json",
+  },
+  body: JSON.stringify({
+    contents: [{
+      role: "user",
+      parts: [{ text: "Hello!" }],
+    }],
+  }),
+});
+
+const data = await response.json();
+console.log(data);`;
+
   async function handleAxonHubSync() {
     if (!canSyncAxonHub) {
       return;
@@ -338,7 +355,7 @@ console.log(data);`;
         {status === "setup_required" && (
           <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 mb-8">
             <p className="text-sm text-amber-100">
-              当前项目还没有可用 provider。Anthropic 需要启用 Replit integration；Gemini 需要设置 `GEMINI_API_KEY`，可选覆盖 `GEMINI_BASE_URL`。
+              当前项目还没有可用 provider。Anthropic 需要启用 Replit integration；如果还要启用 Gemini 原生接口，需要额外设置 `GEMINI_API_KEY`，可选覆盖 `GEMINI_BASE_URL`。
             </p>
           </div>
         )}
@@ -375,6 +392,11 @@ console.log(data);`;
             </div>
             <p className="text-xs text-muted-foreground mt-2">
               Use as the request prefix for Gemini native REST calls
+            </p>
+            <p className="text-xs text-amber-200/90 mt-2">
+              Gemini does not support <code className="text-xs bg-white/5 px-1 rounded">/openai/chat/completions</code>.
+              Use <code className="text-xs bg-white/5 px-1 rounded">/v1beta/models/{`{model}`}:generateContent</code> or
+              <code className="text-xs bg-white/5 px-1 rounded ml-1">:streamGenerateContent?alt=sse</code>.
             </p>
           </div>
 
@@ -651,14 +673,23 @@ console.log(data);`;
         <div className="rounded-xl border border-card-border bg-card p-5 mb-8">
           <div className="flex items-center gap-2 mb-4">
             <Code2 className="w-4 h-4 text-primary" />
-            <span className="text-sm font-semibold">JavaScript Fetch Example</span>
+            <span className="text-sm font-semibold">JavaScript Fetch Examples</span>
           </div>
-          <CodeBlock code={fetchExample} language="TypeScript" id="fetch-example" />
+          <div className="space-y-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Anthropic</p>
+              <CodeBlock code={fetchExample} language="TypeScript" id="fetch-example-anthropic" />
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Gemini Native</p>
+              <CodeBlock code={geminiFetchExample} language="TypeScript" id="fetch-example-gemini" />
+            </div>
+          </div>
         </div>
 
         {/* Footer */}
         <div className="text-center text-xs text-muted-foreground pt-4 border-t border-white/5">
-          <p>Anthropic + Gemini native proxy · Powered by Replit AI Integrations</p>
+          <p>Anthropic + Gemini native proxy · Replit-ready deployment</p>
         </div>
       </div>
     </div>

@@ -225,3 +225,14 @@ test("replit.md starts with a one-shot instruction block for Replit AI", async (
   assert.match(guide, /Build command: `pnpm run build:deploy`/);
   assert.match(guide, /Run command: `pnpm start`/);
 });
+
+test("status page warns that Gemini does not support OpenAI chat completions", async () => {
+  const page = await readFile(
+    path.join(repoRoot, "artifacts", "status-page", "src", "pages", "status-page.tsx"),
+    "utf8",
+  );
+
+  assert.match(page, /Gemini/i);
+  assert.match(page, /\/openai\/chat\/completions/);
+  assert.match(page, /generateContent/);
+});

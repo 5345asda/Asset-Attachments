@@ -118,7 +118,7 @@ test("public anthropic model list routes bypass proxy auth", async (t) => {
   assert.ok(legacyResponse.headers.get("x-request-id"));
 });
 
-test("public gemini model list route bypasses proxy auth and uses direct Gemini secrets", async (t) => {
+test("public gemini model list routes return a static list without provider config", async (t) => {
   const previousEnv = {
     PROXY_API_KEY: process.env.PROXY_API_KEY,
     AI_INTEGRATIONS_GEMINI_BASE_URL: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL,
@@ -130,28 +130,16 @@ test("public gemini model list route bypasses proxy auth and uses direct Gemini 
   process.env.PROXY_API_KEY = "sk-proxy-test";
   delete process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
   delete process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
-  process.env.GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
-  process.env.GEMINI_API_KEY = "gemini-direct-test-key";
+  delete process.env.GEMINI_BASE_URL;
+  delete process.env.GEMINI_API_KEY;
 
   const originalFetch = globalThis.fetch;
-  let lastRequestUrl = "";
-  let lastRequestHeaders: unknown;
+  let upstreamCalls = 0;
 
   globalThis.fetch = (async (input, init) => {
-    lastRequestUrl = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
-    lastRequestHeaders = init?.headers;
+    upstreamCalls += 1;
 
-    return new Response(JSON.stringify({
-      models: [
-        {
-          name: "models/gemini-2.5-flash",
-          displayName: "Gemini 2.5 Flash",
-        },
-      ],
-    }), {
-      status: 200,
-      headers: { "content-type": "application/json" },
-    });
+    throw new Error(`Unexpected upstream fetch in public model route: ${String(input)} ${String(init?.method ?? "GET")}`);
   }) as typeof fetch;
 
   const server = await startAppServer();
@@ -173,17 +161,23 @@ test("public gemini model list route bypasses proxy auth and uses direct Gemini 
   const body = await response.json() as {
     models?: Array<{
       name?: string;
+      version?: string;
       displayName?: string;
+      supportedGenerationMethods?: string[];
     }>;
   };
+  const legacyResponse = await originalFetch(`http://127.0.0.1:${server.port}/api/gemini/models`);
+  const legacyBody = await legacyResponse.json() as typeof body;
 
   assert.equal(response.status, 200);
-  assert.equal(lastRequestUrl, "https://generativelanguage.googleapis.com/v1beta/models");
-  assert.equal(body.models?.[0]?.name, "models/gemini-2.5-flash");
-
-  const headers = new Headers(lastRequestHeaders as Record<string, string>);
-  assert.equal(headers.get("x-goog-api-key"), "gemini-direct-test-key");
+  assert.equal(legacyResponse.status, 200);
+  assert.equal(upstreamCalls, 0);
+  assert.equal(body.models?.[0]?.name, "models/gemini-3.1-pro-preview");
+  assert.equal(body.models?.[0]?.version, "gemini-3.1-pro-preview");
+  assert.deepEqual(body.models?.[0]?.supportedGenerationMethods, ["generateContent", "streamGenerateContent"]);
+  assert.deepEqual(legacyBody, body);
   assert.ok(response.headers.get("x-request-id"));
+  assert.ok(legacyResponse.headers.get("x-request-id"));
 });
 
 test("legacy /api/v1 routes are no longer supported", async (t) => {

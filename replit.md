@@ -7,7 +7,7 @@
 如果你只能做一轮对话，就直接执行下面这段，不要自己推断其它部署拓扑：
 
 ```text
-这是一个单入口 Replit 原生接口模板。只看根目录 .replit 和根 package.json，不要根据 README、旧 prompt、历史 artifact 说明推断部署方式。解压前如发现旧残留，先在项目根目录执行 rm -rf artifacts/mockup-sandbox artifacts/api-portal artifacts/api-server/.replit-artifact artifacts/status-page/.replit-artifact；解压后目标只保留 artifacts/api-server 和 artifacts/status-page。普通 upload 包故意不覆盖根 .replit；如果平台阻止覆盖根 .replit，不要停下来，只确认当前 .replit 满足 run=pnpm dev、deployment build=pnpm run build:deploy、deployment run=pnpm start。不要拆分前后端，不要新建、修改或切换 workflow、artifact 或临时脚本，不要修改业务代码来迁就 Deploy 面板。Anthropic 需要启用 Replit integration；Gemini 需要设置 GEMINI_API_KEY，可选覆盖 GEMINI_BASE_URL。然后执行 pnpm install。Run 用 pnpm dev。Deploy 面板固定填写：Build command: pnpm run build:deploy；Run command: pnpm start。部署后检查 /、/api/healthz、/api/proxy-info，并按已配置 provider 继续检查 /api/anthropic/v1/models 或 /api/gemini/v1beta/models；其中 models 路由必须返回 JSON，不能返回 HTML 或鉴权错误。
+这是一个单入口 Replit 原生接口模板。只看根目录 .replit 和根 package.json，不要根据 README、旧 prompt、历史 artifact 说明推断部署方式。解压前如发现旧残留，先在项目根目录执行 rm -rf artifacts/mockup-sandbox artifacts/api-portal artifacts/api-server/.replit-artifact artifacts/status-page/.replit-artifact；解压后目标只保留 artifacts/api-server 和 artifacts/status-page。普通 upload 包故意不覆盖根 .replit；如果平台阻止覆盖根 .replit，不要停下来，只确认当前 .replit 满足 run=pnpm dev、deployment build=pnpm run build:deploy、deployment run=pnpm start。不要拆分前后端，不要新建、修改或切换 workflow、artifact 或临时脚本，不要修改业务代码来迁就 Deploy 面板。Anthropic 需要启用 Replit integration；如果还要启用 Gemini 原生接口，需要额外设置 GEMINI_API_KEY，可选覆盖 GEMINI_BASE_URL。然后执行 pnpm install。Run 用 pnpm dev。Deploy 面板固定填写：Build command: pnpm run build:deploy；Run command: pnpm start。部署后检查 /、/api/healthz、/api/proxy-info，并按已配置 provider 继续检查 /api/anthropic/v1/models 或 /api/gemini/v1beta/models；其中 models 路由必须返回 JSON，不能返回 HTML 或鉴权错误。
 ```
 
 Deploy 面板固定填写：
@@ -36,7 +36,7 @@ Deploy 面板固定填写：
 1. 如果是 zip 上传，先在项目根目录清理旧残留：
    `rm -rf artifacts/mockup-sandbox artifacts/api-portal artifacts/api-server/.replit-artifact artifacts/status-page/.replit-artifact`
 2. 把 zip 解压到当前 Replit 项目根目录。
-3. 启用 Anthropic integration，或设置 `GEMINI_API_KEY`（可选 `GEMINI_BASE_URL`）。
+3. 按需分别配置 provider：Anthropic 启用 Replit integration；如果要启用 Gemini 原生接口，再设置 `GEMINI_API_KEY`（可选 `GEMINI_BASE_URL`）。
 4. 执行 `pnpm install`。
 5. Run 使用 `pnpm dev`。
 6. Publish / Deploy 使用 Autoscale，Build command=`pnpm run build:deploy`，Run command=`pnpm start`。

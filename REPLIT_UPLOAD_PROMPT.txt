@@ -1,4 +1,4 @@
-这是一个 zip 上传的单入口 Replit Anthropic 模板。严格按当前 zip 部署，只看根目录 `.replit` 和根目录 `package.json`，不要根据 README、旧 prompt、历史 artifact 说明推断部署方式。
+这是一个 zip 上传的单入口 Replit 原生接口模板。严格按当前 zip 部署，只看根目录 `.replit` 和根目录 `package.json`，不要根据 README、旧 prompt、历史 artifact 说明推断部署方式。
 
 先读顺序固定：
 1. 根目录 `.replit`
@@ -15,7 +15,9 @@
    - `run = pnpm dev`
    - `deployment build = pnpm run build:deploy`
    - `deployment run = pnpm start`
-5. 只启用 Anthropic integration。
+5. 按需配置 provider：
+   - Anthropic：启用 Replit integration。
+   - Gemini：如果要启用 Gemini 原生接口，再设置 `GEMINI_API_KEY`；可选覆盖 `GEMINI_BASE_URL`。
 6. 执行 `pnpm install`。
 7. Run 使用 `pnpm dev`。
 8. Publish / Deploy 使用 Autoscale：
@@ -32,4 +34,6 @@
 验收：
 - `GET /` 返回状态页 HTML。
 - `GET /api/healthz` 返回 JSON。
-- `GET /api/anthropic/v1/models` 返回 JSON 模型列表，不能返回 HTML，也不能返回鉴权错误。
+- `GET /api/proxy-info` 返回 JSON，且至少有一个 provider 的 `configured=true`。
+- 如果启用了 Anthropic，`GET /api/anthropic/v1/models` 返回 JSON 模型列表，不能返回 HTML，也不能返回鉴权错误。
+- 如果设置了 Gemini，`GET /api/gemini/v1beta/models` 返回 JSON 模型列表，不能返回 HTML，也不能返回鉴权错误。

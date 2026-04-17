@@ -2,13 +2,28 @@ import { Router, type IRouter, type Request, type Response, type NextFunction } 
 import healthRouter from "./health";
 import axonhubRouter from "./axonhub";
 import passthroughRouter from "./passthrough";
-import geminiRouter, { proxyGeminiRequest } from "./gemini";
+import geminiRouter from "./gemini";
 import { PROXY_API_KEY } from "../lib/proxy-key";
 import { ApiError } from "../lib/api-error";
 import { getRequestLogger } from "../lib/request-context";
 import { anthropicModelList } from "../lib/anthropic-request";
 
 const router: IRouter = Router();
+const geminiModelList = {
+  models: [
+    "gemini-3.1-pro-preview",
+    "gemini-3-flash-preview",
+    "gemini-3-pro-image-preview",
+    "gemini-2.5-pro",
+    "gemini-2.5-flash",
+    "gemini-2.5-flash-image",
+  ].map((name) => ({
+    name: `models/${name}`,
+    version: name,
+    displayName: name,
+    supportedGenerationMethods: ["generateContent", "streamGenerateContent"],
+  })),
+};
 
 function proxyAuth(req: Request, res: Response, next: NextFunction) {
   const requestLogger = getRequestLogger(req);
@@ -61,9 +76,8 @@ router.use(axonhubRouter);
 
 router.get("/anthropic/v1/models", (_req, res) => res.json(anthropicModelList));
 router.get("/anthropic/models", (_req, res) => res.json(anthropicModelList));
-router.get("/gemini/v1beta/models", async (req, res) => {
-  await proxyGeminiRequest(req, res);
-});
+router.get("/gemini/v1beta/models", (_req, res) => res.json(geminiModelList));
+router.get("/gemini/models", (_req, res) => res.json(geminiModelList));
 router.use("/anthropic", proxyAuth, passthroughRouter);
 router.use("/gemini", proxyAuth, geminiRouter);
 
