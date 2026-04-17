@@ -18,7 +18,7 @@ export const AXONHUB_GEMINI_SUPPORTED_MODELS = [
 
 const AXONHUB_GRAPHQL_URL = `${AXONHUB_ORIGIN}/admin/graphql`;
 const AXONHUB_REMARK = "Managed by Asset-Attachments";
-const AXONHUB_GEMINI_PER_ANTHROPIC = 8;
+const AXONHUB_GEMINI_PER_ANTHROPIC = 7;
 
 const LOOKUP_CHANNELS_QUERY = `
   query SyncAxonHubChannelLookup($input: QueryChannelInput!) {

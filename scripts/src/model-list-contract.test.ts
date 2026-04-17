@@ -35,8 +35,8 @@ test("AxonHub status-page copy stays aligned with the backend sync model lists",
     "utf8",
   );
 
-  assert.match(statusPageSource, /gemini:anthropic = 8:1/);
-  assert.match(statusPageSource, /Auto 8:1 routing/);
+  assert.match(statusPageSource, /anthropic:gemini = 1:7/);
+  assert.match(statusPageSource, /Auto 1:7 routing/);
   assert.match(statusPageSource, /"claude-opus-4-7"/);
   assert.match(
     statusPageSource,

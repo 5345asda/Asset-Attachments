@@ -436,7 +436,7 @@ console.log(data);`;
           <div className="flex items-center gap-2 mb-4">
             <Server className="w-4 h-4 text-primary" />
             <span className="text-sm font-semibold text-foreground">AxonHub Sync</span>
-            <span className="ml-auto text-xs text-muted-foreground">Auto 8:1 routing</span>
+            <span className="ml-auto text-xs text-muted-foreground">Auto 1:7 routing</span>
           </div>
 
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
@@ -476,7 +476,7 @@ console.log(data);`;
                   </button>
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
-                  只手填 AxonHub token。系统会只统计由当前仓库托管的 channel，并自动保持 gemini:anthropic = 8:1；哪边不足，这次就同步哪边。
+                  只手填 AxonHub token。系统会只统计由当前仓库托管的 channel，并自动保持 anthropic:gemini = 1:7；哪边不足，这次就同步哪边。
                 </p>
               </div>
 

@@ -106,7 +106,7 @@ test("buildAxonHubChannelInput uses the fixed gemini channel format", () => {
   });
 });
 
-test("pickAxonHubChannelProvider only counts managed non-archived channels toward the 8:1 ratio", () => {
+test("pickAxonHubChannelProvider only counts managed non-archived channels toward the 1:7 ratio", () => {
   const provider = pickAxonHubChannelProvider([
     managedChannel({
       id: "gid://axonhub/Channel/1",
@@ -141,16 +141,11 @@ test("pickAxonHubChannelProvider only counts managed non-archived channels towar
     managedChannel({
       id: "gid://axonhub/Channel/7",
       type: "gemini",
-      baseURL: "https://seven.example/api/gemini",
-    }),
-    managedChannel({
-      id: "gid://axonhub/Channel/8",
-      type: "gemini",
       baseURL: "https://archived.example/api/gemini",
       status: "archived",
     }),
     {
-      id: "gid://axonhub/Channel/9",
+      id: "gid://axonhub/Channel/8",
       name: "proxy",
       type: "gemini",
       baseURL: "https://external.example/api/gemini",
@@ -162,7 +157,7 @@ test("pickAxonHubChannelProvider only counts managed non-archived channels towar
   assert.equal(provider, "gemini");
 });
 
-test("pickAxonHubChannelProvider switches to anthropic after eight managed gemini channels fill the next slot", () => {
+test("pickAxonHubChannelProvider switches to anthropic after seven managed gemini channels fill the next slot", () => {
   const provider = pickAxonHubChannelProvider([
     managedChannel({
       id: "gid://axonhub/Channel/1",
@@ -198,11 +193,6 @@ test("pickAxonHubChannelProvider switches to anthropic after eight managed gemin
       id: "gid://axonhub/Channel/7",
       type: "gemini",
       baseURL: "https://seven.example/api/gemini",
-    }),
-    managedChannel({
-      id: "gid://axonhub/Channel/8",
-      type: "gemini",
-      baseURL: "https://eight.example/api/gemini",
     }),
   ]);
 
