@@ -106,100 +106,110 @@ test("buildAxonHubChannelInput uses the fixed gemini channel format", () => {
   });
 });
 
-test("pickAxonHubChannelProvider only counts managed non-archived channels toward the 1:7 ratio", () => {
+test("pickAxonHubChannelProvider only counts managed non-archived channels toward the 8:1 ratio", () => {
   const provider = pickAxonHubChannelProvider([
     managedChannel({
       id: "gid://axonhub/Channel/1",
-      type: "gemini",
-      baseURL: "https://one.example/api/gemini",
+      type: "anthropic",
+      baseURL: "https://one.example/api/anthropic",
     }),
     managedChannel({
       id: "gid://axonhub/Channel/2",
-      type: "gemini",
-      baseURL: "https://two.example/api/gemini",
+      type: "anthropic",
+      baseURL: "https://two.example/api/anthropic",
     }),
     managedChannel({
       id: "gid://axonhub/Channel/3",
-      type: "gemini",
-      baseURL: "https://three.example/api/gemini",
+      type: "anthropic",
+      baseURL: "https://three.example/api/anthropic",
     }),
     managedChannel({
       id: "gid://axonhub/Channel/4",
-      type: "gemini",
-      baseURL: "https://four.example/api/gemini",
+      type: "anthropic",
+      baseURL: "https://four.example/api/anthropic",
     }),
     managedChannel({
       id: "gid://axonhub/Channel/5",
-      type: "gemini",
-      baseURL: "https://five.example/api/gemini",
+      type: "anthropic",
+      baseURL: "https://five.example/api/anthropic",
     }),
     managedChannel({
       id: "gid://axonhub/Channel/6",
-      type: "gemini",
-      baseURL: "https://six.example/api/gemini",
+      type: "anthropic",
+      baseURL: "https://six.example/api/anthropic",
     }),
     managedChannel({
       id: "gid://axonhub/Channel/7",
-      type: "gemini",
-      baseURL: "https://archived.example/api/gemini",
+      type: "anthropic",
+      baseURL: "https://seven.example/api/anthropic",
+    }),
+    managedChannel({
+      id: "gid://axonhub/Channel/8",
+      type: "anthropic",
+      baseURL: "https://archived.example/api/anthropic",
       status: "archived",
     }),
     {
-      id: "gid://axonhub/Channel/8",
+      id: "gid://axonhub/Channel/9",
       name: "proxy",
-      type: "gemini",
-      baseURL: "https://external.example/api/gemini",
+      type: "anthropic",
+      baseURL: "https://external.example/api/anthropic",
       status: "enabled",
       remark: "External channel",
     },
   ]);
 
-  assert.equal(provider, "gemini");
-});
-
-test("pickAxonHubChannelProvider switches to anthropic after seven managed gemini channels fill the next slot", () => {
-  const provider = pickAxonHubChannelProvider([
-    managedChannel({
-      id: "gid://axonhub/Channel/1",
-      type: "gemini",
-      baseURL: "https://one.example/api/gemini",
-    }),
-    managedChannel({
-      id: "gid://axonhub/Channel/2",
-      type: "gemini",
-      baseURL: "https://two.example/api/gemini",
-    }),
-    managedChannel({
-      id: "gid://axonhub/Channel/3",
-      type: "gemini",
-      baseURL: "https://three.example/api/gemini",
-    }),
-    managedChannel({
-      id: "gid://axonhub/Channel/4",
-      type: "gemini",
-      baseURL: "https://four.example/api/gemini",
-    }),
-    managedChannel({
-      id: "gid://axonhub/Channel/5",
-      type: "gemini",
-      baseURL: "https://five.example/api/gemini",
-    }),
-    managedChannel({
-      id: "gid://axonhub/Channel/6",
-      type: "gemini",
-      baseURL: "https://six.example/api/gemini",
-    }),
-    managedChannel({
-      id: "gid://axonhub/Channel/7",
-      type: "gemini",
-      baseURL: "https://seven.example/api/gemini",
-    }),
-  ]);
-
   assert.equal(provider, "anthropic");
 });
 
-test("syncAxonHubChannel creates a new gemini channel when gemini is under target", async () => {
+test("pickAxonHubChannelProvider switches to gemini after eight managed anthropic channels fill the next slot", () => {
+  const provider = pickAxonHubChannelProvider([
+    managedChannel({
+      id: "gid://axonhub/Channel/1",
+      type: "anthropic",
+      baseURL: "https://one.example/api/anthropic",
+    }),
+    managedChannel({
+      id: "gid://axonhub/Channel/2",
+      type: "anthropic",
+      baseURL: "https://two.example/api/anthropic",
+    }),
+    managedChannel({
+      id: "gid://axonhub/Channel/3",
+      type: "anthropic",
+      baseURL: "https://three.example/api/anthropic",
+    }),
+    managedChannel({
+      id: "gid://axonhub/Channel/4",
+      type: "anthropic",
+      baseURL: "https://four.example/api/anthropic",
+    }),
+    managedChannel({
+      id: "gid://axonhub/Channel/5",
+      type: "anthropic",
+      baseURL: "https://five.example/api/anthropic",
+    }),
+    managedChannel({
+      id: "gid://axonhub/Channel/6",
+      type: "anthropic",
+      baseURL: "https://six.example/api/anthropic",
+    }),
+    managedChannel({
+      id: "gid://axonhub/Channel/7",
+      type: "anthropic",
+      baseURL: "https://seven.example/api/anthropic",
+    }),
+    managedChannel({
+      id: "gid://axonhub/Channel/8",
+      type: "anthropic",
+      baseURL: "https://eight.example/api/anthropic",
+    }),
+  ]);
+
+  assert.equal(provider, "gemini");
+});
+
+test("syncAxonHubChannel creates a new anthropic channel when anthropic is under target", async () => {
   const calls: Array<{ input: FetchInput; init?: RequestInit }> = [];
   const fetchMock: typeof fetch = async (input, init) => {
     calls.push({ input, init });
@@ -235,8 +245,8 @@ test("syncAxonHubChannel creates a new gemini channel when gemini is under targe
           createChannel: {
             id: "gid://axonhub/Channel/99",
             name: "proxy",
-            type: "gemini",
-            baseURL: "https://proxy.example/api/gemini",
+            type: "anthropic",
+            baseURL: "https://proxy.example/api/anthropic",
             status: "enabled",
           },
         },
@@ -254,7 +264,7 @@ test("syncAxonHubChannel creates a new gemini channel when gemini is under targe
   });
 
   assert.equal(result.mode, "created");
-  assert.equal(result.provider, "gemini");
+  assert.equal(result.provider, "anthropic");
   assert.equal(result.channel.id, "gid://axonhub/Channel/99");
   assert.equal(calls.length, 2);
   assert.equal(calls[0]?.input, `${AXONHUB_ORIGIN}/admin/graphql`);
@@ -271,15 +281,15 @@ test("syncAxonHubChannel creates a new gemini channel when gemini is under targe
   };
 
   assert.deepEqual(createBody.variables?.input, {
-    type: "gemini",
+    type: "anthropic",
     name: "proxy",
-    baseURL: "https://proxy.example/api/gemini",
+    baseURL: "https://proxy.example/api/anthropic",
     credentials: {
       apiKey: "sk-proxy-test",
     },
-    supportedModels: EXPECTED_AXONHUB_GEMINI_MODELS,
-    defaultTestModel: AXONHUB_GEMINI_DEFAULT_TEST_MODEL,
-    manualModels: EXPECTED_AXONHUB_GEMINI_MODELS,
+    supportedModels: AXONHUB_SUPPORTED_MODELS,
+    defaultTestModel: AXONHUB_DEFAULT_TEST_MODEL,
+    manualModels: AXONHUB_SUPPORTED_MODELS,
     autoSyncSupportedModels: false,
     autoSyncModelPattern: "",
     tags: [],
@@ -287,7 +297,7 @@ test("syncAxonHubChannel creates a new gemini channel when gemini is under targe
   });
 });
 
-test("syncAxonHubChannel updates the existing gemini channel for the current project", async () => {
+test("syncAxonHubChannel updates the existing anthropic channel for the current project", async () => {
   const calls: Array<{ input: FetchInput; init?: RequestInit }> = [];
   const fetchMock: typeof fetch = async (input, init) => {
     calls.push({ input, init });
@@ -314,13 +324,6 @@ test("syncAxonHubChannel updates the existing gemini channel for the current pro
               {
                 node: managedChannel({
                   id: "gid://axonhub/Channel/7",
-                  type: "gemini",
-                  baseURL: "https://proxy.example/api/gemini",
-                }),
-              },
-              {
-                node: managedChannel({
-                  id: "gid://axonhub/Channel/8",
                   type: "anthropic",
                   baseURL: "https://proxy.example/api/anthropic",
                 }),
@@ -337,8 +340,8 @@ test("syncAxonHubChannel updates the existing gemini channel for the current pro
           updateChannel: {
             id: body.variables?.id,
             name: "proxy",
-            type: "gemini",
-            baseURL: "https://proxy.example/api/gemini",
+            type: "anthropic",
+            baseURL: "https://proxy.example/api/anthropic",
             status: "enabled",
           },
         },
@@ -356,7 +359,7 @@ test("syncAxonHubChannel updates the existing gemini channel for the current pro
   });
 
   assert.equal(result.mode, "updated");
-  assert.equal(result.provider, "gemini");
+  assert.equal(result.provider, "anthropic");
   assert.equal(result.channel.id, "gid://axonhub/Channel/7");
   assert.equal(calls.length, 2);
 
@@ -369,16 +372,16 @@ test("syncAxonHubChannel updates the existing gemini channel for the current pro
 
   assert.equal(updateBody.variables?.id, "gid://axonhub/Channel/7");
   assert.deepEqual(updateBody.variables?.input, {
-    type: "gemini",
+    type: "anthropic",
     name: "proxy",
-    baseURL: "https://proxy.example/api/gemini",
+    baseURL: "https://proxy.example/api/anthropic",
     status: "enabled",
     credentials: {
       apiKey: "sk-proxy-test",
     },
-    supportedModels: EXPECTED_AXONHUB_GEMINI_MODELS,
-    defaultTestModel: AXONHUB_GEMINI_DEFAULT_TEST_MODEL,
-    manualModels: EXPECTED_AXONHUB_GEMINI_MODELS,
+    supportedModels: AXONHUB_SUPPORTED_MODELS,
+    defaultTestModel: AXONHUB_DEFAULT_TEST_MODEL,
+    manualModels: AXONHUB_SUPPORTED_MODELS,
     autoSyncSupportedModels: false,
     autoSyncModelPattern: "",
     tags: [],
@@ -386,7 +389,7 @@ test("syncAxonHubChannel updates the existing gemini channel for the current pro
   });
 });
 
-test("syncAxonHubChannel creates a new anthropic channel when the next slot belongs to anthropic", async () => {
+test("syncAxonHubChannel creates a new gemini channel when the next slot belongs to gemini", async () => {
   const calls: Array<{ input: FetchInput; init?: RequestInit }> = [];
   const fetchMock: typeof fetch = async (input, init) => {
     calls.push({ input, init });
@@ -403,14 +406,14 @@ test("syncAxonHubChannel creates a new anthropic channel when the next slot belo
         data: {
           queryChannels: {
             edges: [
-              { node: managedChannel({ id: "gid://axonhub/Channel/1", type: "gemini", baseURL: "https://one.example/api/gemini" }) },
-              { node: managedChannel({ id: "gid://axonhub/Channel/2", type: "gemini", baseURL: "https://two.example/api/gemini" }) },
-              { node: managedChannel({ id: "gid://axonhub/Channel/3", type: "gemini", baseURL: "https://three.example/api/gemini" }) },
-              { node: managedChannel({ id: "gid://axonhub/Channel/4", type: "gemini", baseURL: "https://four.example/api/gemini" }) },
-              { node: managedChannel({ id: "gid://axonhub/Channel/5", type: "gemini", baseURL: "https://five.example/api/gemini" }) },
-              { node: managedChannel({ id: "gid://axonhub/Channel/6", type: "gemini", baseURL: "https://six.example/api/gemini" }) },
-              { node: managedChannel({ id: "gid://axonhub/Channel/7", type: "gemini", baseURL: "https://seven.example/api/gemini" }) },
-              { node: managedChannel({ id: "gid://axonhub/Channel/8", type: "gemini", baseURL: "https://eight.example/api/gemini" }) },
+              { node: managedChannel({ id: "gid://axonhub/Channel/1", type: "anthropic", baseURL: "https://one.example/api/anthropic" }) },
+              { node: managedChannel({ id: "gid://axonhub/Channel/2", type: "anthropic", baseURL: "https://two.example/api/anthropic" }) },
+              { node: managedChannel({ id: "gid://axonhub/Channel/3", type: "anthropic", baseURL: "https://three.example/api/anthropic" }) },
+              { node: managedChannel({ id: "gid://axonhub/Channel/4", type: "anthropic", baseURL: "https://four.example/api/anthropic" }) },
+              { node: managedChannel({ id: "gid://axonhub/Channel/5", type: "anthropic", baseURL: "https://five.example/api/anthropic" }) },
+              { node: managedChannel({ id: "gid://axonhub/Channel/6", type: "anthropic", baseURL: "https://six.example/api/anthropic" }) },
+              { node: managedChannel({ id: "gid://axonhub/Channel/7", type: "anthropic", baseURL: "https://seven.example/api/anthropic" }) },
+              { node: managedChannel({ id: "gid://axonhub/Channel/8", type: "anthropic", baseURL: "https://eight.example/api/anthropic" }) },
             ],
           },
         },
@@ -423,8 +426,8 @@ test("syncAxonHubChannel creates a new anthropic channel when the next slot belo
           createChannel: {
             id: "gid://axonhub/Channel/109",
             name: "proxy",
-            type: "anthropic",
-            baseURL: "https://proxy.example/api/anthropic",
+            type: "gemini",
+            baseURL: "https://proxy.example/api/gemini",
             status: "enabled",
           },
         },
@@ -442,7 +445,7 @@ test("syncAxonHubChannel creates a new anthropic channel when the next slot belo
   });
 
   assert.equal(result.mode, "created");
-  assert.equal(result.provider, "anthropic");
+  assert.equal(result.provider, "gemini");
 
   const createBody = JSON.parse(String(calls[1]?.init?.body ?? "{}")) as {
     variables?: {
@@ -451,15 +454,15 @@ test("syncAxonHubChannel creates a new anthropic channel when the next slot belo
   };
 
   assert.deepEqual(createBody.variables?.input, {
-    type: "anthropic",
+    type: "gemini",
     name: "proxy",
-    baseURL: "https://proxy.example/api/anthropic",
+    baseURL: "https://proxy.example/api/gemini",
     credentials: {
       apiKey: "sk-proxy-test",
     },
-    supportedModels: AXONHUB_SUPPORTED_MODELS,
-    defaultTestModel: AXONHUB_DEFAULT_TEST_MODEL,
-    manualModels: AXONHUB_SUPPORTED_MODELS,
+    supportedModels: EXPECTED_AXONHUB_GEMINI_MODELS,
+    defaultTestModel: AXONHUB_GEMINI_DEFAULT_TEST_MODEL,
+    manualModels: EXPECTED_AXONHUB_GEMINI_MODELS,
     autoSyncSupportedModels: false,
     autoSyncModelPattern: "",
     tags: [],

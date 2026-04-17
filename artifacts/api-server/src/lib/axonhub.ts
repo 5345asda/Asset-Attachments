@@ -18,7 +18,7 @@ export const AXONHUB_GEMINI_SUPPORTED_MODELS = [
 
 const AXONHUB_GRAPHQL_URL = `${AXONHUB_ORIGIN}/admin/graphql`;
 const AXONHUB_REMARK = "Managed by Asset-Attachments";
-const AXONHUB_GEMINI_PER_ANTHROPIC = 7;
+const AXONHUB_ANTHROPIC_PER_GEMINI = 8;
 
 const LOOKUP_CHANNELS_QUERY = `
   query SyncAxonHubChannelLookup($input: QueryChannelInput!) {
@@ -203,9 +203,9 @@ export function pickAxonHubChannelProvider(
   const geminiCount = managedChannels.filter((channel) => channel.type === "gemini").length;
   const anthropicCount = managedChannels.filter((channel) => channel.type === "anthropic").length;
 
-  return geminiCount < (anthropicCount + 1) * AXONHUB_GEMINI_PER_ANTHROPIC
-    ? "gemini"
-    : "anthropic";
+  return anthropicCount < (geminiCount + 1) * AXONHUB_ANTHROPIC_PER_GEMINI
+    ? "anthropic"
+    : "gemini";
 }
 
 function buildAxonHubUpdateChannelInput(
