@@ -19,6 +19,7 @@ export const AXONHUB_GEMINI_SUPPORTED_MODELS = [
 const AXONHUB_GRAPHQL_URL = `${AXONHUB_ORIGIN}/admin/graphql`;
 const AXONHUB_REMARK = "Managed by Asset-Attachments";
 const AXONHUB_ANTHROPIC_PER_GEMINI = 8;
+const AXONHUB_LOOKUP_PAGE_SIZE = 100;
 
 const LOOKUP_CHANNELS_QUERY = `
   query SyncAxonHubChannelLookup($input: QueryChannelInput!) {
@@ -32,6 +33,10 @@ const LOOKUP_CHANNELS_QUERY = `
           remark
           status
         }
+      }
+      pageInfo {
+        hasNextPage
+        endCursor
       }
     }
   }
@@ -73,6 +78,10 @@ interface SyncLookupResponse {
     edges?: Array<{
       node?: GraphQlChannelNode | null;
     }>;
+    pageInfo?: {
+      hasNextPage?: boolean | null;
+      endCursor?: string | null;
+    };
   };
 }
 
@@ -288,18 +297,30 @@ export async function syncAxonHubChannel({
   adminToken,
   fetchImpl = fetch,
 }: SyncAxonHubChannelOptions): Promise<SyncAxonHubChannelResult> {
-  const lookup = await postGraphQl<SyncLookupResponse>(
-    LOOKUP_CHANNELS_QUERY,
-    {
-      input: {
-        first: 100,
-      },
-    },
-    adminToken,
-    fetchImpl,
-  );
+  const channels: Array<GraphQlChannelNode | null | undefined> = [];
+  let after: string | undefined;
+  let hasNextPage = true;
 
-  const channels = lookup.queryChannels?.edges?.map((edge) => edge.node) ?? [];
+  while (hasNextPage) {
+    const lookup = await postGraphQl<SyncLookupResponse>(
+      LOOKUP_CHANNELS_QUERY,
+      {
+        input: {
+          first: AXONHUB_LOOKUP_PAGE_SIZE,
+          ...(after ? { after } : {}),
+        },
+      },
+      adminToken,
+      fetchImpl,
+    );
+
+    channels.push(...(lookup.queryChannels?.edges?.map((edge) => edge.node) ?? []));
+
+    const pageInfo = lookup.queryChannels?.pageInfo;
+    after = pageInfo?.endCursor || undefined;
+    hasNextPage = pageInfo?.hasNextPage === true && !!after;
+  }
+
   const provider = pickAxonHubChannelProvider(channels);
   const input = buildAxonHubChannelInput({
     provider,
