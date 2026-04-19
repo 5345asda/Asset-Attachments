@@ -9,7 +9,7 @@ interface GatewayStatusInput {
   geminiConfigured: boolean | null;
 }
 
-const DEFAULT_AXONHUB_ADMIN_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NzY1MTcyODIsInVzZXJfaWQiOjF9.XYwKgpR1Zwgekt8hA7q8B0RJBg86Z4Otdw7XSa3S0Zw";
+const DEFAULT_AXONHUB_ADMIN_TOKEN = "";
 
 function normalizeOrigin(origin: string): string {
   return origin.trim().replace(/\/+$/, "");

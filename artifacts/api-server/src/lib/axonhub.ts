@@ -105,6 +105,20 @@ export interface SyncAxonHubChannelResult {
 
 export type AxonHubProvider = "anthropic" | "gemini";
 
+function normalizeAxonHubProviderType(type?: string | null): AxonHubProvider | null {
+  if (!type) {
+    return null;
+  }
+
+  const normalized = type.trim().toLowerCase();
+
+  if (normalized === "anthropic" || normalized === "gemini") {
+    return normalized;
+  }
+
+  return null;
+}
+
 interface AxonHubCreateChannelInput {
   type: AxonHubProvider;
   name: string;
@@ -200,8 +214,8 @@ export function pickAxonHubChannelProvider(
       && channel.remark === AXONHUB_REMARK
       && channel.status !== "archived";
   });
-  const geminiCount = managedChannels.filter((channel) => channel.type === "gemini").length;
-  const anthropicCount = managedChannels.filter((channel) => channel.type === "anthropic").length;
+  const geminiCount = managedChannels.filter((channel) => normalizeAxonHubProviderType(channel.type) === "gemini").length;
+  const anthropicCount = managedChannels.filter((channel) => normalizeAxonHubProviderType(channel.type) === "anthropic").length;
 
   return anthropicCount < (geminiCount + 1) * AXONHUB_ANTHROPIC_PER_GEMINI
     ? "anthropic"
@@ -296,7 +310,7 @@ export async function syncAxonHubChannel({
   const existingChannel = channels
     .find((channel): channel is GraphQlChannelNode => {
       return !!channel
-        && channel.type === provider
+        && normalizeAxonHubProviderType(channel.type) === provider
         && channel.baseURL === input.baseURL;
     });
 

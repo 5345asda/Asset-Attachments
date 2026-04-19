@@ -39,7 +39,7 @@ function managedChannel({
   status = "enabled",
 }: {
   id: string;
-  type: "anthropic" | "gemini";
+  type: string;
   baseURL: string;
   status?: string;
 }) {
@@ -209,6 +209,53 @@ test("pickAxonHubChannelProvider switches to gemini after eight managed anthropi
   assert.equal(provider, "gemini");
 });
 
+test("pickAxonHubChannelProvider normalizes title-cased provider names from AxonHub before counting", () => {
+  const provider = pickAxonHubChannelProvider([
+    managedChannel({
+      id: "gid://axonhub/Channel/1",
+      type: "Anthropic",
+      baseURL: "https://one.example/api/anthropic",
+    }),
+    managedChannel({
+      id: "gid://axonhub/Channel/2",
+      type: "Anthropic",
+      baseURL: "https://two.example/api/anthropic",
+    }),
+    managedChannel({
+      id: "gid://axonhub/Channel/3",
+      type: "Anthropic",
+      baseURL: "https://three.example/api/anthropic",
+    }),
+    managedChannel({
+      id: "gid://axonhub/Channel/4",
+      type: "Anthropic",
+      baseURL: "https://four.example/api/anthropic",
+    }),
+    managedChannel({
+      id: "gid://axonhub/Channel/5",
+      type: "Anthropic",
+      baseURL: "https://five.example/api/anthropic",
+    }),
+    managedChannel({
+      id: "gid://axonhub/Channel/6",
+      type: "Anthropic",
+      baseURL: "https://six.example/api/anthropic",
+    }),
+    managedChannel({
+      id: "gid://axonhub/Channel/7",
+      type: "Anthropic",
+      baseURL: "https://seven.example/api/anthropic",
+    }),
+    managedChannel({
+      id: "gid://axonhub/Channel/8",
+      type: "Anthropic",
+      baseURL: "https://eight.example/api/anthropic",
+    }),
+  ]);
+
+  assert.equal(provider, "gemini");
+});
+
 test("syncAxonHubChannel creates a new anthropic channel when anthropic is under target", async () => {
   const calls: Array<{ input: FetchInput; init?: RequestInit }> = [];
   const fetchMock: typeof fetch = async (input, init) => {
@@ -341,6 +388,98 @@ test("syncAxonHubChannel updates the existing anthropic channel for the current 
             id: body.variables?.id,
             name: "proxy",
             type: "anthropic",
+            baseURL: "https://proxy.example/api/anthropic",
+            status: "enabled",
+          },
+        },
+      });
+    }
+
+    throw new Error(`Unexpected GraphQL document: ${body.query}`);
+  };
+
+  const result = await syncAxonHubChannel({
+    projectOrigin: "https://proxy.example",
+    proxyKey: "sk-proxy-test",
+    adminToken: "Bearer prefilled-token",
+    fetchImpl: fetchMock,
+  });
+
+  assert.equal(result.mode, "updated");
+  assert.equal(result.provider, "anthropic");
+  assert.equal(result.channel.id, "gid://axonhub/Channel/7");
+  assert.equal(calls.length, 2);
+
+  const updateBody = JSON.parse(String(calls[1]?.init?.body ?? "{}")) as {
+    variables?: {
+      id?: string;
+      input?: unknown;
+    };
+  };
+
+  assert.equal(updateBody.variables?.id, "gid://axonhub/Channel/7");
+  assert.deepEqual(updateBody.variables?.input, {
+    type: "anthropic",
+    name: "proxy",
+    baseURL: "https://proxy.example/api/anthropic",
+    status: "enabled",
+    credentials: {
+      apiKey: "sk-proxy-test",
+    },
+    supportedModels: AXONHUB_SUPPORTED_MODELS,
+    defaultTestModel: AXONHUB_DEFAULT_TEST_MODEL,
+    manualModels: AXONHUB_SUPPORTED_MODELS,
+    autoSyncSupportedModels: false,
+    autoSyncModelPattern: "",
+    tags: [],
+    remark: "Managed by Asset-Attachments",
+  });
+});
+
+test("syncAxonHubChannel updates the existing anthropic channel when AxonHub returns title-cased provider names", async () => {
+  const calls: Array<{ input: FetchInput; init?: RequestInit }> = [];
+  const fetchMock: typeof fetch = async (input, init) => {
+    calls.push({ input, init });
+
+    const body = JSON.parse(String(init?.body ?? "{}")) as {
+      query?: string;
+      variables?: {
+        id?: string;
+      };
+    };
+
+    if (body.query?.includes("query SyncAxonHubChannelLookup")) {
+      return jsonResponse({
+        data: {
+          queryChannels: {
+            edges: [
+              {
+                node: managedChannel({
+                  id: "gid://axonhub/Channel/1",
+                  type: "Anthropic",
+                  baseURL: "https://other.example/api/anthropic",
+                }),
+              },
+              {
+                node: managedChannel({
+                  id: "gid://axonhub/Channel/7",
+                  type: "Anthropic",
+                  baseURL: "https://proxy.example/api/anthropic",
+                }),
+              },
+            ],
+          },
+        },
+      });
+    }
+
+    if (body.query?.includes("mutation UpdateChannel")) {
+      return jsonResponse({
+        data: {
+          updateChannel: {
+            id: body.variables?.id,
+            name: "proxy",
+            type: "Anthropic",
             baseURL: "https://proxy.example/api/anthropic",
             status: "enabled",
           },

@@ -71,11 +71,8 @@ test("AxonHub origin is fixed to the shared deployment", () => {
   assert.equal(getAxonHubOrigin(), "https://axonhub.qwqtao.com");
 });
 
-test("AxonHub admin token default is prefilled for release bundles", () => {
-  assert.equal(
-    getDefaultAxonHubAdminToken(),
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NzY1MTcyODIsInVzZXJfaWQiOjF9.XYwKgpR1Zwgekt8hA7q8B0RJBg86Z4Otdw7XSa3S0Zw",
-  );
+test("AxonHub admin token default is blank so operators must paste a fresh token", () => {
+  assert.equal(getDefaultAxonHubAdminToken(), "");
 });
 
 test("gateway status reports setup_required when provider integration is missing", () => {
