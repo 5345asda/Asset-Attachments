@@ -10,13 +10,7 @@ const router = Router();
 export const openRouterEmptyModelList = {
   data: [],
 };
-
-function shouldFallbackOpenRouterModelList(
-  source: ReturnType<typeof getOpenRouterProviderConfig>["source"],
-  status: number,
-): boolean {
-  return source === "replit_integration" && status === 405;
-}
+const OPENROUTER_OFFICIAL_MODEL_LIST_URL = "https://openrouter.ai/api/v1/models";
 
 function buildTargetUrl(baseUrl: string, request: Request): string {
   const cleanBaseUrl = baseUrl.replace(/\/$/, "");
@@ -25,7 +19,14 @@ function buildTargetUrl(baseUrl: string, request: Request): string {
   return `${cleanBaseUrl}/${upstreamPath}${query}`;
 }
 
-function buildModelListUrl(baseUrl: string): string {
+function buildModelListUrl(
+  baseUrl: string,
+  source: ReturnType<typeof getOpenRouterProviderConfig>["source"],
+): string {
+  if (source === "replit_integration") {
+    return OPENROUTER_OFFICIAL_MODEL_LIST_URL;
+  }
+
   return `${baseUrl.replace(/\/$/, "")}/models`;
 }
 
@@ -84,7 +85,7 @@ export async function handleOpenRouterModelList(
     return;
   }
 
-  const target = buildModelListUrl(openrouter.baseUrl);
+  const target = buildModelListUrl(openrouter.baseUrl, openrouter.source);
   const upstream = await fetch(target, {
     method: "GET",
     headers: buildOpenRouterHeaders(openrouter.apiKey),
@@ -92,22 +93,6 @@ export async function handleOpenRouterModelList(
 
   if (!upstream.ok) {
     const upstreamError = await readUpstreamError(upstream);
-
-    if (shouldFallbackOpenRouterModelList(openrouter.source, upstream.status)) {
-      requestLogger.warn(
-        {
-          status: upstream.status,
-          target,
-          method: request.method,
-          providerSource: openrouter.source,
-          upstreamError,
-        },
-        "OpenRouter model list GET unsupported upstream; serving fallback model list",
-      );
-
-      response.json(openRouterEmptyModelList);
-      return;
-    }
 
     const contentType = upstream.headers.get("content-type") || "application/json";
     response.status(upstream.status);

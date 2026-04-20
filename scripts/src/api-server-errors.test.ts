@@ -594,7 +594,7 @@ test("anthropic passthrough accepts direct Anthropic secrets without Replit inte
   assert.equal(headers.get("x-api-key"), "anthropic-direct-test-key");
 });
 
-test("openrouter model list proxies the upstream OpenAI-compatible /models endpoint when configured", async (t) => {
+test("openrouter model list proxies the configured /models endpoint for direct OpenRouter secrets", async (t) => {
   const previousEnv = {
     PROXY_API_KEY: process.env.PROXY_API_KEY,
     AI_INTEGRATIONS_OPENROUTER_BASE_URL: process.env.AI_INTEGRATIONS_OPENROUTER_BASE_URL,
@@ -604,10 +604,10 @@ test("openrouter model list proxies the upstream OpenAI-compatible /models endpo
   };
 
   process.env.PROXY_API_KEY = "sk-proxy-test";
-  process.env.AI_INTEGRATIONS_OPENROUTER_BASE_URL = "https://openrouter.integration.test/api/v1";
-  process.env.AI_INTEGRATIONS_OPENROUTER_API_KEY = "openrouter-integration-test-key";
-  delete process.env.OPENROUTER_BASE_URL;
-  delete process.env.OPENROUTER_API_KEY;
+  delete process.env.AI_INTEGRATIONS_OPENROUTER_BASE_URL;
+  delete process.env.AI_INTEGRATIONS_OPENROUTER_API_KEY;
+  process.env.OPENROUTER_BASE_URL = "https://openrouter.byok.test/api/v1";
+  process.env.OPENROUTER_API_KEY = "openrouter-direct-test-key";
 
   const originalFetch = globalThis.fetch;
   let fetchCalled = false;
@@ -663,16 +663,16 @@ test("openrouter model list proxies the upstream OpenAI-compatible /models endpo
     throw new Error("Expected OpenRouter model list fetch to be called.");
   }
 
-  assert.equal(lastRequestUrl, "https://openrouter.integration.test/api/v1/models");
+  assert.equal(lastRequestUrl, "https://openrouter.byok.test/api/v1/models");
   const headers = new Headers(lastRequestHeaders as Record<string, string>);
-  assert.equal(headers.get("authorization"), "Bearer openrouter-integration-test-key");
+  assert.equal(headers.get("authorization"), "Bearer openrouter-direct-test-key");
   assert.equal(body.data?.[0]?.id, "anthropic/claude-sonnet-4.6");
   assert.equal(body.data?.[0]?.object, "model");
   assert.equal(body.data?.[0]?.owned_by, "openrouter");
   assert.ok(response.headers.get("x-request-id"));
 });
 
-test("openrouter model list falls back to an empty OpenAI-compatible shape when Replit integration upstream rejects GET /models", async (t) => {
+test("openrouter model list uses the official OpenRouter /models endpoint for Replit integration", async (t) => {
   const previousEnv = {
     PROXY_API_KEY: process.env.PROXY_API_KEY,
     AI_INTEGRATIONS_OPENROUTER_BASE_URL: process.env.AI_INTEGRATIONS_OPENROUTER_BASE_URL,
@@ -697,9 +697,18 @@ test("openrouter model list falls back to an empty OpenAI-compatible shape when 
     lastRequestUrl = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
     lastRequestHeaders = init?.headers;
 
-    return new Response("Method Not Allowed", {
-      status: 405,
-      headers: { "content-type": "text/plain" },
+    return new Response(JSON.stringify({
+      data: [
+        {
+          id: "z-ai/glm-4.7",
+          object: "model",
+          created: 0,
+          owned_by: "openrouter",
+        },
+      ],
+    }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
     });
   }) as typeof fetch;
 
@@ -720,7 +729,11 @@ test("openrouter model list falls back to an empty OpenAI-compatible shape when 
 
   const response = await originalFetch(`http://127.0.0.1:${server.port}/api/openrouter/v1/models`);
   const body = await response.json() as {
-    data?: Array<unknown>;
+    data?: Array<{
+      id?: string;
+      object?: string;
+      owned_by?: string;
+    }>;
   };
 
   assert.equal(response.status, 200);
@@ -728,10 +741,12 @@ test("openrouter model list falls back to an empty OpenAI-compatible shape when 
     throw new Error("Expected OpenRouter model list fetch to be called.");
   }
 
-  assert.equal(lastRequestUrl, "https://openrouter.integration.test/api/v1/models");
+  assert.equal(lastRequestUrl, "https://openrouter.ai/api/v1/models");
   const headers = new Headers(lastRequestHeaders as Record<string, string>);
   assert.equal(headers.get("authorization"), "Bearer openrouter-integration-test-key");
-  assert.deepEqual(body, { data: [] });
+  assert.equal(body.data?.[0]?.id, "z-ai/glm-4.7");
+  assert.equal(body.data?.[0]?.object, "model");
+  assert.equal(body.data?.[0]?.owned_by, "openrouter");
   assert.ok(response.headers.get("x-request-id"));
 });
 
