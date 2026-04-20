@@ -11,6 +11,13 @@ export const openRouterEmptyModelList = {
   data: [],
 };
 
+function shouldFallbackOpenRouterModelList(
+  source: ReturnType<typeof getOpenRouterProviderConfig>["source"],
+  status: number,
+): boolean {
+  return source === "replit_integration" && status === 405;
+}
+
 function buildTargetUrl(baseUrl: string, request: Request): string {
   const cleanBaseUrl = baseUrl.replace(/\/$/, "");
   const upstreamPath = request.path.replace(/^\/v1\//, "").replace(/^\//, "");
@@ -83,12 +90,29 @@ export async function handleOpenRouterModelList(
     headers: buildOpenRouterHeaders(openrouter.apiKey),
   });
 
-  const contentType = upstream.headers.get("content-type") || "application/json";
-  response.status(upstream.status);
-  response.setHeader("Content-Type", contentType);
-
   if (!upstream.ok) {
     const upstreamError = await readUpstreamError(upstream);
+
+    if (shouldFallbackOpenRouterModelList(openrouter.source, upstream.status)) {
+      requestLogger.warn(
+        {
+          status: upstream.status,
+          target,
+          method: request.method,
+          providerSource: openrouter.source,
+          upstreamError,
+        },
+        "OpenRouter model list GET unsupported upstream; serving fallback model list",
+      );
+
+      response.json(openRouterEmptyModelList);
+      return;
+    }
+
+    const contentType = upstream.headers.get("content-type") || "application/json";
+    response.status(upstream.status);
+    response.setHeader("Content-Type", contentType);
+
     requestLogger.warn(
       {
         status: upstream.status,
@@ -105,6 +129,9 @@ export async function handleOpenRouterModelList(
     return;
   }
 
+  const contentType = upstream.headers.get("content-type") || "application/json";
+  response.status(upstream.status);
+  response.setHeader("Content-Type", contentType);
   response.end(Buffer.from(await upstream.arrayBuffer()));
 }
 

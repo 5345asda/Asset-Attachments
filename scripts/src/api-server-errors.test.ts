@@ -672,6 +672,69 @@ test("openrouter model list proxies the upstream OpenAI-compatible /models endpo
   assert.ok(response.headers.get("x-request-id"));
 });
 
+test("openrouter model list falls back to an empty OpenAI-compatible shape when Replit integration upstream rejects GET /models", async (t) => {
+  const previousEnv = {
+    PROXY_API_KEY: process.env.PROXY_API_KEY,
+    AI_INTEGRATIONS_OPENROUTER_BASE_URL: process.env.AI_INTEGRATIONS_OPENROUTER_BASE_URL,
+    AI_INTEGRATIONS_OPENROUTER_API_KEY: process.env.AI_INTEGRATIONS_OPENROUTER_API_KEY,
+    OPENROUTER_BASE_URL: process.env.OPENROUTER_BASE_URL,
+    OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
+  };
+
+  process.env.PROXY_API_KEY = "sk-proxy-test";
+  process.env.AI_INTEGRATIONS_OPENROUTER_BASE_URL = "https://openrouter.integration.test/api/v1";
+  process.env.AI_INTEGRATIONS_OPENROUTER_API_KEY = "openrouter-integration-test-key";
+  delete process.env.OPENROUTER_BASE_URL;
+  delete process.env.OPENROUTER_API_KEY;
+
+  const originalFetch = globalThis.fetch;
+  let fetchCalled = false;
+  let lastRequestUrl = "";
+  let lastRequestHeaders: unknown;
+
+  globalThis.fetch = (async (input, init) => {
+    fetchCalled = true;
+    lastRequestUrl = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    lastRequestHeaders = init?.headers;
+
+    return new Response("Method Not Allowed", {
+      status: 405,
+      headers: { "content-type": "text/plain" },
+    });
+  }) as typeof fetch;
+
+  const server = await startAppServer();
+
+  t.after(async () => {
+    globalThis.fetch = originalFetch;
+    await server.close();
+
+    for (const [key, value] of Object.entries(previousEnv)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  });
+
+  const response = await originalFetch(`http://127.0.0.1:${server.port}/api/openrouter/v1/models`);
+  const body = await response.json() as {
+    data?: Array<unknown>;
+  };
+
+  assert.equal(response.status, 200);
+  if (!fetchCalled) {
+    throw new Error("Expected OpenRouter model list fetch to be called.");
+  }
+
+  assert.equal(lastRequestUrl, "https://openrouter.integration.test/api/v1/models");
+  const headers = new Headers(lastRequestHeaders as Record<string, string>);
+  assert.equal(headers.get("authorization"), "Bearer openrouter-integration-test-key");
+  assert.deepEqual(body, { data: [] });
+  assert.ok(response.headers.get("x-request-id"));
+});
+
 test("openrouter passthrough accepts Replit integration secrets and forwards OpenAI-compatible chat completions", async (t) => {
   const previousEnv = {
     PROXY_API_KEY: process.env.PROXY_API_KEY,
