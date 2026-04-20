@@ -1,5 +1,4 @@
 import { createHash } from "node:crypto";
-import { ApiError } from "./api-error";
 import { logger } from "./logger";
 
 export const ANTHROPIC_MODELS = [
@@ -643,25 +642,7 @@ function buildSystemFingerprint(body: JsonObject): { sysHash: string; sysLen: nu
   return { sysHash: "none", sysLen: 0 };
 }
 
-export function validateAnthropicMessages(messages: unknown): void {
-  if (!Array.isArray(messages) || messages.length === 0) {
-    return;
-  }
-
-  const lastMessage = messages[messages.length - 1] as Message;
-  if (lastMessage?.role === "assistant") {
-    throw new ApiError({
-      status: 400,
-      message: "Anthropic models require the final conversation turn to be a user message; assistant prefill is not supported.",
-      type: "invalid_request_error",
-      code: "anthropic_final_message_must_be_user",
-    });
-  }
-}
-
 export function sanitizeAnthropicBody(body: JsonObject): JsonObject {
-  validateAnthropicMessages(body.messages);
-
   let result = stripUnsignedThinkingBlocks(body);
   result = migrateDeprecatedOutputFormat(result);
   result = migrateClaudeOpus47Thinking(result);

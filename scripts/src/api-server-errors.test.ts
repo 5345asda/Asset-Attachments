@@ -356,7 +356,7 @@ test("gemini passthrough accepts x-goog-api-key at the proxy boundary", async (t
   assert.ok(response.headers["x-request-id"]);
 });
 
-test("anthropic assistant-prefill is rejected before any upstream call", async (t) => {
+test("anthropic assistant-prefill is passed through to the upstream provider", async (t) => {
   const previousEnv = {
     PROXY_API_KEY: process.env.PROXY_API_KEY,
     AI_INTEGRATIONS_ANTHROPIC_BASE_URL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL,
@@ -369,10 +369,15 @@ test("anthropic assistant-prefill is rejected before any upstream call", async (
 
   const originalFetch = globalThis.fetch;
   let fetchCalls = 0;
+  let lastRequestUrl = "";
+  let lastRequestBody = "";
 
-  globalThis.fetch = (async () => {
+  globalThis.fetch = (async (input, init) => {
     fetchCalls += 1;
-    return new Response(JSON.stringify({ ok: true }), {
+    lastRequestUrl = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    lastRequestBody = typeof init?.body === "string" ? init.body : "";
+
+    return new Response(JSON.stringify({ id: "msg_prefill", type: "message" }), {
       status: 200,
       headers: { "content-type": "application/json" },
     });
@@ -406,22 +411,12 @@ test("anthropic assistant-prefill is rejected before any upstream call", async (
       ],
     },
   });
-  const body = response.body as {
-    error: {
-      message?: string;
-      type?: string;
-    };
-  };
 
-  assert.equal(response.status, 400);
-  assert.match(body.error.message ?? "", /final conversation turn to be a user message/i);
-  assert.deepEqual(body, {
-    error: {
-      message: "Anthropic models require the final conversation turn to be a user message; assistant prefill is not supported.",
-      type: "invalid_request_error",
-    },
-  });
-  assert.equal(fetchCalls, 0);
+  assert.equal(response.status, 200);
+  assert.equal(response.body.id, "msg_prefill");
+  assert.equal(fetchCalls, 1);
+  assert.equal(lastRequestUrl, "https://anthropic.example.test/messages");
+  assert.equal(JSON.parse(lastRequestBody).messages.at(-1)?.role, "assistant");
   assert.ok(response.headers["x-request-id"]);
 });
 
