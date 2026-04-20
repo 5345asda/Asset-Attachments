@@ -10,6 +10,8 @@ import {
   AXONHUB_SUPPORTED_MODELS,
   AXONHUB_GEMINI_DEFAULT_TEST_MODEL,
   AXONHUB_GEMINI_SUPPORTED_MODELS,
+  AXONHUB_OPENROUTER_DEFAULT_TEST_MODEL,
+  AXONHUB_OPENROUTER_SUPPORTED_MODELS,
 } from "../../artifacts/api-server/src/lib/axonhub.ts";
 
 const testDir = path.dirname(fileURLToPath(import.meta.url));
@@ -22,6 +24,11 @@ const EXPECTED_AXONHUB_GEMINI_MODELS = [
   "gemini-2.5-flash",
   "gemini-2.5-flash-image",
 ] as const;
+const EXPECTED_AXONHUB_OPENROUTER_MODELS = [
+  "anthropic/claude-sonnet-4.6",
+  "openai/gpt-4.1-mini",
+  "google/gemini-2.5-flash",
+] as const;
 
 test("AxonHub status-page copy stays aligned with the backend sync model lists", async () => {
   assert.equal(ANTHROPIC_MODELS[0], "claude-opus-4-7");
@@ -29,18 +36,24 @@ test("AxonHub status-page copy stays aligned with the backend sync model lists",
   assert.equal(AXONHUB_DEFAULT_TEST_MODEL, "claude-opus-4-5");
   assert.deepEqual(AXONHUB_GEMINI_SUPPORTED_MODELS, EXPECTED_AXONHUB_GEMINI_MODELS);
   assert.equal(AXONHUB_GEMINI_DEFAULT_TEST_MODEL, "gemini-2.5-flash");
+  assert.deepEqual(AXONHUB_OPENROUTER_SUPPORTED_MODELS, EXPECTED_AXONHUB_OPENROUTER_MODELS);
+  assert.equal(AXONHUB_OPENROUTER_DEFAULT_TEST_MODEL, "anthropic/claude-sonnet-4.6");
 
   const statusPageSource = await readFile(
     path.join(repoRoot, "artifacts", "status-page", "src", "pages", "status-page.tsx"),
     "utf8",
   );
 
-  assert.match(statusPageSource, /anthropic:gemini = 8:1/);
-  assert.match(statusPageSource, /Auto 8:1 routing/);
+  assert.match(statusPageSource, /anthropic:gemini:openrouter = 8:1:1/);
+  assert.match(statusPageSource, /Auto 8:1:1 routing/);
   assert.match(statusPageSource, /"claude-opus-4-7"/);
   assert.match(
     statusPageSource,
     /supportedModels=gemini-3\.1-pro-preview \/ gemini-3-flash-preview \/ gemini-3-pro-image-preview \/ gemini-2\.5-pro \/ gemini-2\.5-flash \/ gemini-2\.5-flash-image/,
+  );
+  assert.match(
+    statusPageSource,
+    /supportedModels=anthropic\/claude-sonnet-4\.6 \/ openai\/gpt-4\.1-mini \/ google\/gemini-2\.5-flash/,
   );
   assert.match(
     statusPageSource,

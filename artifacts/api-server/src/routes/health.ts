@@ -3,6 +3,7 @@ import { HealthCheckResponse } from "@workspace/api-zod";
 import { PROXY_API_KEY } from "../lib/proxy-key";
 import { getAnthropicProviderConfig } from "../lib/anthropic-provider";
 import { getGeminiProviderConfig } from "../lib/gemini-provider";
+import { getOpenRouterProviderConfig } from "../lib/openrouter-provider";
 
 const router: IRouter = Router();
 
@@ -14,17 +15,21 @@ router.get("/healthz", (_req, res) => {
 router.get("/proxy-info", (_req, res) => {
   const anthropic = getAnthropicProviderConfig();
   const gemini = getGeminiProviderConfig();
+  const openrouter = getOpenRouterProviderConfig();
 
   res.json({
     proxyKey: PROXY_API_KEY,
-    ready: anthropic.configured || gemini.configured,
-    providers: ["anthropic", "gemini"],
+    ready: anthropic.configured || gemini.configured || openrouter.configured,
+    providers: ["anthropic", "gemini", "openrouter"],
     integrations: {
       anthropic: {
         configured: anthropic.configured,
       },
       gemini: {
         configured: gemini.configured,
+      },
+      openrouter: {
+        configured: openrouter.configured,
       },
     },
   });

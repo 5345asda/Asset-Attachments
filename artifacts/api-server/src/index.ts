@@ -2,6 +2,7 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { getAnthropicProviderConfig } from "./lib/anthropic-provider";
 import { getGeminiProviderConfig } from "./lib/gemini-provider";
+import { getOpenRouterProviderConfig } from "./lib/openrouter-provider";
 
 const rawPort = process.env["PORT"];
 
@@ -25,15 +26,18 @@ app.listen(port, (err) => {
 
   const anthropic = getAnthropicProviderConfig();
   const gemini = getGeminiProviderConfig();
+  const openrouter = getOpenRouterProviderConfig();
   logger.info(
     {
       providers: {
         anthropic: anthropic.configured,
         gemini: gemini.configured,
+        openrouter: openrouter.configured,
       },
       providerSources: {
         anthropic: anthropic.source,
         gemini: gemini.source,
+        openrouter: openrouter.source,
       },
     },
     "Provider integration status",

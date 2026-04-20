@@ -3,6 +3,7 @@ import healthRouter from "./health";
 import axonhubRouter from "./axonhub";
 import passthroughRouter from "./passthrough";
 import geminiRouter from "./gemini";
+import openrouterRouter, { handleOpenRouterModelList } from "./openrouter";
 import { PROXY_API_KEY } from "../lib/proxy-key";
 import { ApiError } from "../lib/api-error";
 import { getRequestLogger } from "../lib/request-context";
@@ -95,7 +96,14 @@ router.get("/anthropic/models", (_req, res) => res.json(anthropicModelList));
 router.get("/gemini/v1beta/models", (_req, res) => res.json(geminiModelList));
 router.get("/gemini/v1/models", (_req, res) => res.json(geminiModels));
 router.get("/gemini/models", (_req, res) => res.json(geminiModels));
+router.get("/openrouter/v1/models", async (request, response) => {
+  await handleOpenRouterModelList(request, response);
+});
+router.get("/openrouter/models", async (request, response) => {
+  await handleOpenRouterModelList(request, response);
+});
 router.use("/anthropic", proxyAuth, passthroughRouter);
 router.use("/gemini", proxyAuth, geminiRouter);
+router.use("/openrouter", proxyAuth, openrouterRouter);
 
 export default router;

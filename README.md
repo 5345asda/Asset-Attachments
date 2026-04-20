@@ -4,8 +4,9 @@
 
 - 对外支持 `/api/anthropic/*`
 - 对外支持 `/api/gemini/*`
+- 对外支持 `/api/openrouter/*`
 - 不再提供 `/api/v1/chat/completions`
-- 其它 provider 路由仍不开放
+- 除 Anthropic / Gemini / OpenRouter 外，其它 provider 路由仍不开放
 
 ## 只看这几个文件
 
@@ -22,6 +23,7 @@
 - 单入口部署，前端静态资源由后端统一托管
 - Anthropic 走 Replit integration
 - Gemini 也走 Replit integration
+- OpenRouter 也可走 Replit integration，必要时回退 direct secret
 
 ## 部署命令
 
@@ -59,3 +61,5 @@ pnpm run pack:replit
 | `GET /api/gemini/v1beta/models` | 否 | 返回 Gemini 模型列表 |
 | `POST /api/gemini/v1beta/models/{model}:generateContent` | 是 | Gemini 原生 `generateContent` 接口 |
 | `POST /api/gemini/v1beta/models/{model}:streamGenerateContent?alt=sse` | 是 | Gemini 原生流式接口 |
+| `GET /api/openrouter/v1/models` | 否 | 返回 OpenRouter OpenAI 兼容模型列表 |
+| `POST /api/openrouter/v1/chat/completions` | 是 | OpenRouter OpenAI 兼容 chat completions 接口 |

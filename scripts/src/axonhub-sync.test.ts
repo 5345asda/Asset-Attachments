@@ -7,6 +7,8 @@ import {
   AXONHUB_SUPPORTED_MODELS,
   AXONHUB_GEMINI_DEFAULT_TEST_MODEL,
   AXONHUB_GEMINI_SUPPORTED_MODELS,
+  AXONHUB_OPENROUTER_DEFAULT_TEST_MODEL,
+  AXONHUB_OPENROUTER_SUPPORTED_MODELS,
   buildAxonHubChannelInput,
   normalizeAxonHubToken,
   pickAxonHubChannelProvider,
@@ -31,6 +33,11 @@ const EXPECTED_AXONHUB_GEMINI_MODELS = [
   "gemini-2.5-flash",
   "gemini-2.5-flash-image",
 ] as const;
+const EXPECTED_AXONHUB_OPENROUTER_MODELS = [
+  "anthropic/claude-sonnet-4.6",
+  "openai/gpt-4.1-mini",
+  "google/gemini-2.5-flash",
+] as const;
 
 function managedChannel({
   id,
@@ -51,6 +58,14 @@ function managedChannel({
     status,
     remark: "Managed by Asset-Attachments",
   };
+}
+
+function managedAnthropicChannels(count: number) {
+  return Array.from({ length: count }, (_, index) => managedChannel({
+    id: `gid://axonhub/Channel/${index + 1}`,
+    type: "anthropic",
+    baseURL: `https://anthropic-${index + 1}.example/api/anthropic`,
+  }));
 }
 
 test("normalizeAxonHubToken accepts bare tokens and preserves Bearer tokens", () => {
@@ -99,6 +114,30 @@ test("buildAxonHubChannelInput uses the fixed gemini channel format", () => {
     supportedModels: EXPECTED_AXONHUB_GEMINI_MODELS,
     defaultTestModel: AXONHUB_GEMINI_DEFAULT_TEST_MODEL,
     manualModels: EXPECTED_AXONHUB_GEMINI_MODELS,
+    autoSyncSupportedModels: false,
+    autoSyncModelPattern: "",
+    tags: [],
+    remark: "Managed by Asset-Attachments",
+  });
+});
+
+test("buildAxonHubChannelInput uses the fixed openrouter channel format", () => {
+  const input = buildAxonHubChannelInput({
+    provider: "openrouter",
+    projectOrigin: "https://proxy.example:8443/",
+    proxyKey: "sk-proxy-test",
+  });
+
+  assert.deepEqual(input, {
+    type: "openrouter",
+    name: "proxy",
+    baseURL: "https://proxy.example:8443/api/openrouter",
+    credentials: {
+      apiKey: "sk-proxy-test",
+    },
+    supportedModels: EXPECTED_AXONHUB_OPENROUTER_MODELS,
+    defaultTestModel: AXONHUB_OPENROUTER_DEFAULT_TEST_MODEL,
+    manualModels: EXPECTED_AXONHUB_OPENROUTER_MODELS,
     autoSyncSupportedModels: false,
     autoSyncModelPattern: "",
     tags: [],
@@ -163,50 +202,22 @@ test("pickAxonHubChannelProvider only counts managed non-archived channels towar
 });
 
 test("pickAxonHubChannelProvider switches to gemini after eight managed anthropic channels fill the next slot", () => {
+  const provider = pickAxonHubChannelProvider(managedAnthropicChannels(8));
+
+  assert.equal(provider, "gemini");
+});
+
+test("pickAxonHubChannelProvider switches to openrouter after gemini fills the first secondary slot", () => {
   const provider = pickAxonHubChannelProvider([
+    ...managedAnthropicChannels(16),
     managedChannel({
-      id: "gid://axonhub/Channel/1",
-      type: "anthropic",
-      baseURL: "https://one.example/api/anthropic",
-    }),
-    managedChannel({
-      id: "gid://axonhub/Channel/2",
-      type: "anthropic",
-      baseURL: "https://two.example/api/anthropic",
-    }),
-    managedChannel({
-      id: "gid://axonhub/Channel/3",
-      type: "anthropic",
-      baseURL: "https://three.example/api/anthropic",
-    }),
-    managedChannel({
-      id: "gid://axonhub/Channel/4",
-      type: "anthropic",
-      baseURL: "https://four.example/api/anthropic",
-    }),
-    managedChannel({
-      id: "gid://axonhub/Channel/5",
-      type: "anthropic",
-      baseURL: "https://five.example/api/anthropic",
-    }),
-    managedChannel({
-      id: "gid://axonhub/Channel/6",
-      type: "anthropic",
-      baseURL: "https://six.example/api/anthropic",
-    }),
-    managedChannel({
-      id: "gid://axonhub/Channel/7",
-      type: "anthropic",
-      baseURL: "https://seven.example/api/anthropic",
-    }),
-    managedChannel({
-      id: "gid://axonhub/Channel/8",
-      type: "anthropic",
-      baseURL: "https://eight.example/api/anthropic",
+      id: "gid://axonhub/Channel/17",
+      type: "gemini",
+      baseURL: "https://gemini.example/api/gemini",
     }),
   ]);
 
-  assert.equal(provider, "gemini");
+  assert.equal(provider, "openrouter");
 });
 
 test("pickAxonHubChannelProvider normalizes title-cased provider names from AxonHub before counting", () => {
@@ -602,6 +613,87 @@ test("syncAxonHubChannel creates a new gemini channel when the next slot belongs
     supportedModels: EXPECTED_AXONHUB_GEMINI_MODELS,
     defaultTestModel: AXONHUB_GEMINI_DEFAULT_TEST_MODEL,
     manualModels: EXPECTED_AXONHUB_GEMINI_MODELS,
+    autoSyncSupportedModels: false,
+    autoSyncModelPattern: "",
+    tags: [],
+    remark: "Managed by Asset-Attachments",
+  });
+});
+
+test("syncAxonHubChannel creates a new openrouter channel when the next secondary slot belongs to openrouter", async () => {
+  const calls: Array<{ input: FetchInput; init?: RequestInit }> = [];
+  const fetchMock: typeof fetch = async (input, init) => {
+    calls.push({ input, init });
+
+    const body = JSON.parse(String(init?.body ?? "{}")) as {
+      query?: string;
+      variables?: {
+        input?: unknown;
+      };
+    };
+
+    if (body.query?.includes("query SyncAxonHubChannelLookup")) {
+      return jsonResponse({
+        data: {
+          queryChannels: {
+            edges: [
+              ...managedAnthropicChannels(16).map((node) => ({ node })),
+              {
+                node: managedChannel({
+                  id: "gid://axonhub/Channel/17",
+                  type: "gemini",
+                  baseURL: "https://gemini.example/api/gemini",
+                }),
+              },
+            ],
+          },
+        },
+      });
+    }
+
+    if (body.query?.includes("mutation CreateChannel")) {
+      return jsonResponse({
+        data: {
+          createChannel: {
+            id: "gid://axonhub/Channel/209",
+            name: "proxy",
+            type: "openrouter",
+            baseURL: "https://proxy.example/api/openrouter",
+            status: "enabled",
+          },
+        },
+      });
+    }
+
+    throw new Error(`Unexpected GraphQL document: ${body.query}`);
+  };
+
+  const result = await syncAxonHubChannel({
+    projectOrigin: "https://proxy.example",
+    proxyKey: "sk-proxy-test",
+    adminToken: "plain-token",
+    fetchImpl: fetchMock,
+  });
+
+  assert.equal(result.mode, "created");
+  assert.equal(result.provider, "openrouter");
+
+  const createBody = JSON.parse(String(calls[1]?.init?.body ?? "{}")) as {
+    variables?: {
+      input?: unknown;
+    };
+  };
+
+  assert.deepEqual(createBody.variables?.input, {
+    type: "openrouter",
+    name: "proxy",
+    baseURL: "https://proxy.example/api/openrouter",
+    credentials: {
+      apiKey: "sk-proxy-test",
+    },
+    supportedModels: EXPECTED_AXONHUB_OPENROUTER_MODELS,
+    defaultTestModel: AXONHUB_OPENROUTER_DEFAULT_TEST_MODEL,
+    manualModels: EXPECTED_AXONHUB_OPENROUTER_MODELS,
     autoSyncSupportedModels: false,
     autoSyncModelPattern: "",
     tags: [],

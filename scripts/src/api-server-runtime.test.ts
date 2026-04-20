@@ -129,6 +129,10 @@ test("proxy-info exposes Anthropic integration readiness for deployment checks",
   const previousGeminiIntegrationApiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
   const previousGeminiDirectBaseUrl = process.env.GEMINI_BASE_URL;
   const previousGeminiDirectApiKey = process.env.GEMINI_API_KEY;
+  const previousOpenRouterIntegrationBaseUrl = process.env.AI_INTEGRATIONS_OPENROUTER_BASE_URL;
+  const previousOpenRouterIntegrationApiKey = process.env.AI_INTEGRATIONS_OPENROUTER_API_KEY;
+  const previousOpenRouterDirectBaseUrl = process.env.OPENROUTER_BASE_URL;
+  const previousOpenRouterDirectApiKey = process.env.OPENROUTER_API_KEY;
   const previousProxyKey = process.env.PROXY_API_KEY;
   const port = await getFreePort();
 
@@ -140,6 +144,10 @@ test("proxy-info exposes Anthropic integration readiness for deployment checks",
   delete process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
   delete process.env.GEMINI_BASE_URL;
   delete process.env.GEMINI_API_KEY;
+  delete process.env.AI_INTEGRATIONS_OPENROUTER_BASE_URL;
+  delete process.env.AI_INTEGRATIONS_OPENROUTER_API_KEY;
+  delete process.env.OPENROUTER_BASE_URL;
+  delete process.env.OPENROUTER_API_KEY;
   process.env.PROXY_API_KEY = "sk-proxy-test";
 
   try {
@@ -152,6 +160,7 @@ test("proxy-info exposes Anthropic integration readiness for deployment checks",
 
       const body = await response.json() as {
         ready?: boolean;
+        providers?: string[];
         integrations?: {
           anthropic?: {
             configured?: boolean;
@@ -159,12 +168,17 @@ test("proxy-info exposes Anthropic integration readiness for deployment checks",
           gemini?: {
             configured?: boolean;
           };
+          openrouter?: {
+            configured?: boolean;
+          };
         };
       };
 
       assert.equal(body.ready, false);
+      assert.ok(body.providers?.includes("openrouter"));
       assert.equal(body.integrations?.anthropic?.configured, false);
       assert.equal(body.integrations?.gemini?.configured, false);
+      assert.equal(body.integrations?.openrouter?.configured, false);
     } finally {
       await new Promise<void>((resolve, reject) => {
         server.close((error) => {
@@ -224,6 +238,30 @@ test("proxy-info exposes Anthropic integration readiness for deployment checks",
       delete process.env.GEMINI_API_KEY;
     } else {
       process.env.GEMINI_API_KEY = previousGeminiDirectApiKey;
+    }
+
+    if (previousOpenRouterIntegrationBaseUrl === undefined) {
+      delete process.env.AI_INTEGRATIONS_OPENROUTER_BASE_URL;
+    } else {
+      process.env.AI_INTEGRATIONS_OPENROUTER_BASE_URL = previousOpenRouterIntegrationBaseUrl;
+    }
+
+    if (previousOpenRouterIntegrationApiKey === undefined) {
+      delete process.env.AI_INTEGRATIONS_OPENROUTER_API_KEY;
+    } else {
+      process.env.AI_INTEGRATIONS_OPENROUTER_API_KEY = previousOpenRouterIntegrationApiKey;
+    }
+
+    if (previousOpenRouterDirectBaseUrl === undefined) {
+      delete process.env.OPENROUTER_BASE_URL;
+    } else {
+      process.env.OPENROUTER_BASE_URL = previousOpenRouterDirectBaseUrl;
+    }
+
+    if (previousOpenRouterDirectApiKey === undefined) {
+      delete process.env.OPENROUTER_API_KEY;
+    } else {
+      process.env.OPENROUTER_API_KEY = previousOpenRouterDirectApiKey;
     }
 
     if (previousProxyKey === undefined) {
@@ -243,6 +281,10 @@ test("proxy-info reports Anthropic ready when direct Anthropic secrets are provi
   const previousGeminiIntegrationApiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
   const previousGeminiDirectBaseUrl = process.env.GEMINI_BASE_URL;
   const previousGeminiDirectApiKey = process.env.GEMINI_API_KEY;
+  const previousOpenRouterIntegrationBaseUrl = process.env.AI_INTEGRATIONS_OPENROUTER_BASE_URL;
+  const previousOpenRouterIntegrationApiKey = process.env.AI_INTEGRATIONS_OPENROUTER_API_KEY;
+  const previousOpenRouterDirectBaseUrl = process.env.OPENROUTER_BASE_URL;
+  const previousOpenRouterDirectApiKey = process.env.OPENROUTER_API_KEY;
   const previousProxyKey = process.env.PROXY_API_KEY;
   const port = await getFreePort();
 
@@ -254,6 +296,10 @@ test("proxy-info reports Anthropic ready when direct Anthropic secrets are provi
   delete process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
   delete process.env.GEMINI_BASE_URL;
   delete process.env.GEMINI_API_KEY;
+  delete process.env.AI_INTEGRATIONS_OPENROUTER_BASE_URL;
+  delete process.env.AI_INTEGRATIONS_OPENROUTER_API_KEY;
+  delete process.env.OPENROUTER_BASE_URL;
+  delete process.env.OPENROUTER_API_KEY;
   process.env.PROXY_API_KEY = "sk-proxy-test";
 
   try {
@@ -273,12 +319,16 @@ test("proxy-info reports Anthropic ready when direct Anthropic secrets are provi
           gemini?: {
             configured?: boolean;
           };
+          openrouter?: {
+            configured?: boolean;
+          };
         };
       };
 
       assert.equal(body.ready, true);
       assert.equal(body.integrations?.anthropic?.configured, true);
       assert.equal(body.integrations?.gemini?.configured, false);
+      assert.equal(body.integrations?.openrouter?.configured, false);
     } finally {
       await new Promise<void>((resolve, reject) => {
         server.close((error) => {
@@ -338,6 +388,30 @@ test("proxy-info reports Anthropic ready when direct Anthropic secrets are provi
       delete process.env.GEMINI_API_KEY;
     } else {
       process.env.GEMINI_API_KEY = previousGeminiDirectApiKey;
+    }
+
+    if (previousOpenRouterIntegrationBaseUrl === undefined) {
+      delete process.env.AI_INTEGRATIONS_OPENROUTER_BASE_URL;
+    } else {
+      process.env.AI_INTEGRATIONS_OPENROUTER_BASE_URL = previousOpenRouterIntegrationBaseUrl;
+    }
+
+    if (previousOpenRouterIntegrationApiKey === undefined) {
+      delete process.env.AI_INTEGRATIONS_OPENROUTER_API_KEY;
+    } else {
+      process.env.AI_INTEGRATIONS_OPENROUTER_API_KEY = previousOpenRouterIntegrationApiKey;
+    }
+
+    if (previousOpenRouterDirectBaseUrl === undefined) {
+      delete process.env.OPENROUTER_BASE_URL;
+    } else {
+      process.env.OPENROUTER_BASE_URL = previousOpenRouterDirectBaseUrl;
+    }
+
+    if (previousOpenRouterDirectApiKey === undefined) {
+      delete process.env.OPENROUTER_API_KEY;
+    } else {
+      process.env.OPENROUTER_API_KEY = previousOpenRouterDirectApiKey;
     }
 
     if (previousProxyKey === undefined) {
@@ -357,6 +431,10 @@ test("proxy-info reports ready when direct Gemini secrets are provided", async (
   const previousGeminiIntegrationApiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
   const previousGeminiDirectBaseUrl = process.env.GEMINI_BASE_URL;
   const previousGeminiDirectApiKey = process.env.GEMINI_API_KEY;
+  const previousOpenRouterIntegrationBaseUrl = process.env.AI_INTEGRATIONS_OPENROUTER_BASE_URL;
+  const previousOpenRouterIntegrationApiKey = process.env.AI_INTEGRATIONS_OPENROUTER_API_KEY;
+  const previousOpenRouterDirectBaseUrl = process.env.OPENROUTER_BASE_URL;
+  const previousOpenRouterDirectApiKey = process.env.OPENROUTER_API_KEY;
   const previousProxyKey = process.env.PROXY_API_KEY;
   const port = await getFreePort();
 
@@ -368,6 +446,10 @@ test("proxy-info reports ready when direct Gemini secrets are provided", async (
   delete process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
   process.env.GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
   process.env.GEMINI_API_KEY = "gemini-direct-test-key";
+  delete process.env.AI_INTEGRATIONS_OPENROUTER_BASE_URL;
+  delete process.env.AI_INTEGRATIONS_OPENROUTER_API_KEY;
+  delete process.env.OPENROUTER_BASE_URL;
+  delete process.env.OPENROUTER_API_KEY;
   process.env.PROXY_API_KEY = "sk-proxy-test";
 
   try {
@@ -387,12 +469,16 @@ test("proxy-info reports ready when direct Gemini secrets are provided", async (
           gemini?: {
             configured?: boolean;
           };
+          openrouter?: {
+            configured?: boolean;
+          };
         };
       };
 
       assert.equal(body.ready, true);
       assert.equal(body.integrations?.anthropic?.configured, false);
       assert.equal(body.integrations?.gemini?.configured, true);
+      assert.equal(body.integrations?.openrouter?.configured, false);
     } finally {
       await new Promise<void>((resolve, reject) => {
         server.close((error) => {
@@ -452,6 +538,182 @@ test("proxy-info reports ready when direct Gemini secrets are provided", async (
       delete process.env.GEMINI_API_KEY;
     } else {
       process.env.GEMINI_API_KEY = previousGeminiDirectApiKey;
+    }
+
+    if (previousOpenRouterIntegrationBaseUrl === undefined) {
+      delete process.env.AI_INTEGRATIONS_OPENROUTER_BASE_URL;
+    } else {
+      process.env.AI_INTEGRATIONS_OPENROUTER_BASE_URL = previousOpenRouterIntegrationBaseUrl;
+    }
+
+    if (previousOpenRouterIntegrationApiKey === undefined) {
+      delete process.env.AI_INTEGRATIONS_OPENROUTER_API_KEY;
+    } else {
+      process.env.AI_INTEGRATIONS_OPENROUTER_API_KEY = previousOpenRouterIntegrationApiKey;
+    }
+
+    if (previousOpenRouterDirectBaseUrl === undefined) {
+      delete process.env.OPENROUTER_BASE_URL;
+    } else {
+      process.env.OPENROUTER_BASE_URL = previousOpenRouterDirectBaseUrl;
+    }
+
+    if (previousOpenRouterDirectApiKey === undefined) {
+      delete process.env.OPENROUTER_API_KEY;
+    } else {
+      process.env.OPENROUTER_API_KEY = previousOpenRouterDirectApiKey;
+    }
+
+    if (previousProxyKey === undefined) {
+      delete process.env.PROXY_API_KEY;
+    } else {
+      process.env.PROXY_API_KEY = previousProxyKey;
+    }
+  }
+});
+
+test("proxy-info reports ready when direct OpenRouter secrets are provided", async () => {
+  const previousBaseUrl = process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL;
+  const previousApiKey = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY;
+  const previousDirectBaseUrl = process.env.ANTHROPIC_BASE_URL;
+  const previousDirectApiKey = process.env.ANTHROPIC_API_KEY;
+  const previousGeminiIntegrationBaseUrl = process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
+  const previousGeminiIntegrationApiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+  const previousGeminiDirectBaseUrl = process.env.GEMINI_BASE_URL;
+  const previousGeminiDirectApiKey = process.env.GEMINI_API_KEY;
+  const previousOpenRouterIntegrationBaseUrl = process.env.AI_INTEGRATIONS_OPENROUTER_BASE_URL;
+  const previousOpenRouterIntegrationApiKey = process.env.AI_INTEGRATIONS_OPENROUTER_API_KEY;
+  const previousOpenRouterDirectBaseUrl = process.env.OPENROUTER_BASE_URL;
+  const previousOpenRouterDirectApiKey = process.env.OPENROUTER_API_KEY;
+  const previousProxyKey = process.env.PROXY_API_KEY;
+  const port = await getFreePort();
+
+  delete process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL;
+  delete process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY;
+  delete process.env.ANTHROPIC_BASE_URL;
+  delete process.env.ANTHROPIC_API_KEY;
+  delete process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
+  delete process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+  delete process.env.GEMINI_BASE_URL;
+  delete process.env.GEMINI_API_KEY;
+  delete process.env.AI_INTEGRATIONS_OPENROUTER_BASE_URL;
+  delete process.env.AI_INTEGRATIONS_OPENROUTER_API_KEY;
+  process.env.OPENROUTER_BASE_URL = "https://openrouter.byok.test/api/v1";
+  process.env.OPENROUTER_API_KEY = "openrouter-direct-test-key";
+  process.env.PROXY_API_KEY = "sk-proxy-test";
+
+  try {
+    const { default: app } = await import("../../artifacts/api-server/src/app.ts");
+    const server = app.listen(port);
+
+    try {
+      const response = await fetch(`http://127.0.0.1:${port}/api/proxy-info`);
+      assert.equal(response.status, 200);
+
+      const body = await response.json() as {
+        ready?: boolean;
+        providers?: string[];
+        integrations?: {
+          anthropic?: {
+            configured?: boolean;
+          };
+          gemini?: {
+            configured?: boolean;
+          };
+          openrouter?: {
+            configured?: boolean;
+          };
+        };
+      };
+
+      assert.equal(body.ready, true);
+      assert.ok(body.providers?.includes("openrouter"));
+      assert.equal(body.integrations?.anthropic?.configured, false);
+      assert.equal(body.integrations?.gemini?.configured, false);
+      assert.equal(body.integrations?.openrouter?.configured, true);
+    } finally {
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+
+          resolve();
+        });
+      });
+    }
+  } finally {
+    if (previousBaseUrl === undefined) {
+      delete process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL;
+    } else {
+      process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL = previousBaseUrl;
+    }
+
+    if (previousApiKey === undefined) {
+      delete process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY;
+    } else {
+      process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY = previousApiKey;
+    }
+
+    if (previousDirectBaseUrl === undefined) {
+      delete process.env.ANTHROPIC_BASE_URL;
+    } else {
+      process.env.ANTHROPIC_BASE_URL = previousDirectBaseUrl;
+    }
+
+    if (previousDirectApiKey === undefined) {
+      delete process.env.ANTHROPIC_API_KEY;
+    } else {
+      process.env.ANTHROPIC_API_KEY = previousDirectApiKey;
+    }
+
+    if (previousGeminiIntegrationBaseUrl === undefined) {
+      delete process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
+    } else {
+      process.env.AI_INTEGRATIONS_GEMINI_BASE_URL = previousGeminiIntegrationBaseUrl;
+    }
+
+    if (previousGeminiIntegrationApiKey === undefined) {
+      delete process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+    } else {
+      process.env.AI_INTEGRATIONS_GEMINI_API_KEY = previousGeminiIntegrationApiKey;
+    }
+
+    if (previousGeminiDirectBaseUrl === undefined) {
+      delete process.env.GEMINI_BASE_URL;
+    } else {
+      process.env.GEMINI_BASE_URL = previousGeminiDirectBaseUrl;
+    }
+
+    if (previousGeminiDirectApiKey === undefined) {
+      delete process.env.GEMINI_API_KEY;
+    } else {
+      process.env.GEMINI_API_KEY = previousGeminiDirectApiKey;
+    }
+
+    if (previousOpenRouterIntegrationBaseUrl === undefined) {
+      delete process.env.AI_INTEGRATIONS_OPENROUTER_BASE_URL;
+    } else {
+      process.env.AI_INTEGRATIONS_OPENROUTER_BASE_URL = previousOpenRouterIntegrationBaseUrl;
+    }
+
+    if (previousOpenRouterIntegrationApiKey === undefined) {
+      delete process.env.AI_INTEGRATIONS_OPENROUTER_API_KEY;
+    } else {
+      process.env.AI_INTEGRATIONS_OPENROUTER_API_KEY = previousOpenRouterIntegrationApiKey;
+    }
+
+    if (previousOpenRouterDirectBaseUrl === undefined) {
+      delete process.env.OPENROUTER_BASE_URL;
+    } else {
+      process.env.OPENROUTER_BASE_URL = previousOpenRouterDirectBaseUrl;
+    }
+
+    if (previousOpenRouterDirectApiKey === undefined) {
+      delete process.env.OPENROUTER_API_KEY;
+    } else {
+      process.env.OPENROUTER_API_KEY = previousOpenRouterDirectApiKey;
     }
 
     if (previousProxyKey === undefined) {

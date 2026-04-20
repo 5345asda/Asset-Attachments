@@ -15,10 +15,16 @@ export const AXONHUB_GEMINI_SUPPORTED_MODELS = [
   "gemini-2.5-flash",
   "gemini-2.5-flash-image",
 ] as const;
+export const AXONHUB_OPENROUTER_DEFAULT_TEST_MODEL = "anthropic/claude-sonnet-4.6";
+export const AXONHUB_OPENROUTER_SUPPORTED_MODELS = [
+  "anthropic/claude-sonnet-4.6",
+  "openai/gpt-4.1-mini",
+  "google/gemini-2.5-flash",
+] as const;
 
 const AXONHUB_GRAPHQL_URL = `${AXONHUB_ORIGIN}/admin/graphql`;
 const AXONHUB_REMARK = "Managed by Asset-Attachments";
-const AXONHUB_ANTHROPIC_PER_GEMINI = 8;
+const AXONHUB_ANTHROPIC_PER_SECONDARY = 8;
 const AXONHUB_LOOKUP_PAGE_SIZE = 100;
 
 const LOOKUP_CHANNELS_QUERY = `
@@ -112,7 +118,7 @@ export interface SyncAxonHubChannelResult {
   channel: GraphQlChannelNode;
 }
 
-export type AxonHubProvider = "anthropic" | "gemini";
+export type AxonHubProvider = "anthropic" | "gemini" | "openrouter";
 
 function normalizeAxonHubProviderType(type?: string | null): AxonHubProvider | null {
   if (!type) {
@@ -121,7 +127,11 @@ function normalizeAxonHubProviderType(type?: string | null): AxonHubProvider | n
 
   const normalized = type.trim().toLowerCase();
 
-  if (normalized === "anthropic" || normalized === "gemini") {
+  if (
+    normalized === "anthropic"
+    || normalized === "gemini"
+    || normalized === "openrouter"
+  ) {
     return normalized;
   }
 
@@ -193,10 +203,14 @@ export function buildAxonHubChannelInput({
   const normalizedOrigin = normalizeOrigin(projectOrigin);
   const supportedModels = provider === "gemini"
     ? [...AXONHUB_GEMINI_SUPPORTED_MODELS]
-    : [...AXONHUB_SUPPORTED_MODELS];
+    : provider === "openrouter"
+      ? [...AXONHUB_OPENROUTER_SUPPORTED_MODELS]
+      : [...AXONHUB_SUPPORTED_MODELS];
   const defaultTestModel = provider === "gemini"
     ? AXONHUB_GEMINI_DEFAULT_TEST_MODEL
-    : AXONHUB_DEFAULT_TEST_MODEL;
+    : provider === "openrouter"
+      ? AXONHUB_OPENROUTER_DEFAULT_TEST_MODEL
+      : AXONHUB_DEFAULT_TEST_MODEL;
 
   return {
     type: provider,
@@ -224,11 +238,17 @@ export function pickAxonHubChannelProvider(
       && channel.status !== "archived";
   });
   const geminiCount = managedChannels.filter((channel) => normalizeAxonHubProviderType(channel.type) === "gemini").length;
+  const openrouterCount = managedChannels.filter((channel) => normalizeAxonHubProviderType(channel.type) === "openrouter").length;
   const anthropicCount = managedChannels.filter((channel) => normalizeAxonHubProviderType(channel.type) === "anthropic").length;
+  const secondaryCount = geminiCount + openrouterCount;
 
-  return anthropicCount < (geminiCount + 1) * AXONHUB_ANTHROPIC_PER_GEMINI
-    ? "anthropic"
-    : "gemini";
+  if (anthropicCount < (secondaryCount + 1) * AXONHUB_ANTHROPIC_PER_SECONDARY) {
+    return "anthropic";
+  }
+
+  return geminiCount <= openrouterCount
+    ? "gemini"
+    : "openrouter";
 }
 
 function buildAxonHubUpdateChannelInput(

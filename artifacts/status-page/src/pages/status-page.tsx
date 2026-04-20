@@ -108,7 +108,7 @@ export default function StatusPage() {
   const [axonhubSyncResult, setAxonhubSyncResult] = useState<null | {
     axonhubOrigin: string;
     mode: "created" | "updated";
-    provider: "anthropic" | "gemini";
+    provider: "anthropic" | "gemini" | "openrouter";
     channel: {
       id: string;
       name: string;
@@ -272,7 +272,7 @@ console.log(data);`;
 
       const body = await response.json() as {
         mode?: "created" | "updated";
-        provider?: "anthropic" | "gemini";
+        provider?: "anthropic" | "gemini" | "openrouter";
         axonhubOrigin?: string;
         channel?: {
           id: string;
@@ -435,7 +435,7 @@ console.log(data);`;
           <div className="flex items-center gap-2 mb-4">
             <Server className="w-4 h-4 text-primary" />
             <span className="text-sm font-semibold text-foreground">AxonHub Sync</span>
-            <span className="ml-auto text-xs text-muted-foreground">Auto 8:1 routing</span>
+            <span className="ml-auto text-xs text-muted-foreground">Auto 8:1:1 routing</span>
           </div>
 
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
@@ -475,7 +475,7 @@ console.log(data);`;
                   </button>
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
-                  只手填 AxonHub token。系统会只统计由当前仓库托管的 channel，并自动保持 anthropic:gemini = 8:1；哪边不足，这次就同步哪边。
+                  只手填 AxonHub token。系统会只统计由当前仓库托管的 channel，并自动保持 anthropic:gemini:openrouter = 8:1:1；Anthropic 不足时优先补 Anthropic，次级槽位会在 Gemini 和 OpenRouter 之间补齐 1:1。
                 </p>
               </div>
 
@@ -487,12 +487,17 @@ console.log(data);`;
                   <span className="text-foreground"> baseURL={geminiBaseUrl || " /api/gemini"}</span>,
                   <span className="text-foreground"> defaultTestModel=gemini-2.5-flash</span>,
                   <span className="text-foreground"> supportedModels=gemini-3.1-pro-preview / gemini-3-flash-preview / gemini-3-pro-image-preview / gemini-2.5-pro / gemini-2.5-flash / gemini-2.5-flash-image</span>.
+                  <span className="text-foreground"> openrouter</span> uses
+                  <span className="text-foreground"> type=openrouter</span>,
+                  <span className="text-foreground"> baseURL=/api/openrouter</span>,
+                  <span className="text-foreground"> defaultTestModel=anthropic/claude-sonnet-4.6</span>,
+                  <span className="text-foreground"> supportedModels=anthropic/claude-sonnet-4.6 / openai/gpt-4.1-mini / google/gemini-2.5-flash</span>.
                   <span className="text-foreground"> anthropic</span> uses
                   <span className="text-foreground"> type=anthropic</span>,
                   <span className="text-foreground"> baseURL={baseUrl || " /api/anthropic"}</span>,
                   <span className="text-foreground"> defaultTestModel=claude-opus-4-5</span>,
                   <span className="text-foreground"> supportedModels=claude-opus-4-7 / claude-opus-4-6 / claude-opus-4-5 / claude-sonnet-4-6</span>.
-                  Both paths are synced back with
+                  All three paths are synced back with
                   <span className="text-foreground"> status=enabled</span>.
                 </p>
               </div>
