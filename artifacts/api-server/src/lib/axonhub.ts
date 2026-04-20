@@ -40,7 +40,8 @@ export const AXONHUB_OPENROUTER_SUPPORTED_MODELS = [
 
 const AXONHUB_GRAPHQL_URL = `${AXONHUB_ORIGIN}/admin/graphql`;
 const AXONHUB_REMARK = "Managed by Asset-Attachments";
-const AXONHUB_ANTHROPIC_PER_SECONDARY = 8;
+// 8:1:1 means Anthropic should track 4x the combined Gemini+OpenRouter count.
+const AXONHUB_ANTHROPIC_PER_SECONDARY = 4;
 const AXONHUB_LOOKUP_PAGE_SIZE = 100;
 
 const LOOKUP_CHANNELS_QUERY = `

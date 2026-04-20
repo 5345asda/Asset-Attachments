@@ -161,7 +161,7 @@ test("buildAxonHubChannelInput uses the fixed openrouter channel format", () => 
   });
 });
 
-test("pickAxonHubChannelProvider only counts managed non-archived channels toward the 8:1 ratio", () => {
+test("pickAxonHubChannelProvider only counts managed non-archived channels toward the 8:1:1 ratio", () => {
   const provider = pickAxonHubChannelProvider([
     managedChannel({
       id: "gid://axonhub/Channel/1",
@@ -214,7 +214,13 @@ test("pickAxonHubChannelProvider only counts managed non-archived channels towar
     },
   ]);
 
-  assert.equal(provider, "anthropic");
+  assert.equal(provider, "gemini");
+});
+
+test("pickAxonHubChannelProvider switches to gemini after four managed anthropic channels fill the first 8:1:1 block", () => {
+  const provider = pickAxonHubChannelProvider(managedAnthropicChannels(4));
+
+  assert.equal(provider, "gemini");
 });
 
 test("pickAxonHubChannelProvider switches to gemini after eight managed anthropic channels fill the next slot", () => {
