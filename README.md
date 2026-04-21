@@ -5,8 +5,6 @@
 - 对外支持 `/api/anthropic/*`
 - 对外支持 `/api/gemini/*`
 - 对外支持 `/api/openrouter/*`
-- 不再提供 `/api/v1/chat/completions`
-- 除 Anthropic / Gemini / OpenRouter 外，其它 provider 路由仍不开放
 
 ## 只看这几个文件
 
@@ -14,12 +12,13 @@
 - 根目录 `package.json`
 - [replit.md](D:/64服务器/Asset-Attachments/replit.md)
 
-部署时不要根据历史 README、旧 prompt 或旧 artifact 说明推断结构。
+部署与结构判断以当前根目录 `.replit`、根目录 `package.json` 和 `replit.md` 为准。
 
 ## 当前结构
 
 - `artifacts/api-server`
 - `artifacts/status-page`
+- 当前仓库通过 Git 导入到 Replit，直接以仓库根目录作为项目根目录
 - 单入口部署，前端静态资源由后端统一托管
 - Anthropic 走 Replit integration
 - Gemini 也走 Replit integration
@@ -36,19 +35,6 @@
   `sk-proxy-6f2d0c9a47b13e8d5f71a2c46be93d07f8c1a54e692db3fc`
 - 如需覆盖，直接设置环境变量 `PROXY_API_KEY`
 - `GET /api/proxy-info` 会返回当前实际生效的 proxy key
-
-## 两个发布包
-
-- 常规包：`release/Asset-Attachments-replit-upload-20260412.zip`
-  现在是 runtime-only 结构，只带 `package.json`、`server/`、`public/` 和 `REPLIT_UPLOAD_PROMPT.txt`，故意不包含根 `.replit`
-- fast-start 包：`release/Asset-Attachments-replit-fast-start-20260412.zip`
-  同样是 runtime-only 结构，但额外带根 `.replit` 和 `REPLIT_FAST_START_PROMPT.txt`，开箱即跑
-
-重新生成发布包：
-
-```bash
-pnpm run pack:replit
-```
 
 ## API 概览
 

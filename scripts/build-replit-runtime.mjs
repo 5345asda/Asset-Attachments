@@ -92,13 +92,13 @@ const releaseVariants = [
   {
     slug: "replit-upload",
     promptFileName: "REPLIT_UPLOAD_PROMPT.txt",
-    promptTitle: "这是一个最小化的 Replit runtime 上传包。",
+    promptTitle: "这是一个最小化的 Replit runtime 目录。",
     includeReplit: false,
   },
   {
     slug: "replit-fast-start",
     promptFileName: "REPLIT_FAST_START_PROMPT.txt",
-    promptTitle: "这是一个已经预构建好的 Replit runtime 包。",
+    promptTitle: "这是一个已经预构建好的 Replit runtime 目录。",
     includeReplit: true,
   },
 ];
@@ -129,13 +129,13 @@ function releasePrompt(title) {
   return `${title}
 
 不要把它当 monorepo，不要重组目录，不要新建 workflow 或 artifact。
+直接以当前目录作为 Replit 项目根目录。
 
 执行：
-1. 解压到 Replit 项目根目录。
-2. 按需分别配置 provider：Anthropic 启用 Replit integration；Gemini 也启用 Replit integration。
-3. 运行 \`pnpm install\`。
-4. 运行 \`pnpm start\`。
-5. 运行 \`pnpm run verify:replit\`。
+1. 按需分别配置 provider：Anthropic 启用 Replit integration；Gemini 也启用 Replit integration。
+2. 运行 \`pnpm install\`。
+3. 运行 \`pnpm start\`。
+4. 运行 \`pnpm run verify:replit\`。
 
 Deploy 固定填写：
 - Build command: \`pnpm run build:deploy\`

@@ -1,17 +1,17 @@
-这是一个 zip 上传的单入口 Replit 原生接口模板。严格按当前 zip 部署，只看根目录 `.replit` 和根目录 `package.json`，不要根据 README、旧 prompt、历史 artifact 说明推断部署方式。
+这是一个通过 Git 导入的单入口 Replit 原生接口仓库。严格按当前仓库部署，只看根目录 `.replit`、根目录 `package.json` 和当前 `replit.md` 的现行内容。
 
 先读顺序固定：
 1. 根目录 `.replit`
 2. 根目录 `package.json`
-3. 当前包内的 `replit.md`
+3. 当前仓库内的 `replit.md`
 部署失败前，不要展开读其它文件。
 
 执行顺序：
 1. 直接使用当前 Replit 项目根目录，不要新建额外工作目录。
-2. 解压前先清理旧残留：
+2. 如项目中仍有旧残留，先清理：
    `rm -rf artifacts/mockup-sandbox artifacts/api-portal artifacts/api-server/.replit-artifact artifacts/status-page/.replit-artifact`
-3. 把 zip 解压到项目根目录；解压后目标只保留 `artifacts/api-server` 和 `artifacts/status-page`。
-4. 如果平台阻止覆盖根 `.replit`，不要停下来；只确认当前 `.replit` 满足：
+3. 确认当前项目根目录只保留 `artifacts/api-server` 和 `artifacts/status-page`。
+4. 只确认当前 `.replit` 满足：
    - `run = pnpm dev`
    - `deployment build = pnpm run build:deploy`
    - `deployment run = pnpm start`
@@ -29,7 +29,6 @@
 - 不要拆成两个公开服务。
 - 不要新建、修改或切换 workflow、artifact 或临时脚本。
 - 不要修改业务代码来迁就 Deploy 面板。
-- 不要为了覆盖受保护的根 `.replit` 停下来排查环境。
 
 验收：
 - `GET /` 返回状态页 HTML。

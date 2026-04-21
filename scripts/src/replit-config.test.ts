@@ -298,25 +298,29 @@ test("replit.md gives a short deployment acceptance check", async () => {
   assert.match(guide, /根路径 `\/` 能打开状态页/);
 });
 
-test("README stays short and points deployment readers at replit.md and the package-specific prompts", async () => {
+test("README stays short and points deployment readers at replit.md and the Git import entrypoint", async () => {
   const readme = await readFile(path.join(repoRoot, "README.md"), "utf8");
 
   assert.match(readme, /replit\.md/);
   assert.match(readme, /Build command: `pnpm run build:deploy`/);
   assert.match(readme, /Run command: `pnpm start`/);
-  assert.match(readme, /REPLIT_UPLOAD_PROMPT\.txt/);
-  assert.match(readme, /REPLIT_FAST_START_PROMPT\.txt/);
+  assert.match(readme, /Git 导入到 Replit/);
+  assert.doesNotMatch(readme, /REPLIT_UPLOAD_PROMPT\.txt/);
+  assert.doesNotMatch(readme, /REPLIT_FAST_START_PROMPT\.txt/);
   assert.doesNotMatch(readme, /一轮对话版/);
 });
 
-test("upload prompt tells AI to verify a protected root .replit instead of trying to overwrite it", async () => {
+test("upload prompt tells AI to work from the current Git-imported project root", async () => {
   const prompt = await readFile(path.join(repoRoot, "REPLIT_UPLOAD_PROMPT.txt"), "utf8");
 
-  assert.match(prompt, /如果平台阻止覆盖根 `?\.replit`?/);
+  assert.match(prompt, /通过 Git 导入/);
+  assert.match(prompt, /直接使用当前 Replit 项目根目录/);
   assert.match(prompt, /只确认当前 `?\.replit`? 满足/);
   assert.match(prompt, /run = pnpm dev/);
   assert.match(prompt, /deployment build = pnpm run build:deploy/);
   assert.match(prompt, /deployment run = pnpm start/);
+  assert.doesNotMatch(prompt, /zip/);
+  assert.doesNotMatch(prompt, /解压/);
 });
 
 test("runtime upload release is a minimal runtime-only package", async () => {
@@ -350,9 +354,12 @@ test("replit.md starts with a one-shot instruction block for Replit AI", async (
 
   assert.match(guide, /如果你只能做一轮对话/);
   assert.match(guide, /不要自己推断其它部署拓扑/);
+  assert.match(guide, /通过 Git 导入/);
   assert.match(guide, /Deploy 面板固定填写/);
   assert.match(guide, /Build command: `pnpm run build:deploy`/);
   assert.match(guide, /Run command: `pnpm start`/);
+  assert.doesNotMatch(guide, /zip/);
+  assert.doesNotMatch(guide, /解压/);
 });
 
 test("status page warns that Gemini does not support OpenAI chat completions", async () => {
