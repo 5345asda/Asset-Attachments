@@ -72,7 +72,7 @@ async function postJson(url: string, options: {
   });
 }
 
-test("public anthropic model routes expose { data: [...] } shapes without proxy auth", async (t) => {
+test("public anthropic model routes expose compatibility aliases without proxy auth", async (t) => {
   const previousProxyKey = process.env.PROXY_API_KEY;
   process.env.PROXY_API_KEY = "sk-proxy-test";
 
@@ -96,11 +96,19 @@ test("public anthropic model routes expose { data: [...] } shapes without proxy 
       display_name?: string;
       created_at?: string;
     }>;
+    models?: Array<{
+      type?: string;
+      id?: string;
+      display_name?: string;
+      created_at?: string;
+    }>;
   };
 
   assert.equal(v1Response.status, 200);
   assert.ok(Array.isArray(v1Body.data));
+  assert.ok(Array.isArray(v1Body.models));
   assert.ok(v1Body.data.length > 0);
+  assert.deepEqual(v1Body.models, v1Body.data);
   assert.deepEqual(v1Body.data[0], {
     type: "model",
     id: "claude-opus-4-7",
@@ -174,12 +182,21 @@ test("public gemini model routes expose native and compatibility list shapes wit
     supportedGenerationMethods?: string[];
   }>;
   const compatibilityV1Response = await originalFetch(`http://127.0.0.1:${server.port}/api/gemini/v1/models`);
-  const compatibilityV1Body = await compatibilityV1Response.json() as Array<{
-    name?: string;
-    version?: string;
-    displayName?: string;
-    supportedGenerationMethods?: string[];
-  }>;
+  const compatibilityV1Body = await compatibilityV1Response.json() as {
+    models?: Array<{
+      name?: string;
+      version?: string;
+      displayName?: string;
+      supportedGenerationMethods?: string[];
+    }>;
+    data?: Array<{
+      name?: string;
+      version?: string;
+      displayName?: string;
+      supportedGenerationMethods?: string[];
+    }>;
+  };
+  const compatibilityV1Models = compatibilityV1Body.models ?? compatibilityV1Body.data;
 
   assert.equal(response.status, 200);
   assert.equal(legacyResponse.status, 200);
@@ -193,8 +210,10 @@ test("public gemini model routes expose native and compatibility list shapes wit
   assert.equal(legacyBody[0]?.version, "gemini-3.1-pro-preview");
   assert.deepEqual(legacyBody[0]?.supportedGenerationMethods, ["generateContent", "streamGenerateContent"]);
   assert.deepEqual(legacyBody, body.models);
-  assert.ok(Array.isArray(compatibilityV1Body));
-  assert.deepEqual(compatibilityV1Body, body.models);
+  assert.ok(Array.isArray(compatibilityV1Models));
+  assert.deepEqual(compatibilityV1Models, body.models);
+  assert.deepEqual(compatibilityV1Body.models, body.models);
+  assert.deepEqual(compatibilityV1Body.data, body.models);
   assert.ok(response.headers.get("x-request-id"));
   assert.ok(legacyResponse.headers.get("x-request-id"));
   assert.ok(compatibilityV1Response.headers.get("x-request-id"));

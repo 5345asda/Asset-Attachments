@@ -24,6 +24,10 @@ const geminiModels = [
   supportedGenerationMethods: ["generateContent", "streamGenerateContent"],
 }));
 const geminiModelList = { models: geminiModels };
+const geminiCompatibilityModelList = {
+  models: geminiModels,
+  data: geminiModels,
+};
 
 function isGeminiProxyRequest(req: Request): boolean {
   return `${req.baseUrl}${req.path}`.toLowerCase().includes("/gemini");
@@ -94,7 +98,7 @@ router.use(axonhubRouter);
 router.get("/anthropic/v1/models", (_req, res) => res.json(anthropicModelList));
 router.get("/anthropic/models", (_req, res) => res.json(anthropicModelList));
 router.get("/gemini/v1beta/models", (_req, res) => res.json(geminiModelList));
-router.get("/gemini/v1/models", (_req, res) => res.json(geminiModels));
+router.get("/gemini/v1/models", (_req, res) => res.json(geminiCompatibilityModelList));
 router.get("/gemini/models", (_req, res) => res.json(geminiModels));
 router.get("/openrouter/v1/models", async (request, response) => {
   await handleOpenRouterModelList(request, response);

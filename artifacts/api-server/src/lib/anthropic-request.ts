@@ -21,13 +21,16 @@ const STRICT_SAMPLING_DISABLED_MODELS = new Set(["claude-opus-4-7"]);
 
 const now = new Date().toISOString();
 
+const anthropicModels = ANTHROPIC_MODELS.map((id) => ({
+  type: "model",
+  id,
+  display_name: id,
+  created_at: now,
+}));
+
 export const anthropicModelList = {
-  data: ANTHROPIC_MODELS.map((id) => ({
-    type: "model",
-    id,
-    display_name: id,
-    created_at: now,
-  })),
+  data: anthropicModels,
+  models: anthropicModels,
 };
 
 type JsonObject = Record<string, unknown>;
