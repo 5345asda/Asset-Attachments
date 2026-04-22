@@ -31,5 +31,5 @@ await run(process.execPath, ["./build.mjs"], {
 await run(process.execPath, ["--enable-source-maps", "./dist/index.mjs"], {
   ...process.env,
   NODE_ENV: "development",
-  PORT: process.env.PORT || "8080",
+  PORT: process.env.PORT || "3000",
 });

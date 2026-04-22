@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { readFile } from "node:fs/promises";
 import net from "node:net";
 import path from "node:path";
 import test from "node:test";
@@ -118,6 +119,13 @@ test("api-server dev script starts a local server", async (t) => {
 
   const health = await fetch(`http://127.0.0.1:${port}/api/healthz`);
   assert.equal(health.status, 200);
+});
+
+test("api-server dev script defaults to port 3000 when PORT is unset", async () => {
+  const devScript = await readFile(path.join(repoRoot, "artifacts", "api-server", "dev.mjs"), "utf8");
+
+  assert.match(devScript, /PORT:\s*process\.env\.PORT\s*\|\|\s*"3000"/);
+  assert.doesNotMatch(devScript, /PORT:\s*process\.env\.PORT\s*\|\|\s*"8080"/);
 });
 
 test("proxy-info exposes Anthropic integration readiness for deployment checks", async () => {
