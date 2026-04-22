@@ -284,11 +284,11 @@ test(".replit declares required files for GitHub import detection", async () => 
   assert.match(replitConfig, /^requiredFiles = \["\.replit", "package\.json", "pnpm-workspace\.yaml"\]$/m);
 });
 
-test("replit.md tells AI not to patch app code just to fix empty deployment commands", async () => {
+test("replit.md tells AI not to patch app code or add extra artifacts just to fix deployment commands", async () => {
   const guide = await readFile(path.join(repoRoot, "replit.md"), "utf8");
 
   assert.match(guide, /不要为了修复空的 Run command 去改应用代码/);
-  assert.match(guide, /不要为了修复发布配置去新增 workflow、artifact 或临时脚本/);
+  assert.match(guide, /不要为了修复发布配置去新增 artifact 或临时脚本/);
 });
 
 test("replit.md gives a short deployment acceptance check", async () => {

@@ -128,7 +128,7 @@ externalPort = 80
 function releasePrompt(title) {
   return `${title}
 
-不要把它当 monorepo，不要重组目录，不要新建 workflow 或 artifact。
+不要把它当 monorepo，不要重组目录，不要新建 artifact。
 直接以当前目录作为 Replit 项目根目录。
 
 执行：
