@@ -40,8 +40,18 @@ export const AXONHUB_OPENROUTER_SUPPORTED_MODELS = [
 
 const AXONHUB_GRAPHQL_URL = `${AXONHUB_ORIGIN}/admin/graphql`;
 const AXONHUB_REMARK = "Managed by Asset-Attachments";
-// 8:1:1 means Anthropic should track 4x the combined Gemini+OpenRouter count.
-const AXONHUB_ANTHROPIC_PER_SECONDARY = 4;
+const AXONHUB_RATIO_ANTHROPIC = 8;
+const AXONHUB_RATIO_GEMINI = 2;
+const AXONHUB_RATIO_OPENROUTER = 1;
+const AXONHUB_GEMINI_ACTIVE_CAP = 15;
+const AXONHUB_OPENROUTER_ACTIVE_CAP = 10;
+const AXONHUB_ANTHROPIC_PER_SECONDARY_SLOT = AXONHUB_RATIO_ANTHROPIC
+  / (AXONHUB_RATIO_GEMINI + AXONHUB_RATIO_OPENROUTER);
+const AXONHUB_SECONDARY_PROVIDER_CYCLE: readonly AxonHubProvider[] = [
+  "gemini",
+  "gemini",
+  "openrouter",
+];
 const AXONHUB_LOOKUP_PAGE_SIZE = 100;
 
 const LOOKUP_CHANNELS_QUERY = `
@@ -252,20 +262,22 @@ export function pickAxonHubChannelProvider(
   const managedChannels = channels.filter((channel): channel is GraphQlChannelNode => {
     return !!channel
       && channel.remark === AXONHUB_REMARK
-      && channel.status !== "archived";
+      && channel.status === "enabled";
   });
   const geminiCount = managedChannels.filter((channel) => normalizeAxonHubProviderType(channel.type) === "gemini").length;
   const openrouterCount = managedChannels.filter((channel) => normalizeAxonHubProviderType(channel.type) === "openrouter").length;
   const anthropicCount = managedChannels.filter((channel) => normalizeAxonHubProviderType(channel.type) === "anthropic").length;
   const secondaryCount = geminiCount + openrouterCount;
 
-  if (anthropicCount < (secondaryCount + 1) * AXONHUB_ANTHROPIC_PER_SECONDARY) {
+  if (geminiCount >= AXONHUB_GEMINI_ACTIVE_CAP || openrouterCount >= AXONHUB_OPENROUTER_ACTIVE_CAP) {
     return "anthropic";
   }
 
-  return geminiCount <= openrouterCount
-    ? "gemini"
-    : "openrouter";
+  if (anthropicCount < Math.ceil((secondaryCount + 1) * AXONHUB_ANTHROPIC_PER_SECONDARY_SLOT)) {
+    return "anthropic";
+  }
+
+  return AXONHUB_SECONDARY_PROVIDER_CYCLE[secondaryCount % AXONHUB_SECONDARY_PROVIDER_CYCLE.length] ?? "gemini";
 }
 
 function buildAxonHubUpdateChannelInput(
