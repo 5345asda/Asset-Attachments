@@ -1,0 +1,33 @@
+kind = "web"
+previewPath = "/"
+title = "Status Page"
+version = "1.0.0"
+id = "artifacts/status-page"
+router = "path"
+
+[[services]]
+name = "gateway-preview"
+paths = ["/", "/api"]
+localPort = 3000
+
+[services.development]
+run = "pnpm dev"
+
+[services.production.build]
+args = ["pnpm", "run", "build:deploy"]
+
+[services.production.build.env]
+NODE_ENV = "production"
+
+[services.production.run]
+args = ["pnpm", "start"]
+
+[services.production.run.env]
+PORT = "3000"
+NODE_ENV = "production"
+
+[services.production.health.startup]
+path = "/api/healthz"
+
+[services.env]
+PORT = "3000"

@@ -48,7 +48,9 @@ Thumbs.db
 .cache/
 .local/
 artifacts/api-server/.replit-artifact/
-artifacts/status-page/.replit-artifact/
+artifacts/status-page/.replit-artifact/*
+!artifacts/status-page/.replit-artifact/
+!artifacts/status-page/.replit-artifact/artifact.toml
 
 # Proxy key persistence — NEVER commit this file
 .data/

@@ -9,25 +9,26 @@
 执行顺序：
 1. 直接使用当前 Replit 项目根目录，不要新建额外工作目录。
 2. 如项目中仍有旧残留，先清理：
-   `rm -rf artifacts/mockup-sandbox artifacts/api-portal artifacts/api-server/.replit-artifact artifacts/status-page/.replit-artifact`
+   `rm -rf artifacts/mockup-sandbox artifacts/api-portal artifacts/api-server/.replit-artifact`
 3. 确认当前项目根目录只保留 `artifacts/api-server` 和 `artifacts/status-page`。
-4. 只确认当前 `.replit` 满足：
+4. 如需工作区预览下拉，允许使用仓库内已提交的 `artifacts/status-page/.replit-artifact/artifact.toml`。
+5. 只确认当前 `.replit` 满足：
    - `run = pnpm dev`
    - `deployment build = pnpm run build:deploy`
    - `deployment run = pnpm start`
-5. 按需配置 provider：
+6. 按需配置 provider：
    - Anthropic：启用 Replit integration。
    - Gemini：启用 Replit integration。
-6. 执行 `pnpm install`。
-7. Run 使用 `pnpm dev`。
-8. Publish / Deploy 使用 Autoscale：
+7. 执行 `pnpm install`。
+8. Run 使用 `pnpm dev`。
+9. Publish / Deploy 使用 Autoscale：
    Build command: `pnpm run build:deploy`
    Run command: `pnpm start`
 
 禁止：
 - 不要重命名目录，不要重组 monorepo。
 - 不要拆成两个公开服务。
-- 不要新建、修改或切换 artifact 或临时脚本。
+- 除了已提交的 `artifacts/status-page/.replit-artifact/artifact.toml`，不要新建、修改或切换其他 artifact 或临时脚本。
 - 不要修改业务代码来迁就 Deploy 面板。
 
 验收：

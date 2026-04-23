@@ -7,7 +7,7 @@
 如果你只能做一轮对话，就直接执行下面这段，不要自己推断其它部署拓扑：
 
 ```text
-这是一个通过 Git 导入的单入口 Replit 原生接口仓库。部署方式以根目录 .replit、根 package.json 和当前 replit.md 的现行内容为准。直接以当前项目根目录工作；如发现旧残留，再在项目根目录执行 rm -rf artifacts/mockup-sandbox artifacts/api-portal artifacts/api-server/.replit-artifact artifacts/status-page/.replit-artifact。当前项目根目录只保留 artifacts/api-server 和 artifacts/status-page 作为部署 artifact。不要拆分前后端，不要新建、修改或切换 artifact 或临时脚本，不要修改业务代码来迁就 Deploy 面板。Anthropic 需要启用 Replit integration；Gemini 也需要启用 Replit integration；如果项目启用了 OpenRouter integration，也优先走 Replit 内置接入，不要额外要求用户填写 OpenRouter API Key。然后执行 pnpm install。Run 用 pnpm dev。Deploy 面板固定填写：Build command: pnpm run build:deploy；Run command: pnpm start。部署后检查 /、/api/healthz、/api/proxy-info，并按已配置 provider 继续检查 /api/anthropic/v1/models、/api/gemini/v1beta/models 或 /api/openrouter/v1/models；其中 models 路由必须返回 JSON，不能返回 HTML 或鉴权错误。
+这是一个通过 Git 导入的单入口 Replit 原生接口仓库。部署方式以根目录 .replit、根 package.json 和当前 replit.md 的现行内容为准。直接以当前项目根目录工作；如发现旧残留，再在项目根目录执行 rm -rf artifacts/mockup-sandbox artifacts/api-portal artifacts/api-server/.replit-artifact。当前项目根目录只保留 artifacts/api-server 和 artifacts/status-page 作为部署 artifact。允许维护 `artifacts/status-page/.replit-artifact/artifact.toml` 作为工作区预览注册，但不要新增、修改或切换其他 artifact 或临时脚本，不要修改业务代码来迁就 Deploy 面板。Anthropic 需要启用 Replit integration；Gemini 也需要启用 Replit integration；如果项目启用了 OpenRouter integration，也优先走 Replit 内置接入，不要额外要求用户填写 OpenRouter API Key。然后执行 pnpm install。Run 用 pnpm dev。Deploy 面板固定填写：Build command: pnpm run build:deploy；Run command: pnpm start。部署后检查 /、/api/healthz、/api/proxy-info，并按已配置 provider 继续检查 /api/anthropic/v1/models、/api/gemini/v1beta/models 或 /api/openrouter/v1/models；其中 models 路由必须返回 JSON，不能返回 HTML 或鉴权错误。
 ```
 
 Deploy 面板固定填写：
@@ -22,9 +22,10 @@ Deploy 面板固定填写：
 - 当前仓库通过 Git 导入到 Replit，直接以当前项目根目录为准。
 - 当前项目根目录只保留 `artifacts/api-server` 和 `artifacts/status-page`。
 - 最终对外只有一个入口：`/` 是状态页，`/api/*` 是服务端接口。
+- 允许维护 `artifacts/status-page/.replit-artifact/artifact.toml` 作为工作区预览注册；Deploy 仍只认根目录 `.replit`。
 - 默认 Proxy Key 已固定，不会因为重启变化；需要自定义时再设置 `PROXY_API_KEY`。
 - 不要为了修复空的 Run command 去改应用代码。
-- 不要为了修复发布配置去新增 artifact 或临时脚本。
+- 不要为了 Deploy 再新增其他 artifact 或临时脚本。
 
 ## 少读文件
 
@@ -35,24 +36,26 @@ Deploy 面板固定填写：
 ## 执行顺序
 
 1. 直接在当前 Git 导入的 Replit 项目根目录工作；如存在旧残留，再执行：
-   `rm -rf artifacts/mockup-sandbox artifacts/api-portal artifacts/api-server/.replit-artifact artifacts/status-page/.replit-artifact`
+   `rm -rf artifacts/mockup-sandbox artifacts/api-portal artifacts/api-server/.replit-artifact`
 2. 确认当前项目根目录保留 `artifacts/api-server` 和 `artifacts/status-page`。
-3. 按需分别配置 provider：Anthropic 启用 Replit integration；Gemini 也启用 Replit integration。
-4. 执行 `pnpm install`。
-5. Run 使用 `pnpm dev`。
-6. Publish / Deploy 使用 Autoscale，Build command=`pnpm run build:deploy`，Run command=`pnpm start`。
+3. 如需工作区预览下拉面板，使用仓库内已提交的 `artifacts/status-page/.replit-artifact/artifact.toml`，不要派生其他 artifact。
+4. 按需分别配置 provider：Anthropic 启用 Replit integration；Gemini 也启用 Replit integration。
+5. 执行 `pnpm install`。
+6. Run 使用 `pnpm dev`。
+7. Publish / Deploy 使用 Autoscale，Build command=`pnpm run build:deploy`，Run command=`pnpm start`。
 
 ## 端口口径
 
 - 应用监听 `PORT`，开发默认按 `3000` 理解。
 - 本地进程验证优先请求实际监听端口，例如 `http://127.0.0.1:$PORT/...`。
+- 工作区预览下拉如果需要显示状态页，使用 `artifacts/status-page/.replit-artifact/artifact.toml` 对应的 `/` 预览入口。
 - 对外验收先看公开域名上的 `/`、`/api/healthz`、`/api/proxy-info`，再根据实际配置去看 `/api/anthropic/v1/models`、`/api/gemini/v1beta/models` 或 `/api/openrouter/v1/models`，不要混用本地端口和公网路由概念。
 
 ## 不要做
 
 - 不要把前后端拆成两个独立公开服务。
 - 以当前根目录部署入口和现行源码为准，不要自行改写当前仓库结构或路由。
-- 不要提交 Replit 自动生成的 `.replit-artifact` 元数据。
+- 除了已受控的 `artifacts/status-page/.replit-artifact/artifact.toml`，不要提交其他 Replit 自动生成的 `.replit-artifact` 元数据。
 - 不要先 `git clone` 到临时目录再复制回当前项目。
 - 不要在带旧发布残留的历史 Replit 项目里继续修补；那种情况直接新建干净项目再导入。
 
