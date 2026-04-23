@@ -44,6 +44,8 @@ const EXPECTED_AXONHUB_OPENROUTER_MODELS = [
   "deepseek/deepseek-r1-0528",
   "minimax/minimax-m2.7",
   "minimax/minimax-m2.5",
+  "xiaomi/mimo-v2.5",
+  "xiaomi/mimo-v2.5-pro",
 ] as const;
 
 test("AxonHub status-page copy stays aligned with the backend sync model lists", async () => {
@@ -60,8 +62,8 @@ test("AxonHub status-page copy stays aligned with the backend sync model lists",
     "utf8",
   );
 
-  assert.match(statusPageSource, /anthropic:gemini:openrouter = 8:1:1/);
-  assert.match(statusPageSource, /Auto 8:1:1 routing/);
+  assert.match(statusPageSource, /anthropic:gemini:openrouter = 8:2:1/);
+  assert.match(statusPageSource, /Auto 8:2:1 routing/);
   assert.match(statusPageSource, /"claude-opus-4-7"/);
   assert.match(
     statusPageSource,
@@ -73,7 +75,7 @@ test("AxonHub status-page copy stays aligned with the backend sync model lists",
   );
   assert.match(
     statusPageSource,
-    /supportedModels=moonshotai\/kimi-k2\.6 \/ moonshotai\/kimi-k2\.5 \/ z-ai\/glm-5\.1 \/ z-ai\/glm-5v-turbo \/ z-ai\/glm-5-turbo \/ z-ai\/glm-5 \/ z-ai\/glm-4\.7-flash \/ z-ai\/glm-4\.7 \/ openai\/gpt-5\.4-nano \/ openai\/gpt-5\.4-pro \/ openai\/gpt-4o \/ x-ai\/grok-4\.20-multi-agent \/ x-ai\/grok-4\.20 \/ deepseek\/deepseek-v3\.2 \/ deepseek\/deepseek-v3\.2-exp \/ deepseek\/deepseek-r1 \/ deepseek\/deepseek-r1-0528 \/ minimax\/minimax-m2\.7 \/ minimax\/minimax-m2\.5/,
+    /supportedModels=moonshotai\/kimi-k2\.6 \/ moonshotai\/kimi-k2\.5 \/ z-ai\/glm-5\.1 \/ z-ai\/glm-5v-turbo \/ z-ai\/glm-5-turbo \/ z-ai\/glm-5 \/ z-ai\/glm-4\.7-flash \/ z-ai\/glm-4\.7 \/ openai\/gpt-5\.4-nano \/ openai\/gpt-5\.4-pro \/ openai\/gpt-4o \/ x-ai\/grok-4\.20-multi-agent \/ x-ai\/grok-4\.20 \/ deepseek\/deepseek-v3\.2 \/ deepseek\/deepseek-v3\.2-exp \/ deepseek\/deepseek-r1 \/ deepseek\/deepseek-r1-0528 \/ minimax\/minimax-m2\.7 \/ minimax\/minimax-m2\.5 \/ xiaomi\/mimo-v2\.5 \/ xiaomi\/mimo-v2\.5-pro/,
   );
   assert.match(
     statusPageSource,

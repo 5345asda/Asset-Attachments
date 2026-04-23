@@ -36,6 +36,8 @@ export const AXONHUB_OPENROUTER_SUPPORTED_MODELS = [
   "deepseek/deepseek-r1-0528",
   "minimax/minimax-m2.7",
   "minimax/minimax-m2.5",
+  "xiaomi/mimo-v2.5",
+  "xiaomi/mimo-v2.5-pro",
 ] as const;
 
 const AXONHUB_GRAPHQL_URL = `${AXONHUB_ORIGIN}/admin/graphql`;
