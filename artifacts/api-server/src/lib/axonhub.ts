@@ -270,8 +270,10 @@ export function pickAxonHubChannelProvider(
   const openrouterCount = managedChannels.filter((channel) => normalizeAxonHubProviderType(channel.type) === "openrouter").length;
   const anthropicCount = managedChannels.filter((channel) => normalizeAxonHubProviderType(channel.type) === "anthropic").length;
   const secondaryCount = geminiCount + openrouterCount;
+  const geminiAtCap = geminiCount >= AXONHUB_GEMINI_ACTIVE_CAP;
+  const openrouterAtCap = openrouterCount >= AXONHUB_OPENROUTER_ACTIVE_CAP;
 
-  if (geminiCount >= AXONHUB_GEMINI_ACTIVE_CAP || openrouterCount >= AXONHUB_OPENROUTER_ACTIVE_CAP) {
+  if (geminiAtCap && openrouterAtCap) {
     return "anthropic";
   }
 
@@ -279,7 +281,23 @@ export function pickAxonHubChannelProvider(
     return "anthropic";
   }
 
-  return AXONHUB_SECONDARY_PROVIDER_CYCLE[secondaryCount % AXONHUB_SECONDARY_PROVIDER_CYCLE.length] ?? "gemini";
+  const preferredProvider = AXONHUB_SECONDARY_PROVIDER_CYCLE[
+    secondaryCount % AXONHUB_SECONDARY_PROVIDER_CYCLE.length
+  ] ?? "gemini";
+
+  if (preferredProvider === "gemini") {
+    if (!geminiAtCap) {
+      return "gemini";
+    }
+
+    return openrouterAtCap ? "anthropic" : "openrouter";
+  }
+
+  if (!openrouterAtCap) {
+    return "openrouter";
+  }
+
+  return geminiAtCap ? "anthropic" : "gemini";
 }
 
 function buildAxonHubUpdateChannelInput(
