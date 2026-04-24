@@ -47,6 +47,8 @@ const EXPECTED_AXONHUB_OPENROUTER_MODELS = [
   "openai/gpt-4o",
   "x-ai/grok-4.20-multi-agent",
   "x-ai/grok-4.20",
+  "deepseek/deepseek-v4-pro",
+  "deepseek/deepseek-v4-flash",
   "deepseek/deepseek-v3.2",
   "deepseek/deepseek-v3.2-exp",
   "deepseek/deepseek-r1",
