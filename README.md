@@ -10,7 +10,7 @@
 
 - 根目录 `.replit`
 - 根目录 `package.json`
-- [replit.md](D:/64服务器/Asset-Attachments/replit.md)
+- [replit.md](./replit.md)
 
 部署与结构判断以当前根目录 `.replit`、根目录 `package.json` 和 `replit.md` 为准。
 

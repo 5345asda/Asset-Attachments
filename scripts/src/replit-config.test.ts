@@ -39,7 +39,7 @@ test("status-page keeps the only committed preview artifact while deploy still c
   const statusPageArtifact = await readFile(statusPageArtifactToml, "utf8");
   assert.match(statusPageArtifact, /^kind = "web"$/m);
   assert.match(statusPageArtifact, /^previewPath = "\/"$/m);
-  assert.match(statusPageArtifact, /^run = "pnpm dev"$/m);
+  assert.match(statusPageArtifact, /^run = "pnpm -w run dev"$/m);
   assert.match(statusPageArtifact, /^args = \["pnpm", "start"\]$/m);
   assert.match(statusPageArtifact, /^path = "\/api\/healthz"$/m);
 });
@@ -306,6 +306,7 @@ test("replit.md keeps deploy scoped to the root entrypoint while allowing the st
 
   assert.match(guide, /不要为了修复空的 Run command 去改应用代码/);
   assert.match(guide, /允许维护 `artifacts\/status-page\/\.replit-artifact\/artifact\.toml` 作为工作区预览注册/);
+  assert.match(guide, /`\[services\.development\]\.run` 必须保持 `pnpm -w run dev`/);
   assert.match(guide, /不要为了 Deploy 再新增其他 artifact 或临时脚本/);
 });
 
@@ -320,6 +321,8 @@ test("README stays short and points deployment readers at replit.md and the Git 
   const readme = await readFile(path.join(repoRoot, "README.md"), "utf8");
 
   assert.match(readme, /replit\.md/);
+  assert.match(readme, /\[replit\.md\]\(\.\/replit\.md\)/);
+  assert.doesNotMatch(readme, /D:\/64服务器\/Asset-Attachments\/replit\.md/);
   assert.match(readme, /Build command: `pnpm run build:deploy`/);
   assert.match(readme, /Run command: `pnpm start`/);
   assert.match(readme, /Git 导入到 Replit/);
@@ -379,6 +382,14 @@ test("replit.md starts with a one-shot instruction block for Replit AI", async (
   assert.match(guide, /Run command: `pnpm start`/);
   assert.doesNotMatch(guide, /zip/);
   assert.doesNotMatch(guide, /解压/);
+});
+
+test("fast-start prompt keeps Run on pnpm dev while preserving the artifact workspace guard", async () => {
+  const prompt = await readFile(path.join(repoRoot, "REPLIT_FAST_START_PROMPT.txt"), "utf8");
+
+  assert.match(prompt, /Run 使用 `pnpm dev`|首次 Run 使用 `pnpm dev`/);
+  assert.match(prompt, /`\[services\.development\]\.run` 必须保持 `pnpm -w run dev`/);
+  assert.doesNotMatch(prompt, /首次 Run 使用 `pnpm start`/);
 });
 
 test("status page warns that Gemini does not support OpenAI chat completions", async () => {

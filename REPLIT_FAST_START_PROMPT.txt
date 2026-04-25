@@ -16,13 +16,14 @@
    - Anthropic：启用 Replit integration。
    - Gemini：启用 Replit integration。
 6. 执行 `pnpm install`。
-7. 首次 Run 使用 `pnpm start`。
+7. 首次 Run 使用 `pnpm dev`。
 8. Publish / Deploy 使用 Autoscale：
    Build command: `pnpm run build:deploy`
    Run command: `pnpm start`
 
 补充规则：
 - 如果你修改了源码或替换了文件，再执行 `pnpm run build:deploy`，不要假设已有 `dist` 永远有效。
+- `artifacts/status-page/.replit-artifact/artifact.toml` 的 `[services.development].run` 必须保持 `pnpm -w run dev`，不要改回 `pnpm dev`。
 - 不要重命名目录，不要拆分前后端，不要新增其他 artifact 或临时脚本。
 - 不要修改业务代码来迁就 Deploy 面板。
 
