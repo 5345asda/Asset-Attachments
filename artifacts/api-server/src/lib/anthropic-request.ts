@@ -704,7 +704,7 @@ function normalizeThinkingMaxTokens(body: JsonObject): JsonObject {
     return body;
   }
 
-  const normalizedMaxTokens = budgetTokens + 1;
+  const normalizedMaxTokens = budgetTokens + maxTokens;
   logger.warn(
     {
       model: body.model,

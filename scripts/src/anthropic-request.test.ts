@@ -121,7 +121,7 @@ test("sanitizeAnthropicBody raises max_tokens above thinking budget when the req
     ],
   });
 
-  assert.equal(result.max_tokens, 2049);
+  assert.equal(result.max_tokens, 2548);
   assert.deepEqual(result.thinking, {
     type: "enabled",
     budget_tokens: 2048,
