@@ -475,7 +475,7 @@ console.log(data);`;
                   </button>
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
-                  只手填 AxonHub token。Auto 8:1:2 routing：系统会只统计由当前仓库托管且处于 enabled 的 channel，并自动保持 anthropic:openrouter:gemini = 8:1:2；Anthropic 不足时优先补 Anthropic，次级槽位按 OpenRouter / Gemini / Gemini 的顺序补齐，并受 OpenRouter 最多 20 个、Gemini 最多 30 个活跃 channel 的上限约束；如果某一个次级 provider 先达到上限，新增 channel 会优先补另一个次级 provider；只有 OpenRouter 和 Gemini 都达到上限时，新增 channel 才会回落到 Anthropic。
+                  只手填 AxonHub token。Auto 8:1:2 routing：系统会只统计由当前仓库托管且处于 enabled 的 channel，并自动保持 anthropic:openrouter:gemini = 8:1:2；Anthropic 不足时优先补 Anthropic，次级槽位按 OpenRouter / Gemini / Gemini 的顺序补齐，并受 OpenRouter 最多 50 个、Gemini 最多 100 个活跃 channel 的上限约束；如果某一个次级 provider 先达到上限，新增 channel 会优先补另一个次级 provider；只有 OpenRouter 和 Gemini 都达到上限时，新增 channel 才会回落到 Anthropic。
                 </p>
               </div>
 

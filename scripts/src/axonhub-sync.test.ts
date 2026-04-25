@@ -296,11 +296,37 @@ test("pickAxonHubChannelProvider switches to gemini after the second openrouter 
   assert.equal(provider, "gemini");
 });
 
+test("pickAxonHubChannelProvider keeps openrouter eligible below the 50-channel active cap", () => {
+  const provider = pickAxonHubChannelProvider([
+    ...managedAnthropicChannels(131),
+    ...Array.from({ length: 48 }, (_, index) => managedChannel({
+      id: `gid://axonhub/Channel/${index + 132}`,
+      type: "openrouter",
+      baseURL: `https://openrouter-${index + 1}.example/api/openrouter`,
+    })),
+  ]);
+
+  assert.equal(provider, "openrouter");
+});
+
+test("pickAxonHubChannelProvider keeps gemini eligible below the 100-channel active cap", () => {
+  const provider = pickAxonHubChannelProvider([
+    ...managedAnthropicChannels(86),
+    ...Array.from({ length: 31 }, (_, index) => managedChannel({
+      id: `gid://axonhub/Channel/${index + 87}`,
+      type: "gemini",
+      baseURL: `https://gemini-${index + 1}.example/api/gemini`,
+    })),
+  ]);
+
+  assert.equal(provider, "gemini");
+});
+
 test("pickAxonHubChannelProvider prefers gemini when openrouter has reached its active cap", () => {
   const provider = pickAxonHubChannelProvider([
-    ...managedAnthropicChannels(80),
-    ...Array.from({ length: 20 }, (_, index) => managedChannel({
-      id: `gid://axonhub/Channel/${index + 81}`,
+    ...managedAnthropicChannels(136),
+    ...Array.from({ length: 50 }, (_, index) => managedChannel({
+      id: `gid://axonhub/Channel/${index + 137}`,
       type: "openrouter",
       baseURL: `https://openrouter-${index + 1}.example/api/openrouter`,
     })),
@@ -311,9 +337,9 @@ test("pickAxonHubChannelProvider prefers gemini when openrouter has reached its 
 
 test("pickAxonHubChannelProvider prefers openrouter when gemini has reached its active cap", () => {
   const provider = pickAxonHubChannelProvider([
-    ...managedAnthropicChannels(120),
-    ...Array.from({ length: 30 }, (_, index) => managedChannel({
-      id: `gid://axonhub/Channel/${index + 121}`,
+    ...managedAnthropicChannels(270),
+    ...Array.from({ length: 100 }, (_, index) => managedChannel({
+      id: `gid://axonhub/Channel/${index + 271}`,
       type: "gemini",
       baseURL: `https://gemini-${index + 1}.example/api/gemini`,
     })),
@@ -325,12 +351,12 @@ test("pickAxonHubChannelProvider prefers openrouter when gemini has reached its 
 test("pickAxonHubChannelProvider falls back to anthropic when both secondary providers reached their active caps", () => {
   const provider = pickAxonHubChannelProvider([
     ...managedAnthropicChannels(200),
-    ...Array.from({ length: 30 }, (_, index) => managedChannel({
+    ...Array.from({ length: 100 }, (_, index) => managedChannel({
       id: `gid://axonhub/Channel/${index + 201}`,
       type: "gemini",
       baseURL: `https://gemini-${index + 1}.example/api/gemini`,
     })),
-    ...Array.from({ length: 20 }, (_, index) => managedChannel({
+    ...Array.from({ length: 50 }, (_, index) => managedChannel({
       id: `gid://axonhub/Channel/${index + 301}`,
       type: "openrouter",
       baseURL: `https://openrouter-${index + 1}.example/api/openrouter`,
@@ -859,10 +885,10 @@ test("syncAxonHubChannel creates a new gemini channel when openrouter has reache
         data: {
           queryChannels: {
             edges: [
-              ...managedAnthropicChannels(80).map((node) => ({ node })),
-              ...Array.from({ length: 20 }, (_, index) => ({
+              ...managedAnthropicChannels(136).map((node) => ({ node })),
+              ...Array.from({ length: 50 }, (_, index) => ({
                 node: managedChannel({
-                  id: `gid://axonhub/Channel/${index + 81}`,
+                  id: `gid://axonhub/Channel/${index + 137}`,
                   type: "openrouter",
                   baseURL: `https://openrouter-${index + 1}.example/api/openrouter`,
                 }),
