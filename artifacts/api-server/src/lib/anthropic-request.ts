@@ -686,6 +686,41 @@ function hasEnabledThinking(body: JsonObject): boolean {
   return true;
 }
 
+function normalizeThinkingMaxTokens(body: JsonObject): JsonObject {
+  if (!hasEnabledThinking(body) || !isRecord(body.thinking)) {
+    return body;
+  }
+
+  const budgetTokens = body.thinking.budget_tokens;
+  const maxTokens = body.max_tokens;
+
+  if (
+    typeof budgetTokens !== "number"
+    || !Number.isFinite(budgetTokens)
+    || typeof maxTokens !== "number"
+    || !Number.isFinite(maxTokens)
+    || maxTokens > budgetTokens
+  ) {
+    return body;
+  }
+
+  const normalizedMaxTokens = budgetTokens + 1;
+  logger.warn(
+    {
+      model: body.model,
+      max_tokens: maxTokens,
+      thinking_budget_tokens: budgetTokens,
+      normalized_max_tokens: normalizedMaxTokens,
+    },
+    "Anthropic: raised max_tokens above thinking.budget_tokens to satisfy upstream validation",
+  );
+
+  return {
+    ...body,
+    max_tokens: normalizedMaxTokens,
+  };
+}
+
 function buildSystemFingerprint(body: JsonObject): { sysHash: string; sysLen: number } {
   if (Array.isArray(body.system)) {
     const systemText = (body.system as any[]).map((block: any) => block?.text ?? "").join("");
@@ -712,6 +747,7 @@ export function sanitizeAnthropicBody(body: JsonObject): JsonObject {
   result = migrateClaudeOpus47Thinking(result);
   result = stripAllCacheControlScopes(result);
   result = stripUnsupportedSamplingParameters(result);
+  result = normalizeThinkingMaxTokens(result);
 
   if (
     typeof result.model === "string" &&

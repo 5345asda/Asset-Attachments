@@ -105,6 +105,29 @@ test("sanitizeAnthropicBody normalizes temperature to 1 when thinking is enabled
   });
 });
 
+test("sanitizeAnthropicBody raises max_tokens above thinking budget when the request is otherwise invalid", () => {
+  const result = sanitizeAnthropicBody({
+    model: "claude-opus-4-6",
+    max_tokens: 500,
+    thinking: {
+      type: "enabled",
+      budget_tokens: 2048,
+    },
+    messages: [
+      {
+        role: "user",
+        content: [{ type: "text", text: "hello" }],
+      },
+    ],
+  });
+
+  assert.equal(result.max_tokens, 2049);
+  assert.deepEqual(result.thinking, {
+    type: "enabled",
+    budget_tokens: 2048,
+  });
+});
+
 test("sanitizeAnthropicBody drops tool_result blocks without a matching tool_use in the previous assistant message", () => {
   const result = sanitizeAnthropicBody({
     model: "claude-sonnet-4-6",
