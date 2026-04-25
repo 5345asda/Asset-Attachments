@@ -1048,6 +1048,77 @@ test("gemini passthrough accepts direct Gemini secrets and forwards native gener
   assert.equal(response.body.candidates?.[0]?.content?.parts?.[0]?.text, "hello from gemini");
 });
 
+test("gemini passthrough caps maxOutputTokens at the provider limit", async (t) => {
+  const previousEnv = {
+    PROXY_API_KEY: process.env.PROXY_API_KEY,
+    AI_INTEGRATIONS_GEMINI_BASE_URL: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL,
+    AI_INTEGRATIONS_GEMINI_API_KEY: process.env.AI_INTEGRATIONS_GEMINI_API_KEY,
+    GEMINI_BASE_URL: process.env.GEMINI_BASE_URL,
+    GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+  };
+
+  process.env.PROXY_API_KEY = "sk-proxy-test";
+  delete process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
+  delete process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+  process.env.GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
+  process.env.GEMINI_API_KEY = "gemini-direct-test-key";
+
+  const originalFetch = globalThis.fetch;
+  let lastRequestBody = "";
+
+  globalThis.fetch = (async (_input, init) => {
+    lastRequestBody = typeof init?.body === "string" ? init.body : "";
+
+    return new Response(JSON.stringify({
+      candidates: [
+        {
+          content: {
+            role: "model",
+            parts: [{ text: "clamped" }],
+          },
+          finishReason: "STOP",
+        },
+      ],
+    }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  }) as typeof fetch;
+
+  const server = await startAppServer();
+
+  t.after(async () => {
+    globalThis.fetch = originalFetch;
+    await server.close();
+
+    for (const [key, value] of Object.entries(previousEnv)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  });
+
+  const response = await postJson(`http://127.0.0.1:${server.port}/api/gemini/v1beta/models/gemini-2.5-flash:generateContent`, {
+    headers: {
+      authorization: "Bearer sk-proxy-test",
+    },
+    body: {
+      contents: [{ role: "user", parts: [{ text: "hello" }] }],
+      generationConfig: {
+        maxOutputTokens: 200000,
+      },
+    },
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(
+    JSON.parse(lastRequestBody).generationConfig?.maxOutputTokens,
+    65536,
+  );
+});
+
 test("gemini passthrough preserves native streamGenerateContent SSE responses", async (t) => {
   const previousEnv = {
     PROXY_API_KEY: process.env.PROXY_API_KEY,

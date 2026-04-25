@@ -5,6 +5,7 @@ import { getRequestLogger } from "../lib/request-context";
 import { pipeReaderToResponse } from "../lib/stream";
 
 const router = Router();
+const GEMINI_MAX_OUTPUT_TOKENS = 65536;
 
 function buildTargetUrl(baseUrl: string, request: Request): string {
   const cleanBaseUrl = baseUrl.replace(/\/$/, "");
@@ -39,6 +40,32 @@ function readRequestBody(request: Request): Record<string, unknown> | undefined 
   return request.body as Record<string, unknown>;
 }
 
+function normalizeGeminiRequestBody(
+  body: Record<string, unknown> | undefined,
+): Record<string, unknown> | undefined {
+  if (!body) {
+    return body;
+  }
+
+  const generationConfig = body.generationConfig;
+  if (!generationConfig || typeof generationConfig !== "object" || Array.isArray(generationConfig)) {
+    return body;
+  }
+
+  const maxOutputTokens = (generationConfig as Record<string, unknown>).maxOutputTokens;
+  if (typeof maxOutputTokens !== "number" || !Number.isFinite(maxOutputTokens) || maxOutputTokens <= GEMINI_MAX_OUTPUT_TOKENS) {
+    return body;
+  }
+
+  return {
+    ...body,
+    generationConfig: {
+      ...(generationConfig as Record<string, unknown>),
+      maxOutputTokens: GEMINI_MAX_OUTPUT_TOKENS,
+    },
+  };
+}
+
 async function readUpstreamError(upstream: globalThis.Response): Promise<unknown> {
   const raw = await upstream.text().catch(() => "");
   try {
@@ -66,7 +93,7 @@ async function passthrough(
     });
   }
 
-  const body = readRequestBody(request);
+  const body = normalizeGeminiRequestBody(readRequestBody(request));
   const target = buildTargetUrl(gemini.baseUrl, request);
   const headers = buildGeminiHeaders(request, gemini.apiKey);
 
