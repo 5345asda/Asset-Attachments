@@ -25,6 +25,8 @@ function jsonResponse(body: unknown, status = 200): Response {
 }
 
 type FetchInput = Parameters<typeof fetch>[0];
+type ManagedChannelStatus = "enabled" | "archived" | "disabled";
+
 const EXPECTED_AXONHUB_GEMINI_MODELS = [
   "gemini-3.1-pro-preview",
   "gemini-3-flash-preview",
@@ -33,6 +35,7 @@ const EXPECTED_AXONHUB_GEMINI_MODELS = [
   "gemini-2.5-flash",
   "gemini-2.5-flash-image",
 ] as const;
+
 const EXPECTED_AXONHUB_OPENROUTER_MODELS = [
   "moonshotai/kimi-k2.6",
   "moonshotai/kimi-k2.5",
@@ -59,16 +62,22 @@ const EXPECTED_AXONHUB_OPENROUTER_MODELS = [
   "xiaomi/mimo-v2.5-pro",
 ] as const;
 
+function toTitleCase(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
 function managedChannel({
   id,
   type,
   baseURL,
   status = "enabled",
+  remark = "Managed by Asset-Attachments",
 }: {
   id: string;
   type: string;
   baseURL: string;
   status?: string;
+  remark?: string;
 }) {
   return {
     id,
@@ -76,15 +85,33 @@ function managedChannel({
     type,
     baseURL,
     status,
-    remark: "Managed by Asset-Attachments",
+    remark,
   };
 }
 
-function managedAnthropicChannels(count: number) {
+function managedProviderChannels(
+  provider: "anthropic" | "gemini" | "openrouter",
+  count: number,
+  {
+    status = "enabled",
+    startIndex = 1,
+    titleCaseType = false,
+    titleCaseStatus = false,
+  }: {
+    status?: ManagedChannelStatus;
+    startIndex?: number;
+    titleCaseType?: boolean;
+    titleCaseStatus?: boolean;
+  } = {},
+) {
+  const type = titleCaseType ? toTitleCase(provider) : provider;
+  const normalizedStatus = titleCaseStatus ? toTitleCase(status) : status;
+
   return Array.from({ length: count }, (_, index) => managedChannel({
-    id: `gid://axonhub/Channel/${index + 1}`,
-    type: "anthropic",
-    baseURL: `https://anthropic-${index + 1}.example/api/anthropic`,
+    id: `gid://axonhub/Channel/${startIndex + index}`,
+    type,
+    baseURL: `https://${provider}-${startIndex + index}.example/api/${provider}`,
+    status: normalizedStatus,
   }));
 }
 
@@ -165,274 +192,136 @@ test("buildAxonHubChannelInput uses the fixed openrouter channel format", () => 
   });
 });
 
-test("pickAxonHubChannelProvider only counts managed enabled channels toward the 8:1:2 ratio", () => {
+test("pickAxonHubChannelProvider only counts managed enabled channels toward the minimum enabled floor", () => {
   const provider = pickAxonHubChannelProvider([
+    ...managedProviderChannels("anthropic", 10, { startIndex: 1 }),
+    ...managedProviderChannels("openrouter", 9, { startIndex: 101 }),
+    ...managedProviderChannels("gemini", 10, { startIndex: 201 }),
     managedChannel({
-      id: "gid://axonhub/Channel/1",
-      type: "anthropic",
-      baseURL: "https://one.example/api/anthropic",
-    }),
-    managedChannel({
-      id: "gid://axonhub/Channel/2",
-      type: "anthropic",
-      baseURL: "https://two.example/api/anthropic",
-    }),
-    managedChannel({
-      id: "gid://axonhub/Channel/3",
-      type: "anthropic",
-      baseURL: "https://three.example/api/anthropic",
-    }),
-    managedChannel({
-      id: "gid://axonhub/Channel/4",
-      type: "anthropic",
-      baseURL: "https://four.example/api/anthropic",
-    }),
-    managedChannel({
-      id: "gid://axonhub/Channel/5",
-      type: "anthropic",
-      baseURL: "https://five.example/api/anthropic",
-    }),
-    managedChannel({
-      id: "gid://axonhub/Channel/6",
-      type: "anthropic",
-      baseURL: "https://six.example/api/anthropic",
-    }),
-    managedChannel({
-      id: "gid://axonhub/Channel/7",
-      type: "anthropic",
-      baseURL: "https://seven.example/api/anthropic",
-    }),
-    managedChannel({
-      id: "gid://axonhub/Channel/8",
-      type: "anthropic",
-      baseURL: "https://disabled.example/api/anthropic",
+      id: "gid://axonhub/Channel/999",
+      type: "openrouter",
+      baseURL: "https://disabled-openrouter.example/api/openrouter",
       status: "disabled",
     }),
-    {
-      id: "gid://axonhub/Channel/9",
-      name: "proxy",
-      type: "anthropic",
-      baseURL: "https://external.example/api/anthropic",
+    managedChannel({
+      id: "gid://axonhub/Channel/1000",
+      type: "openrouter",
+      baseURL: "https://external-openrouter.example/api/openrouter",
       status: "enabled",
       remark: "External channel",
-    },
-  ]);
-
-  assert.equal(provider, "openrouter");
-});
-
-test("pickAxonHubChannelProvider switches to openrouter after three managed anthropic channels fill the first 8:1:2 block gap", () => {
-  const provider = pickAxonHubChannelProvider(managedAnthropicChannels(3));
-
-  assert.equal(provider, "openrouter");
-});
-
-test("pickAxonHubChannelProvider switches to gemini after the first openrouter slot in the 8:1:2 cadence", () => {
-  const provider = pickAxonHubChannelProvider([
-    ...managedAnthropicChannels(8),
-    managedChannel({
-      id: "gid://axonhub/Channel/9",
-      type: "openrouter",
-      baseURL: "https://openrouter.example/api/openrouter",
-    }),
-    managedChannel({
-      id: "gid://axonhub/Channel/10",
-      type: "gemini",
-      baseURL: "https://gemini.example/api/gemini",
-    }),
-  ]);
-
-  assert.equal(provider, "gemini");
-});
-
-test("pickAxonHubChannelProvider switches to openrouter after the second gemini slot in the 8:1:2 cadence", () => {
-  const provider = pickAxonHubChannelProvider([
-    ...managedAnthropicChannels(11),
-    managedChannel({
-      id: "gid://axonhub/Channel/12",
-      type: "openrouter",
-      baseURL: "https://openrouter.example/api/openrouter",
-    }),
-    managedChannel({
-      id: "gid://axonhub/Channel/13",
-      type: "gemini",
-      baseURL: "https://gemini.example/api/gemini",
-    }),
-    managedChannel({
-      id: "gid://axonhub/Channel/14",
-      type: "gemini",
-      baseURL: "https://gemini-two.example/api/gemini",
     }),
   ]);
 
   assert.equal(provider, "openrouter");
 });
 
-test("pickAxonHubChannelProvider switches to gemini after the second openrouter slot in the 8:1:2 cadence", () => {
+test("pickAxonHubChannelProvider breaks minimum enabled floor ties by archived demand", () => {
   const provider = pickAxonHubChannelProvider([
-    ...managedAnthropicChannels(14),
-    managedChannel({
-      id: "gid://axonhub/Channel/15",
-      type: "openrouter",
-      baseURL: "https://openrouter.example/api/openrouter",
+    ...managedProviderChannels("anthropic", 8, { startIndex: 1 }),
+    ...managedProviderChannels("openrouter", 8, { startIndex: 101 }),
+    ...managedProviderChannels("gemini", 10, { startIndex: 201 }),
+    ...managedProviderChannels("anthropic", 5, {
+      status: "archived",
+      startIndex: 301,
     }),
-    managedChannel({
-      id: "gid://axonhub/Channel/16",
-      type: "gemini",
-      baseURL: "https://gemini.example/api/gemini",
+    ...managedProviderChannels("openrouter", 30, {
+      status: "archived",
+      startIndex: 401,
     }),
-    managedChannel({
-      id: "gid://axonhub/Channel/17",
-      type: "gemini",
-      baseURL: "https://gemini-two.example/api/gemini",
-    }),
-    managedChannel({
-      id: "gid://axonhub/Channel/18",
-      type: "openrouter",
-      baseURL: "https://openrouter-two.example/api/openrouter",
-    }),
-  ]);
-
-  assert.equal(provider, "gemini");
-});
-
-test("pickAxonHubChannelProvider keeps openrouter eligible below the 50-channel active cap", () => {
-  const provider = pickAxonHubChannelProvider([
-    ...managedAnthropicChannels(131),
-    ...Array.from({ length: 48 }, (_, index) => managedChannel({
-      id: `gid://axonhub/Channel/${index + 132}`,
-      type: "openrouter",
-      baseURL: `https://openrouter-${index + 1}.example/api/openrouter`,
-    })),
   ]);
 
   assert.equal(provider, "openrouter");
 });
 
-test("pickAxonHubChannelProvider keeps gemini eligible below the 100-channel active cap", () => {
+test("pickAxonHubChannelProvider can still choose anthropic after floors are met when it carries the most archived share", () => {
   const provider = pickAxonHubChannelProvider([
-    ...managedAnthropicChannels(86),
-    ...Array.from({ length: 31 }, (_, index) => managedChannel({
-      id: `gid://axonhub/Channel/${index + 87}`,
-      type: "gemini",
-      baseURL: `https://gemini-${index + 1}.example/api/gemini`,
-    })),
-  ]);
-
-  assert.equal(provider, "gemini");
-});
-
-test("pickAxonHubChannelProvider prefers gemini when openrouter has reached its active cap", () => {
-  const provider = pickAxonHubChannelProvider([
-    ...managedAnthropicChannels(136),
-    ...Array.from({ length: 50 }, (_, index) => managedChannel({
-      id: `gid://axonhub/Channel/${index + 137}`,
-      type: "openrouter",
-      baseURL: `https://openrouter-${index + 1}.example/api/openrouter`,
-    })),
-  ]);
-
-  assert.equal(provider, "gemini");
-});
-
-test("pickAxonHubChannelProvider prefers openrouter when gemini has reached its active cap", () => {
-  const provider = pickAxonHubChannelProvider([
-    ...managedAnthropicChannels(270),
-    ...Array.from({ length: 100 }, (_, index) => managedChannel({
-      id: `gid://axonhub/Channel/${index + 271}`,
-      type: "gemini",
-      baseURL: `https://gemini-${index + 1}.example/api/gemini`,
-    })),
-  ]);
-
-  assert.equal(provider, "openrouter");
-});
-
-test("pickAxonHubChannelProvider falls back to anthropic when both secondary providers reached their active caps", () => {
-  const provider = pickAxonHubChannelProvider([
-    ...managedAnthropicChannels(200),
-    ...Array.from({ length: 100 }, (_, index) => managedChannel({
-      id: `gid://axonhub/Channel/${index + 201}`,
-      type: "gemini",
-      baseURL: `https://gemini-${index + 1}.example/api/gemini`,
-    })),
-    ...Array.from({ length: 50 }, (_, index) => managedChannel({
-      id: `gid://axonhub/Channel/${index + 301}`,
-      type: "openrouter",
-      baseURL: `https://openrouter-${index + 1}.example/api/openrouter`,
-    })),
+    ...managedProviderChannels("anthropic", 10, { startIndex: 1 }),
+    ...managedProviderChannels("openrouter", 10, { startIndex: 101 }),
+    ...managedProviderChannels("gemini", 10, { startIndex: 201 }),
+    ...managedProviderChannels("anthropic", 60, {
+      status: "archived",
+      startIndex: 301,
+    }),
+    ...managedProviderChannels("openrouter", 20, {
+      status: "archived",
+      startIndex: 401,
+    }),
+    ...managedProviderChannels("gemini", 20, {
+      status: "archived",
+      startIndex: 501,
+    }),
   ]);
 
   assert.equal(provider, "anthropic");
 });
 
-test("pickAxonHubChannelProvider normalizes title-cased provider names from AxonHub before counting", () => {
+test("pickAxonHubChannelProvider prefers the provider whose archived share most exceeds its enabled share", () => {
   const provider = pickAxonHubChannelProvider([
-    managedChannel({
-      id: "gid://axonhub/Channel/1",
-      type: "Anthropic",
-      baseURL: "https://one.example/api/anthropic",
+    ...managedProviderChannels("anthropic", 16, { startIndex: 1 }),
+    ...managedProviderChannels("openrouter", 18, { startIndex: 101 }),
+    ...managedProviderChannels("gemini", 14, { startIndex: 201 }),
+    ...managedProviderChannels("anthropic", 20, {
+      status: "archived",
+      startIndex: 301,
     }),
-    managedChannel({
-      id: "gid://axonhub/Channel/2",
-      type: "Anthropic",
-      baseURL: "https://two.example/api/anthropic",
+    ...managedProviderChannels("openrouter", 80, {
+      status: "archived",
+      startIndex: 401,
     }),
-    managedChannel({
-      id: "gid://axonhub/Channel/3",
-      type: "Anthropic",
-      baseURL: "https://three.example/api/anthropic",
-    }),
-    managedChannel({
-      id: "gid://axonhub/Channel/4",
-      type: "Anthropic",
-      baseURL: "https://four.example/api/anthropic",
-    }),
-    managedChannel({
-      id: "gid://axonhub/Channel/5",
-      type: "Anthropic",
-      baseURL: "https://five.example/api/anthropic",
-    }),
-    managedChannel({
-      id: "gid://axonhub/Channel/6",
-      type: "Anthropic",
-      baseURL: "https://six.example/api/anthropic",
-    }),
-    managedChannel({
-      id: "gid://axonhub/Channel/7",
-      type: "Anthropic",
-      baseURL: "https://seven.example/api/anthropic",
-    }),
-    managedChannel({
-      id: "gid://axonhub/Channel/8",
-      type: "Anthropic",
-      baseURL: "https://eight.example/api/anthropic",
-    }),
-    managedChannel({
-      id: "gid://axonhub/Channel/9",
-      type: "Gemini",
-      baseURL: "https://gemini.example/api/gemini",
-    }),
-    managedChannel({
-      id: "gid://axonhub/Channel/10",
-      type: "Gemini",
-      baseURL: "https://gemini-two.example/api/gemini",
+    ...managedProviderChannels("gemini", 10, {
+      status: "archived",
+      startIndex: 501,
     }),
   ]);
 
-  assert.equal(provider, "gemini");
+  assert.equal(provider, "openrouter");
 });
 
-test("syncAxonHubChannel creates a new anthropic channel when anthropic is under target", async () => {
+test("pickAxonHubChannelProvider falls back to the fewest enabled channels when there is no archived signal yet", () => {
+  const provider = pickAxonHubChannelProvider([
+    ...managedProviderChannels("anthropic", 12, { startIndex: 1 }),
+    ...managedProviderChannels("openrouter", 10, { startIndex: 101 }),
+    ...managedProviderChannels("gemini", 11, { startIndex: 201 }),
+  ]);
+
+  assert.equal(provider, "openrouter");
+});
+
+test("pickAxonHubChannelProvider normalizes title-cased provider and status values from AxonHub before counting", () => {
+  const provider = pickAxonHubChannelProvider([
+    ...managedProviderChannels("anthropic", 10, {
+      startIndex: 1,
+      titleCaseType: true,
+      titleCaseStatus: true,
+    }),
+    ...managedProviderChannels("openrouter", 10, {
+      startIndex: 101,
+      titleCaseType: true,
+      titleCaseStatus: true,
+    }),
+    ...managedProviderChannels("gemini", 10, {
+      startIndex: 201,
+      titleCaseType: true,
+      titleCaseStatus: true,
+    }),
+    ...managedProviderChannels("openrouter", 15, {
+      status: "archived",
+      startIndex: 301,
+      titleCaseType: true,
+      titleCaseStatus: true,
+    }),
+  ]);
+
+  assert.equal(provider, "openrouter");
+});
+
+test("syncAxonHubChannel creates a new anthropic channel when anthropic is below the minimum enabled floor", async () => {
   const calls: Array<{ input: FetchInput; init?: RequestInit }> = [];
   const fetchMock: typeof fetch = async (input, init) => {
     calls.push({ input, init });
 
     const body = JSON.parse(String(init?.body ?? "{}")) as {
       query?: string;
-      variables?: {
-        input?: unknown;
-      };
     };
 
     if (body.query?.includes("query SyncAxonHubChannelLookup")) {
@@ -440,13 +329,9 @@ test("syncAxonHubChannel creates a new anthropic channel when anthropic is under
         data: {
           queryChannels: {
             edges: [
-              {
-                node: managedChannel({
-                  id: "gid://axonhub/Channel/1",
-                  type: "anthropic",
-                  baseURL: "https://other.example/api/anthropic",
-                }),
-              },
+              ...managedProviderChannels("anthropic", 9).map((node) => ({ node })),
+              ...managedProviderChannels("openrouter", 10, { startIndex: 101 }).map((node) => ({ node })),
+              ...managedProviderChannels("gemini", 10, { startIndex: 201 }).map((node) => ({ node })),
             ],
           },
         },
@@ -528,20 +413,17 @@ test("syncAxonHubChannel updates the existing anthropic channel for the current 
         data: {
           queryChannels: {
             edges: [
+              ...managedProviderChannels("anthropic", 8).map((node) => ({ node })),
               {
                 node: managedChannel({
-                  id: "gid://axonhub/Channel/1",
-                  type: "anthropic",
-                  baseURL: "https://other.example/api/anthropic",
-                }),
-              },
-              {
-                node: managedChannel({
-                  id: "gid://axonhub/Channel/7",
+                  id: "gid://axonhub/Channel/70",
                   type: "anthropic",
                   baseURL: "https://proxy.example/api/anthropic",
+                  status: "enabled",
                 }),
               },
+              ...managedProviderChannels("openrouter", 10, { startIndex: 101 }).map((node) => ({ node })),
+              ...managedProviderChannels("gemini", 10, { startIndex: 201 }).map((node) => ({ node })),
             ],
           },
         },
@@ -574,7 +456,7 @@ test("syncAxonHubChannel updates the existing anthropic channel for the current 
 
   assert.equal(result.mode, "updated");
   assert.equal(result.provider, "anthropic");
-  assert.equal(result.channel.id, "gid://axonhub/Channel/7");
+  assert.equal(result.channel.id, "gid://axonhub/Channel/70");
   assert.equal(calls.length, 2);
 
   const updateBody = JSON.parse(String(calls[1]?.init?.body ?? "{}")) as {
@@ -584,7 +466,7 @@ test("syncAxonHubChannel updates the existing anthropic channel for the current 
     };
   };
 
-  assert.equal(updateBody.variables?.id, "gid://axonhub/Channel/7");
+  assert.equal(updateBody.variables?.id, "gid://axonhub/Channel/70");
   assert.deepEqual(updateBody.variables?.input, {
     type: "anthropic",
     name: "proxy",
@@ -603,7 +485,7 @@ test("syncAxonHubChannel updates the existing anthropic channel for the current 
   });
 });
 
-test("syncAxonHubChannel updates the existing anthropic channel when AxonHub returns title-cased provider names", async () => {
+test("syncAxonHubChannel updates the existing anthropic channel when AxonHub returns title-cased provider and status values", async () => {
   const calls: Array<{ input: FetchInput; init?: RequestInit }> = [];
   const fetchMock: typeof fetch = async (input, init) => {
     calls.push({ input, init });
@@ -620,20 +502,29 @@ test("syncAxonHubChannel updates the existing anthropic channel when AxonHub ret
         data: {
           queryChannels: {
             edges: [
+              ...managedProviderChannels("anthropic", 8, {
+                startIndex: 1,
+                titleCaseType: true,
+                titleCaseStatus: true,
+              }).map((node) => ({ node })),
               {
                 node: managedChannel({
-                  id: "gid://axonhub/Channel/1",
-                  type: "Anthropic",
-                  baseURL: "https://other.example/api/anthropic",
-                }),
-              },
-              {
-                node: managedChannel({
-                  id: "gid://axonhub/Channel/7",
+                  id: "gid://axonhub/Channel/70",
                   type: "Anthropic",
                   baseURL: "https://proxy.example/api/anthropic",
+                  status: "Enabled",
                 }),
               },
+              ...managedProviderChannels("openrouter", 10, {
+                startIndex: 101,
+                titleCaseType: true,
+                titleCaseStatus: true,
+              }).map((node) => ({ node })),
+              ...managedProviderChannels("gemini", 10, {
+                startIndex: 201,
+                titleCaseType: true,
+                titleCaseStatus: true,
+              }).map((node) => ({ node })),
             ],
           },
         },
@@ -648,7 +539,7 @@ test("syncAxonHubChannel updates the existing anthropic channel when AxonHub ret
             name: "proxy",
             type: "Anthropic",
             baseURL: "https://proxy.example/api/anthropic",
-            status: "enabled",
+            status: "Enabled",
           },
         },
       });
@@ -666,7 +557,7 @@ test("syncAxonHubChannel updates the existing anthropic channel when AxonHub ret
 
   assert.equal(result.mode, "updated");
   assert.equal(result.provider, "anthropic");
-  assert.equal(result.channel.id, "gid://axonhub/Channel/7");
+  assert.equal(result.channel.id, "gid://axonhub/Channel/70");
   assert.equal(calls.length, 2);
 
   const updateBody = JSON.parse(String(calls[1]?.init?.body ?? "{}")) as {
@@ -676,7 +567,7 @@ test("syncAxonHubChannel updates the existing anthropic channel when AxonHub ret
     };
   };
 
-  assert.equal(updateBody.variables?.id, "gid://axonhub/Channel/7");
+  assert.equal(updateBody.variables?.id, "gid://axonhub/Channel/70");
   assert.deepEqual(updateBody.variables?.input, {
     type: "anthropic",
     name: "proxy",
@@ -695,7 +586,7 @@ test("syncAxonHubChannel updates the existing anthropic channel when AxonHub ret
   });
 });
 
-test("syncAxonHubChannel creates a new gemini channel when the next slot belongs to gemini", async () => {
+test("syncAxonHubChannel creates a new gemini channel when gemini has the strongest archived-share gap", async () => {
   const calls: Array<{ input: FetchInput; init?: RequestInit }> = [];
   const fetchMock: typeof fetch = async (input, init) => {
     calls.push({ input, init });
@@ -712,14 +603,21 @@ test("syncAxonHubChannel creates a new gemini channel when the next slot belongs
         data: {
           queryChannels: {
             edges: [
-              ...managedAnthropicChannels(8).map((node) => ({ node })),
-              {
-                node: managedChannel({
-                  id: "gid://axonhub/Channel/9",
-                  type: "openrouter",
-                  baseURL: "https://openrouter.example/api/openrouter",
-                }),
-              },
+              ...managedProviderChannels("anthropic", 14).map((node) => ({ node })),
+              ...managedProviderChannels("openrouter", 14, { startIndex: 101 }).map((node) => ({ node })),
+              ...managedProviderChannels("gemini", 10, { startIndex: 201 }).map((node) => ({ node })),
+              ...managedProviderChannels("anthropic", 20, {
+                status: "archived",
+                startIndex: 301,
+              }).map((node) => ({ node })),
+              ...managedProviderChannels("openrouter", 10, {
+                status: "archived",
+                startIndex: 401,
+              }).map((node) => ({ node })),
+              ...managedProviderChannels("gemini", 70, {
+                status: "archived",
+                startIndex: 501,
+              }).map((node) => ({ node })),
             ],
           },
         },
@@ -776,7 +674,7 @@ test("syncAxonHubChannel creates a new gemini channel when the next slot belongs
   });
 });
 
-test("syncAxonHubChannel creates a new openrouter channel when the next secondary slot belongs to openrouter", async () => {
+test("syncAxonHubChannel creates a new openrouter channel when openrouter is below the minimum enabled floor", async () => {
   const calls: Array<{ input: FetchInput; init?: RequestInit }> = [];
   const fetchMock: typeof fetch = async (input, init) => {
     calls.push({ input, init });
@@ -793,28 +691,9 @@ test("syncAxonHubChannel creates a new openrouter channel when the next secondar
         data: {
           queryChannels: {
             edges: [
-              ...managedAnthropicChannels(11).map((node) => ({ node })),
-              {
-                node: managedChannel({
-                  id: "gid://axonhub/Channel/12",
-                  type: "openrouter",
-                  baseURL: "https://openrouter.example/api/openrouter",
-                }),
-              },
-              {
-                node: managedChannel({
-                  id: "gid://axonhub/Channel/13",
-                  type: "gemini",
-                  baseURL: "https://gemini.example/api/gemini",
-                }),
-              },
-              {
-                node: managedChannel({
-                  id: "gid://axonhub/Channel/14",
-                  type: "gemini",
-                  baseURL: "https://gemini-two.example/api/gemini",
-                }),
-              },
+              ...managedProviderChannels("anthropic", 10).map((node) => ({ node })),
+              ...managedProviderChannels("openrouter", 9, { startIndex: 101 }).map((node) => ({ node })),
+              ...managedProviderChannels("gemini", 10, { startIndex: 201 }).map((node) => ({ node })),
             ],
           },
         },
@@ -869,60 +748,4 @@ test("syncAxonHubChannel creates a new openrouter channel when the next secondar
     tags: [],
     remark: "Managed by Asset-Attachments",
   });
-});
-
-test("syncAxonHubChannel creates a new gemini channel when openrouter has reached its active cap", async () => {
-  const calls: Array<{ input: FetchInput; init?: RequestInit }> = [];
-  const fetchMock: typeof fetch = async (input, init) => {
-    calls.push({ input, init });
-
-    const body = JSON.parse(String(init?.body ?? "{}")) as {
-      query?: string;
-    };
-
-    if (body.query?.includes("query SyncAxonHubChannelLookup")) {
-      return jsonResponse({
-        data: {
-          queryChannels: {
-            edges: [
-              ...managedAnthropicChannels(136).map((node) => ({ node })),
-              ...Array.from({ length: 50 }, (_, index) => ({
-                node: managedChannel({
-                  id: `gid://axonhub/Channel/${index + 137}`,
-                  type: "openrouter",
-                  baseURL: `https://openrouter-${index + 1}.example/api/openrouter`,
-                }),
-              })),
-            ],
-          },
-        },
-      });
-    }
-
-    if (body.query?.includes("mutation CreateChannel")) {
-      return jsonResponse({
-        data: {
-          createChannel: {
-            id: "gid://axonhub/Channel/909",
-            name: "proxy",
-            type: "gemini",
-            baseURL: "https://proxy.example/api/gemini",
-            status: "enabled",
-          },
-        },
-      });
-    }
-
-    throw new Error(`Unexpected GraphQL document: ${body.query}`);
-  };
-
-  const result = await syncAxonHubChannel({
-    projectOrigin: "https://proxy.example",
-    proxyKey: "sk-proxy-test",
-    adminToken: "plain-token",
-    fetchImpl: fetchMock,
-  });
-
-  assert.equal(result.mode, "created");
-  assert.equal(result.provider, "gemini");
 });

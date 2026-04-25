@@ -435,7 +435,7 @@ console.log(data);`;
           <div className="flex items-center gap-2 mb-4">
             <Server className="w-4 h-4 text-primary" />
             <span className="text-sm font-semibold text-foreground">AxonHub Sync</span>
-            <span className="ml-auto text-xs text-muted-foreground">Auto 8:1:2 routing</span>
+            <span className="ml-auto text-xs text-muted-foreground">Dynamic archived-share routing</span>
           </div>
 
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
@@ -475,7 +475,7 @@ console.log(data);`;
                   </button>
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
-                  只手填 AxonHub token。Auto 8:1:2 routing：系统会只统计由当前仓库托管且处于 enabled 的 channel，并自动保持 anthropic:openrouter:gemini = 8:1:2；Anthropic 不足时优先补 Anthropic，次级槽位按 OpenRouter / Gemini / Gemini 的顺序补齐，并受 OpenRouter 最多 50 个、Gemini 最多 100 个活跃 channel 的上限约束；如果某一个次级 provider 先达到上限，新增 channel 会优先补另一个次级 provider；只有 OpenRouter 和 Gemini 都达到上限时，新增 channel 才会回落到 Anthropic。
+                  只手填 AxonHub token。Dynamic archived-share routing：系统会统计由当前仓库托管的 channel，先保证各 provider 至少保留 10 个 enabled channel；达到这个下限后，再比较每个 provider 的 archived 占比和当前 enabled 占比，优先补给 archived 占比更高、但 enabled 占比偏低的 provider。archived 越多代表历史使用越多，所以后续新增 channel 会更容易继续补到这个 provider；如果暂时还没有 archived 信号，就先补当前 enabled 数更少的 provider。
                 </p>
               </div>
 

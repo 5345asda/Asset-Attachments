@@ -64,8 +64,12 @@ test("AxonHub status-page copy stays aligned with the backend sync model lists",
     "utf8",
   );
 
-  assert.match(statusPageSource, /anthropic:openrouter:gemini = 8:1:2/);
-  assert.match(statusPageSource, /Auto 8:1:2 routing/);
+  assert.match(statusPageSource, /Dynamic archived-share routing/);
+  assert.match(statusPageSource, /各 provider 至少保留 10 个 enabled channel/);
+  assert.match(statusPageSource, /archived 越多代表历史使用越多/);
+  assert.match(statusPageSource, /优先补给 archived 占比更高、但 enabled 占比偏低的 provider/);
+  assert.doesNotMatch(statusPageSource, /anthropic:openrouter:gemini = 8:1:2/);
+  assert.doesNotMatch(statusPageSource, /Auto 8:1:2 routing/);
   assert.match(statusPageSource, /"claude-opus-4-7"/);
   assert.match(
     statusPageSource,

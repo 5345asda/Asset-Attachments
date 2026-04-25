@@ -44,16 +44,10 @@ export const AXONHUB_OPENROUTER_SUPPORTED_MODELS = [
 
 const AXONHUB_GRAPHQL_URL = `${AXONHUB_ORIGIN}/admin/graphql`;
 const AXONHUB_REMARK = "Managed by Asset-Attachments";
-const AXONHUB_RATIO_ANTHROPIC = 8;
-const AXONHUB_RATIO_GEMINI = 2;
-const AXONHUB_RATIO_OPENROUTER = 1;
-const AXONHUB_GEMINI_ACTIVE_CAP = 100;
-const AXONHUB_OPENROUTER_ACTIVE_CAP = 50;
-const AXONHUB_ANTHROPIC_PER_SECONDARY_SLOT = AXONHUB_RATIO_ANTHROPIC
-  / (AXONHUB_RATIO_GEMINI + AXONHUB_RATIO_OPENROUTER);
-const AXONHUB_SECONDARY_PROVIDER_CYCLE: readonly AxonHubProvider[] = [
+const AXONHUB_MIN_ENABLED_CHANNELS = 10;
+const AXONHUB_PROVIDER_ORDER: readonly AxonHubProvider[] = [
+  "anthropic",
   "openrouter",
-  "gemini",
   "gemini",
 ];
 const AXONHUB_LOOKUP_PAGE_SIZE = 100;
@@ -151,6 +145,12 @@ export interface SyncAxonHubChannelResult {
 
 export type AxonHubProvider = "anthropic" | "gemini" | "openrouter";
 
+interface AxonHubProviderStats {
+  provider: AxonHubProvider;
+  enabledCount: number;
+  archivedCount: number;
+}
+
 function normalizeAxonHubProviderType(type?: string | null): AxonHubProvider | null {
   if (!type) {
     return null;
@@ -163,6 +163,20 @@ function normalizeAxonHubProviderType(type?: string | null): AxonHubProvider | n
     || normalized === "gemini"
     || normalized === "openrouter"
   ) {
+    return normalized;
+  }
+
+  return null;
+}
+
+function normalizeAxonHubChannelStatus(status?: string | null): "enabled" | "archived" | null {
+  if (!status) {
+    return null;
+  }
+
+  const normalized = status.trim().toLowerCase();
+
+  if (normalized === "enabled" || normalized === "archived") {
     return normalized;
   }
 
@@ -263,43 +277,120 @@ export function buildAxonHubChannelInput({
 export function pickAxonHubChannelProvider(
   channels: ReadonlyArray<GraphQlChannelNode | null | undefined>,
 ): AxonHubProvider {
-  const managedChannels = channels.filter((channel): channel is GraphQlChannelNode => {
-    return !!channel
-      && channel.remark === AXONHUB_REMARK
-      && channel.status === "enabled";
-  });
-  const geminiCount = managedChannels.filter((channel) => normalizeAxonHubProviderType(channel.type) === "gemini").length;
-  const openrouterCount = managedChannels.filter((channel) => normalizeAxonHubProviderType(channel.type) === "openrouter").length;
-  const anthropicCount = managedChannels.filter((channel) => normalizeAxonHubProviderType(channel.type) === "anthropic").length;
-  const secondaryCount = geminiCount + openrouterCount;
-  const geminiAtCap = geminiCount >= AXONHUB_GEMINI_ACTIVE_CAP;
-  const openrouterAtCap = openrouterCount >= AXONHUB_OPENROUTER_ACTIVE_CAP;
+  const stats = AXONHUB_PROVIDER_ORDER.map((provider) => ({
+    provider,
+    enabledCount: 0,
+    archivedCount: 0,
+  } satisfies AxonHubProviderStats));
 
-  if (geminiAtCap && openrouterAtCap) {
-    return "anthropic";
-  }
-
-  if (anthropicCount < Math.ceil((secondaryCount + 1) * AXONHUB_ANTHROPIC_PER_SECONDARY_SLOT)) {
-    return "anthropic";
-  }
-
-  const preferredProvider = AXONHUB_SECONDARY_PROVIDER_CYCLE[
-    secondaryCount % AXONHUB_SECONDARY_PROVIDER_CYCLE.length
-  ] ?? "openrouter";
-
-  if (preferredProvider === "gemini") {
-    if (!geminiAtCap) {
-      return "gemini";
+  for (const channel of channels) {
+    if (!channel || channel.remark !== AXONHUB_REMARK) {
+      continue;
     }
 
-    return openrouterAtCap ? "anthropic" : "openrouter";
+    const provider = normalizeAxonHubProviderType(channel.type);
+    const status = normalizeAxonHubChannelStatus(channel.status);
+
+    if (!provider || !status) {
+      continue;
+    }
+
+    const providerStats = stats.find((entry) => entry.provider === provider);
+
+    if (!providerStats) {
+      continue;
+    }
+
+    if (status === "enabled") {
+      providerStats.enabledCount += 1;
+      continue;
+    }
+
+    providerStats.archivedCount += 1;
   }
 
-  if (!openrouterAtCap) {
-    return "openrouter";
+  const totals = stats.reduce(
+    (aggregate, providerStats) => {
+      return {
+        enabledCount: aggregate.enabledCount + providerStats.enabledCount,
+        archivedCount: aggregate.archivedCount + providerStats.archivedCount,
+      };
+    },
+    {
+      enabledCount: 0,
+      archivedCount: 0,
+    },
+  );
+
+  const getGap = (providerStats: AxonHubProviderStats): number => {
+    const archivedShare = totals.archivedCount > 0
+      ? providerStats.archivedCount / totals.archivedCount
+      : 0;
+    const enabledShare = totals.enabledCount > 0
+      ? providerStats.enabledCount / totals.enabledCount
+      : 0;
+
+    return archivedShare - enabledShare;
+  };
+
+  const compareProviders = (
+    left: AxonHubProviderStats,
+    right: AxonHubProviderStats,
+  ): number => {
+    const gapDifference = getGap(right) - getGap(left);
+
+    if (gapDifference !== 0) {
+      return gapDifference;
+    }
+
+    const archivedCountDifference = right.archivedCount - left.archivedCount;
+
+    if (archivedCountDifference !== 0) {
+      return archivedCountDifference;
+    }
+
+    const enabledCountDifference = left.enabledCount - right.enabledCount;
+
+    if (enabledCountDifference !== 0) {
+      return enabledCountDifference;
+    }
+
+    return AXONHUB_PROVIDER_ORDER.indexOf(left.provider)
+      - AXONHUB_PROVIDER_ORDER.indexOf(right.provider);
+  };
+
+  const belowMinimum = stats
+    .filter((providerStats) => providerStats.enabledCount < AXONHUB_MIN_ENABLED_CHANNELS)
+    .sort((left, right) => {
+      const deficitDifference = (AXONHUB_MIN_ENABLED_CHANNELS - right.enabledCount)
+        - (AXONHUB_MIN_ENABLED_CHANNELS - left.enabledCount);
+
+      if (deficitDifference !== 0) {
+        return deficitDifference;
+      }
+
+      return compareProviders(left, right);
+    });
+
+  if (belowMinimum.length > 0) {
+    return belowMinimum[0]?.provider ?? "anthropic";
   }
 
-  return geminiAtCap ? "anthropic" : "gemini";
+  if (totals.archivedCount === 0) {
+    return [...stats]
+      .sort((left, right) => {
+        const enabledCountDifference = left.enabledCount - right.enabledCount;
+
+        if (enabledCountDifference !== 0) {
+          return enabledCountDifference;
+        }
+
+        return AXONHUB_PROVIDER_ORDER.indexOf(left.provider)
+          - AXONHUB_PROVIDER_ORDER.indexOf(right.provider);
+      })[0]?.provider ?? "anthropic";
+  }
+
+  return [...stats].sort(compareProviders)[0]?.provider ?? "anthropic";
 }
 
 function buildAxonHubUpdateChannelInput(
