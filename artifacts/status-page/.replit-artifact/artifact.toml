@@ -11,7 +11,7 @@ paths = ["/", "/api"]
 localPort = 3000
 
 [services.development]
-run = "pnpm dev"
+run = "pnpm -w run dev"
 
 [services.production.build]
 args = ["pnpm", "run", "build:deploy"]
