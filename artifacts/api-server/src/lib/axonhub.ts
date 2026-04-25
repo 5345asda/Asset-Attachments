@@ -275,7 +275,7 @@ export function pickAxonHubChannelProvider(
   const geminiAtCap = geminiCount >= AXONHUB_GEMINI_ACTIVE_CAP;
   const openrouterAtCap = openrouterCount >= AXONHUB_OPENROUTER_ACTIVE_CAP;
 
-  if (geminiAtCap || openrouterAtCap) {
+  if (geminiAtCap && openrouterAtCap) {
     return "anthropic";
   }
 
@@ -288,10 +288,18 @@ export function pickAxonHubChannelProvider(
   ] ?? "openrouter";
 
   if (preferredProvider === "gemini") {
-    return "gemini";
+    if (!geminiAtCap) {
+      return "gemini";
+    }
+
+    return openrouterAtCap ? "anthropic" : "openrouter";
   }
 
-  return "openrouter";
+  if (!openrouterAtCap) {
+    return "openrouter";
+  }
+
+  return geminiAtCap ? "anthropic" : "gemini";
 }
 
 function buildAxonHubUpdateChannelInput(

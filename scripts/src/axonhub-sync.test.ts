@@ -296,7 +296,7 @@ test("pickAxonHubChannelProvider switches to gemini after the second openrouter 
   assert.equal(provider, "gemini");
 });
 
-test("pickAxonHubChannelProvider falls back to anthropic when openrouter has reached its active cap", () => {
+test("pickAxonHubChannelProvider prefers gemini when openrouter has reached its active cap", () => {
   const provider = pickAxonHubChannelProvider([
     ...managedAnthropicChannels(80),
     ...Array.from({ length: 20 }, (_, index) => managedChannel({
@@ -306,10 +306,10 @@ test("pickAxonHubChannelProvider falls back to anthropic when openrouter has rea
     })),
   ]);
 
-  assert.equal(provider, "anthropic");
+  assert.equal(provider, "gemini");
 });
 
-test("pickAxonHubChannelProvider falls back to anthropic when gemini has reached its active cap", () => {
+test("pickAxonHubChannelProvider prefers openrouter when gemini has reached its active cap", () => {
   const provider = pickAxonHubChannelProvider([
     ...managedAnthropicChannels(120),
     ...Array.from({ length: 30 }, (_, index) => managedChannel({
@@ -319,7 +319,7 @@ test("pickAxonHubChannelProvider falls back to anthropic when gemini has reached
     })),
   ]);
 
-  assert.equal(provider, "anthropic");
+  assert.equal(provider, "openrouter");
 });
 
 test("pickAxonHubChannelProvider falls back to anthropic when both secondary providers reached their active caps", () => {
@@ -845,7 +845,7 @@ test("syncAxonHubChannel creates a new openrouter channel when the next secondar
   });
 });
 
-test("syncAxonHubChannel creates a new anthropic channel when openrouter has reached its active cap", async () => {
+test("syncAxonHubChannel creates a new gemini channel when openrouter has reached its active cap", async () => {
   const calls: Array<{ input: FetchInput; init?: RequestInit }> = [];
   const fetchMock: typeof fetch = async (input, init) => {
     calls.push({ input, init });
@@ -879,8 +879,8 @@ test("syncAxonHubChannel creates a new anthropic channel when openrouter has rea
           createChannel: {
             id: "gid://axonhub/Channel/909",
             name: "proxy",
-            type: "anthropic",
-            baseURL: "https://proxy.example/api/anthropic",
+            type: "gemini",
+            baseURL: "https://proxy.example/api/gemini",
             status: "enabled",
           },
         },
@@ -898,5 +898,5 @@ test("syncAxonHubChannel creates a new anthropic channel when openrouter has rea
   });
 
   assert.equal(result.mode, "created");
-  assert.equal(result.provider, "anthropic");
+  assert.equal(result.provider, "gemini");
 });
