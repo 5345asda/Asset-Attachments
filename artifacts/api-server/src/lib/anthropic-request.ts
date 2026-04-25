@@ -518,6 +518,66 @@ function stripUnsignedThinkingBlocks(body: JsonObject): JsonObject {
   return dropped > 0 ? { ...body, messages } : body;
 }
 
+function dropUnexpectedToolResults(body: JsonObject): JsonObject {
+  if (!Array.isArray(body.messages)) {
+    return body;
+  }
+
+  let dropped = 0;
+  const droppedToolUseIds = new Set<string>();
+  const sourceMessages = body.messages as any[];
+
+  const messages = sourceMessages.map((message: any, index: number) => {
+    if (message?.role !== "user" || !Array.isArray(message?.content)) {
+      return message;
+    }
+
+    const previousMessage = index > 0 ? sourceMessages[index - 1] : undefined;
+    const validToolUseIds = new Set<string>();
+
+    if (previousMessage?.role === "assistant" && Array.isArray(previousMessage?.content)) {
+      for (const block of previousMessage.content) {
+        if (block?.type === "tool_use" && typeof block.id === "string") {
+          validToolUseIds.add(block.id);
+        }
+      }
+    }
+
+    const filtered = message.content.filter((block: any) => {
+      if (block?.type !== "tool_result") {
+        return true;
+      }
+
+      if (typeof block.tool_use_id !== "string" || !validToolUseIds.has(block.tool_use_id)) {
+        dropped += 1;
+        if (typeof block.tool_use_id === "string") {
+          droppedToolUseIds.add(block.tool_use_id);
+        }
+        return false;
+      }
+
+      return true;
+    });
+
+    return filtered.length !== message.content.length
+      ? { ...message, content: filtered }
+      : message;
+  });
+
+  if (dropped > 0) {
+    logger.warn(
+      {
+        model: body.model,
+        dropped,
+        toolUseIds: [...droppedToolUseIds],
+      },
+      "Anthropic: dropped tool_result block(s) without a matching tool_use in the previous assistant message",
+    );
+  }
+
+  return dropped > 0 ? { ...body, messages } : body;
+}
+
 function migrateDeprecatedOutputFormat(body: JsonObject): JsonObject {
   if (body.output_format === undefined) {
     return body;
@@ -646,7 +706,8 @@ function buildSystemFingerprint(body: JsonObject): { sysHash: string; sysLen: nu
 }
 
 export function sanitizeAnthropicBody(body: JsonObject): JsonObject {
-  let result = stripUnsignedThinkingBlocks(body);
+  let result = dropUnexpectedToolResults(body);
+  result = stripUnsignedThinkingBlocks(result);
   result = migrateDeprecatedOutputFormat(result);
   result = migrateClaudeOpus47Thinking(result);
   result = stripAllCacheControlScopes(result);

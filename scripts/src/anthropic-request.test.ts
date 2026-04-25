@@ -104,3 +104,56 @@ test("sanitizeAnthropicBody normalizes temperature to 1 when thinking is enabled
     budget_tokens: 1024,
   });
 });
+
+test("sanitizeAnthropicBody drops tool_result blocks without a matching tool_use in the previous assistant message", () => {
+  const result = sanitizeAnthropicBody({
+    model: "claude-sonnet-4-6",
+    messages: [
+      {
+        role: "assistant",
+        content: [
+          {
+            type: "text",
+            text: "让我帮你搜一下。",
+          },
+          {
+            type: "tool_use",
+            id: "toolu_valid",
+            name: "mcp__tavily_search",
+            input: {
+              query: "中国经济 2025 最新情况",
+            },
+          },
+        ],
+      },
+      {
+        role: "user",
+        content: [
+          {
+            type: "tool_result",
+            tool_use_id: "toolu_invalid",
+            content: "{\"year\":2026}",
+          },
+          {
+            type: "tool_result",
+            tool_use_id: "toolu_valid",
+            content: "{\"error\":\"timeout\"}",
+          },
+        ],
+      },
+    ],
+  }) as {
+    messages?: Array<{
+      role?: string;
+      content?: Array<Record<string, unknown>>;
+    }>;
+  };
+
+  assert.deepEqual(result.messages?.[1]?.content, [
+    {
+      type: "tool_result",
+      tool_use_id: "toolu_valid",
+      content: "{\"error\":\"timeout\"}",
+    },
+  ]);
+});
