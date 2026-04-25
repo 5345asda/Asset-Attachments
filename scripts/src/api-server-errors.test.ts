@@ -72,7 +72,7 @@ async function postJson(url: string, options: {
   });
 }
 
-test("public anthropic model routes expose Anthropic-native list shapes without proxy auth", async (t) => {
+test("public anthropic model routes split panel-friendly v1 arrays from native legacy envelopes without proxy auth", async (t) => {
   const previousProxyKey = process.env.PROXY_API_KEY;
   process.env.PROXY_API_KEY = "sk-proxy-test";
 
@@ -89,7 +89,28 @@ test("public anthropic model routes expose Anthropic-native list shapes without 
   });
 
   const v1Response = await fetch(`http://127.0.0.1:${server.port}/api/anthropic/v1/models`);
-  const v1Body = await v1Response.json() as {
+  const v1Body = await v1Response.json() as Array<{
+    type?: string;
+    id?: string;
+    display_name?: string;
+    created_at?: string;
+  }>;
+
+  assert.equal(v1Response.status, 200);
+  assert.ok(Array.isArray(v1Body));
+  assert.ok(v1Body.length > 0);
+  assert.deepEqual(v1Body[0], {
+    type: "model",
+    id: "claude-opus-4-7",
+    display_name: "claude-opus-4-7",
+    created_at: v1Body[0]?.created_at,
+  });
+  assert.equal("data" in v1Body, false);
+  assert.match(v1Body[0]?.created_at ?? "", /^\d{4}-\d{2}-\d{2}T/);
+  assert.ok(v1Response.headers.get("x-request-id"));
+
+  const legacyResponse = await fetch(`http://127.0.0.1:${server.port}/api/anthropic/models`);
+  const legacyBody = await legacyResponse.json() as {
     data?: Array<{
       type?: string;
       id?: string;
@@ -101,27 +122,12 @@ test("public anthropic model routes expose Anthropic-native list shapes without 
     has_more?: boolean;
   };
 
-  assert.equal(v1Response.status, 200);
-  assert.ok(Array.isArray(v1Body.data));
-  assert.ok(v1Body.data.length > 0);
-  assert.deepEqual(v1Body.data[0], {
-    type: "model",
-    id: "claude-opus-4-7",
-    display_name: "claude-opus-4-7",
-    created_at: v1Body.data[0]?.created_at,
-  });
-  assert.equal(v1Body.first_id, "claude-opus-4-7");
-  assert.equal(v1Body.last_id, "claude-3-haiku-20240307");
-  assert.equal(v1Body.has_more, false);
-  assert.equal("models" in v1Body, false);
-  assert.match(v1Body.data[0]?.created_at ?? "", /^\d{4}-\d{2}-\d{2}T/);
-  assert.ok(v1Response.headers.get("x-request-id"));
-
-  const legacyResponse = await fetch(`http://127.0.0.1:${server.port}/api/anthropic/models`);
-  const legacyBody = await legacyResponse.json() as typeof v1Body;
-
   assert.equal(legacyResponse.status, 200);
-  assert.deepEqual(legacyBody, v1Body);
+  assert.ok(Array.isArray(legacyBody.data));
+  assert.deepEqual(legacyBody.data, v1Body);
+  assert.equal(legacyBody.first_id, "claude-opus-4-7");
+  assert.equal(legacyBody.last_id, "claude-3-haiku-20240307");
+  assert.equal(legacyBody.has_more, false);
   assert.ok(legacyResponse.headers.get("x-request-id"));
 });
 

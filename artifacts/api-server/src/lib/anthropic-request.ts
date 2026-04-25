@@ -21,7 +21,7 @@ const STRICT_SAMPLING_DISABLED_MODELS = new Set(["claude-opus-4-7"]);
 
 const now = new Date().toISOString();
 
-const anthropicModels = ANTHROPIC_MODELS.map((id) => ({
+export const anthropicModels = ANTHROPIC_MODELS.map((id) => ({
   type: "model",
   id,
   display_name: id,

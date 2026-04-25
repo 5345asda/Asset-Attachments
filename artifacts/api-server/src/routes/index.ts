@@ -7,7 +7,7 @@ import openrouterRouter, { handleOpenRouterModelList } from "./openrouter";
 import { PROXY_API_KEY } from "../lib/proxy-key";
 import { ApiError } from "../lib/api-error";
 import { getRequestLogger } from "../lib/request-context";
-import { anthropicModelList } from "../lib/anthropic-request";
+import { anthropicModelList, anthropicModels } from "../lib/anthropic-request";
 
 const router: IRouter = Router();
 const geminiModels = [
@@ -95,7 +95,7 @@ function proxyAuth(req: Request, res: Response, next: NextFunction) {
 router.use(healthRouter);
 router.use(axonhubRouter);
 
-router.get("/anthropic/v1/models", (_req, res) => res.json(anthropicModelList));
+router.get("/anthropic/v1/models", (_req, res) => res.json(anthropicModels));
 router.get("/anthropic/models", (_req, res) => res.json(anthropicModelList));
 router.get("/gemini/v1beta/models", (_req, res) => res.json(geminiModelList));
 router.get("/gemini/v1/models", (_req, res) => res.json(geminiCompatibilityModelList));
