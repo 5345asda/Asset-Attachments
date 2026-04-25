@@ -30,7 +30,9 @@ const anthropicModels = ANTHROPIC_MODELS.map((id) => ({
 
 export const anthropicModelList = {
   data: anthropicModels,
-  models: anthropicModels,
+  first_id: anthropicModels[0]?.id ?? null,
+  last_id: anthropicModels[anthropicModels.length - 1]?.id ?? null,
+  has_more: false,
 };
 
 type JsonObject = Record<string, unknown>;

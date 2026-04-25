@@ -72,7 +72,7 @@ async function postJson(url: string, options: {
   });
 }
 
-test("public anthropic model routes expose compatibility aliases without proxy auth", async (t) => {
+test("public anthropic model routes expose Anthropic-native list shapes without proxy auth", async (t) => {
   const previousProxyKey = process.env.PROXY_API_KEY;
   process.env.PROXY_API_KEY = "sk-proxy-test";
 
@@ -96,25 +96,24 @@ test("public anthropic model routes expose compatibility aliases without proxy a
       display_name?: string;
       created_at?: string;
     }>;
-    models?: Array<{
-      type?: string;
-      id?: string;
-      display_name?: string;
-      created_at?: string;
-    }>;
+    first_id?: string | null;
+    last_id?: string | null;
+    has_more?: boolean;
   };
 
   assert.equal(v1Response.status, 200);
   assert.ok(Array.isArray(v1Body.data));
-  assert.ok(Array.isArray(v1Body.models));
   assert.ok(v1Body.data.length > 0);
-  assert.deepEqual(v1Body.models, v1Body.data);
   assert.deepEqual(v1Body.data[0], {
     type: "model",
     id: "claude-opus-4-7",
     display_name: "claude-opus-4-7",
     created_at: v1Body.data[0]?.created_at,
   });
+  assert.equal(v1Body.first_id, "claude-opus-4-7");
+  assert.equal(v1Body.last_id, "claude-3-haiku-20240307");
+  assert.equal(v1Body.has_more, false);
+  assert.equal("models" in v1Body, false);
   assert.match(v1Body.data[0]?.created_at ?? "", /^\d{4}-\d{2}-\d{2}T/);
   assert.ok(v1Response.headers.get("x-request-id"));
 
