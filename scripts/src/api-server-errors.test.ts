@@ -72,7 +72,7 @@ async function postJson(url: string, options: {
   });
 }
 
-test("public anthropic model routes split data-only v1 envelopes from native legacy envelopes without proxy auth", async (t) => {
+test("public anthropic model routes expose native list envelopes without proxy auth", async (t) => {
   const previousProxyKey = process.env.PROXY_API_KEY;
   process.env.PROXY_API_KEY = "sk-proxy-test";
 
@@ -96,6 +96,9 @@ test("public anthropic model routes split data-only v1 envelopes from native leg
       display_name?: string;
       created_at?: string;
     }>;
+    first_id?: string | null;
+    last_id?: string | null;
+    has_more?: boolean;
   };
 
   assert.equal(v1Response.status, 200);
@@ -107,9 +110,9 @@ test("public anthropic model routes split data-only v1 envelopes from native leg
     display_name: "claude-opus-4-7",
     created_at: v1Body.data[0]?.created_at,
   });
-  assert.equal("first_id" in v1Body, false);
-  assert.equal("last_id" in v1Body, false);
-  assert.equal("has_more" in v1Body, false);
+  assert.equal(v1Body.first_id, "claude-opus-4-7");
+  assert.equal(v1Body.last_id, "claude-3-haiku-20240307");
+  assert.equal(v1Body.has_more, false);
   assert.match(v1Body.data[0]?.created_at ?? "", /^\d{4}-\d{2}-\d{2}T/);
   assert.ok(v1Response.headers.get("x-request-id"));
 
@@ -128,10 +131,7 @@ test("public anthropic model routes split data-only v1 envelopes from native leg
 
   assert.equal(legacyResponse.status, 200);
   assert.ok(Array.isArray(legacyBody.data));
-  assert.deepEqual(legacyBody.data, v1Body.data);
-  assert.equal(legacyBody.first_id, "claude-opus-4-7");
-  assert.equal(legacyBody.last_id, "claude-3-haiku-20240307");
-  assert.equal(legacyBody.has_more, false);
+  assert.deepEqual(legacyBody, v1Body);
   assert.ok(legacyResponse.headers.get("x-request-id"));
 });
 
