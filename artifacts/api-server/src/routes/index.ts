@@ -95,6 +95,7 @@ function proxyAuth(req: Request, res: Response, next: NextFunction) {
 router.use(healthRouter);
 router.use(axonhubRouter);
 
+router.get("/v1/models", (_req, res) => res.json(anthropicModelList));
 router.get("/anthropic/v1/models", (_req, res) => res.json(anthropicModelList));
 router.get("/anthropic/models", (_req, res) => res.json(anthropicModelList));
 router.get("/gemini/v1beta/models", (_req, res) => res.json(geminiModelList));

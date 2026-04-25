@@ -135,6 +135,44 @@ test("public anthropic model routes expose native list envelopes without proxy a
   assert.ok(legacyResponse.headers.get("x-request-id"));
 });
 
+test("legacy /api/v1/models routes to the public anthropic model list", async (t) => {
+  const previousProxyKey = process.env.PROXY_API_KEY;
+  process.env.PROXY_API_KEY = "sk-proxy-test";
+
+  const server = await startAppServer();
+
+  t.after(async () => {
+    await server.close();
+
+    if (previousProxyKey === undefined) {
+      delete process.env.PROXY_API_KEY;
+    } else {
+      process.env.PROXY_API_KEY = previousProxyKey;
+    }
+  });
+
+  const response = await fetch(`http://127.0.0.1:${server.port}/api/v1/models`);
+  const body = await response.json() as {
+    data?: Array<{
+      type?: string;
+      id?: string;
+      display_name?: string;
+      created_at?: string;
+    }>;
+    first_id?: string | null;
+    last_id?: string | null;
+    has_more?: boolean;
+  };
+
+  assert.equal(response.status, 200);
+  assert.ok(Array.isArray(body.data));
+  assert.ok(body.data.length > 0);
+  assert.equal(body.first_id, "claude-opus-4-7");
+  assert.equal(body.last_id, "claude-3-haiku-20240307");
+  assert.equal(body.has_more, false);
+  assert.ok(response.headers.get("x-request-id"));
+});
+
 test("public gemini model routes expose native and compatibility list shapes without provider config", async (t) => {
   const previousEnv = {
     PROXY_API_KEY: process.env.PROXY_API_KEY,
