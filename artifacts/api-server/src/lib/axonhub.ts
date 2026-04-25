@@ -47,14 +47,14 @@ const AXONHUB_REMARK = "Managed by Asset-Attachments";
 const AXONHUB_RATIO_ANTHROPIC = 8;
 const AXONHUB_RATIO_GEMINI = 2;
 const AXONHUB_RATIO_OPENROUTER = 1;
-const AXONHUB_GEMINI_ACTIVE_CAP = 15;
-const AXONHUB_OPENROUTER_ACTIVE_CAP = 10;
+const AXONHUB_GEMINI_ACTIVE_CAP = 30;
+const AXONHUB_OPENROUTER_ACTIVE_CAP = 20;
 const AXONHUB_ANTHROPIC_PER_SECONDARY_SLOT = AXONHUB_RATIO_ANTHROPIC
   / (AXONHUB_RATIO_GEMINI + AXONHUB_RATIO_OPENROUTER);
 const AXONHUB_SECONDARY_PROVIDER_CYCLE: readonly AxonHubProvider[] = [
-  "gemini",
-  "gemini",
   "openrouter",
+  "gemini",
+  "gemini",
 ];
 const AXONHUB_LOOKUP_PAGE_SIZE = 100;
 
@@ -275,7 +275,7 @@ export function pickAxonHubChannelProvider(
   const geminiAtCap = geminiCount >= AXONHUB_GEMINI_ACTIVE_CAP;
   const openrouterAtCap = openrouterCount >= AXONHUB_OPENROUTER_ACTIVE_CAP;
 
-  if (geminiAtCap && openrouterAtCap) {
+  if (geminiAtCap || openrouterAtCap) {
     return "anthropic";
   }
 
@@ -285,21 +285,13 @@ export function pickAxonHubChannelProvider(
 
   const preferredProvider = AXONHUB_SECONDARY_PROVIDER_CYCLE[
     secondaryCount % AXONHUB_SECONDARY_PROVIDER_CYCLE.length
-  ] ?? "gemini";
+  ] ?? "openrouter";
 
   if (preferredProvider === "gemini") {
-    if (!geminiAtCap) {
-      return "gemini";
-    }
-
-    return openrouterAtCap ? "anthropic" : "openrouter";
+    return "gemini";
   }
 
-  if (!openrouterAtCap) {
-    return "openrouter";
-  }
-
-  return geminiAtCap ? "anthropic" : "gemini";
+  return "openrouter";
 }
 
 function buildAxonHubUpdateChannelInput(
