@@ -669,6 +669,45 @@ function stripUnsupportedSamplingParameters(body: JsonObject): JsonObject {
   return changed ? result : body;
 }
 
+function normalizeTemperatureRange(body: JsonObject): JsonObject {
+  if (body.temperature === undefined) {
+    return body;
+  }
+
+  if (typeof body.temperature !== "number" || !Number.isFinite(body.temperature)) {
+    const { temperature, ...rest } = body;
+    logger.warn(
+      { model: body.model, temperature },
+      "Anthropic: removed invalid non-numeric temperature",
+    );
+    return rest;
+  }
+
+  if (body.temperature > 1) {
+    logger.warn(
+      { model: body.model, temperature: body.temperature, normalizedTemperature: 1 },
+      "Anthropic: clamped out-of-range temperature above 1",
+    );
+    return {
+      ...body,
+      temperature: 1,
+    };
+  }
+
+  if (body.temperature < 0) {
+    logger.warn(
+      { model: body.model, temperature: body.temperature, normalizedTemperature: 0 },
+      "Anthropic: clamped out-of-range temperature below 0",
+    );
+    return {
+      ...body,
+      temperature: 0,
+    };
+  }
+
+  return body;
+}
+
 function hasEnabledThinking(body: JsonObject): boolean {
   const thinking = body.thinking;
 
@@ -748,6 +787,7 @@ export function sanitizeAnthropicBody(body: JsonObject): JsonObject {
   result = migrateDeprecatedOutputFormat(result);
   result = migrateClaudeOpus47Thinking(result);
   result = stripAllCacheControlScopes(result);
+  result = normalizeTemperatureRange(result);
   result = stripUnsupportedSamplingParameters(result);
   result = normalizeThinkingMaxTokens(result);
 

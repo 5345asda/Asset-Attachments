@@ -105,6 +105,51 @@ test("sanitizeAnthropicBody normalizes temperature to 1 when thinking is enabled
   });
 });
 
+test("sanitizeAnthropicBody clamps out-of-range temperature above 1 for standard Claude models", () => {
+  const result = sanitizeAnthropicBody({
+    model: "claude-opus-4-5",
+    temperature: 1.1,
+    messages: [
+      {
+        role: "user",
+        content: [{ type: "text", text: "hello" }],
+      },
+    ],
+  });
+
+  assert.equal(result.temperature, 1);
+});
+
+test("sanitizeAnthropicBody clamps out-of-range temperature below 0 for standard Claude models", () => {
+  const result = sanitizeAnthropicBody({
+    model: "claude-sonnet-4-5",
+    temperature: -0.3,
+    messages: [
+      {
+        role: "user",
+        content: [{ type: "text", text: "hello" }],
+      },
+    ],
+  });
+
+  assert.equal(result.temperature, 0);
+});
+
+test("sanitizeAnthropicBody removes invalid non-numeric temperature for standard Claude models", () => {
+  const result = sanitizeAnthropicBody({
+    model: "claude-haiku-4-5",
+    temperature: Number.NaN,
+    messages: [
+      {
+        role: "user",
+        content: [{ type: "text", text: "hello" }],
+      },
+    ],
+  });
+
+  assert.equal("temperature" in result, false);
+});
+
 test("sanitizeAnthropicBody raises max_tokens above thinking budget when the request is otherwise invalid", () => {
   const result = sanitizeAnthropicBody({
     model: "claude-opus-4-6",
