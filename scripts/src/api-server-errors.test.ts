@@ -1339,7 +1339,7 @@ test("anthropic passthrough adds task budget beta for opus 4.7 and drops obsolet
     headers: {
       authorization: "Bearer sk-proxy-test",
       "anthropic-version": "2023-06-01",
-      "anthropic-beta": "effort-2025-11-24, interleaved-thinking-2025-05-14",
+      "anthropic-beta": "effort-2025-11-24, interleaved-thinking-2025-05-14, web-search-2025-03-05",
     },
     body: {
       model: "claude-opus-4-7",

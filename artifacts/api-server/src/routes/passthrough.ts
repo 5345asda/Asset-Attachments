@@ -18,6 +18,7 @@ const TASK_BUDGETS_BETA = "task-budgets-2026-03-13";
 const OBSOLETE_BETAS = new Set([
   "effort-2025-11-24",
   "fine-grained-tool-streaming-2025-05-14",
+  "web-search-2025-03-05",
 ]);
 const OPUS_47_OBSOLETE_BETAS = new Set(["interleaved-thinking-2025-05-14"]);
 
