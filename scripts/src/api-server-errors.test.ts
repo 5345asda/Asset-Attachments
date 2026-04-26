@@ -480,6 +480,69 @@ test("openrouter passthrough returns 503 when OpenRouter provider is not configu
   assert.ok(response.headers["x-request-id"]);
 });
 
+test("openrouter passthrough redacts upstream spend-limit errors", async (t) => {
+  const previousEnv = {
+    PROXY_API_KEY: process.env.PROXY_API_KEY,
+    AI_INTEGRATIONS_OPENROUTER_BASE_URL: process.env.AI_INTEGRATIONS_OPENROUTER_BASE_URL,
+    AI_INTEGRATIONS_OPENROUTER_API_KEY: process.env.AI_INTEGRATIONS_OPENROUTER_API_KEY,
+    OPENROUTER_BASE_URL: process.env.OPENROUTER_BASE_URL,
+    OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
+  };
+
+  process.env.PROXY_API_KEY = "sk-proxy-test";
+  process.env.AI_INTEGRATIONS_OPENROUTER_BASE_URL = "https://openrouter.integration.test/api/v1";
+  process.env.AI_INTEGRATIONS_OPENROUTER_API_KEY = "openrouter-integration-test-key";
+  delete process.env.OPENROUTER_BASE_URL;
+  delete process.env.OPENROUTER_API_KEY;
+
+  const originalFetch = globalThis.fetch;
+
+  globalThis.fetch = (async () => new Response(
+    "Request failed: Forbidden, error: Free tier monthly spend limit exceeded. Please upgrade to a paid plan to continue using this service., type: api_error",
+    {
+      status: 403,
+      headers: { "content-type": "text/plain; charset=utf-8" },
+    },
+  )) as typeof fetch;
+
+  const server = await startAppServer();
+
+  t.after(async () => {
+    globalThis.fetch = originalFetch;
+    await server.close();
+
+    for (const [key, value] of Object.entries(previousEnv)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  });
+
+  const response = await originalFetch(`http://127.0.0.1:${server.port}/api/openrouter/v1/chat/completions`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: "Bearer sk-proxy-test",
+    },
+    body: JSON.stringify({
+      model: "anthropic/claude-sonnet-4.6",
+      messages: [{ role: "user", content: "hello" }],
+    }),
+  });
+
+  const body = await response.text();
+
+  assert.equal(response.status, 403);
+  assert.equal(
+    body,
+    "Request failed: Forbidden, error: Provider account unavailable., type: api_error",
+  );
+  assert.doesNotMatch(body, /Free tier monthly spend limit exceeded/i);
+  assert.ok(response.headers.get("x-request-id"));
+});
+
 test("gemini passthrough accepts x-goog-api-key at the proxy boundary", async (t) => {
   const previousEnv = {
     PROXY_API_KEY: process.env.PROXY_API_KEY,

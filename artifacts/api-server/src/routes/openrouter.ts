@@ -4,6 +4,7 @@ import { applyBillingOai } from "../lib/billing";
 import { getOpenRouterProviderConfig } from "../lib/openrouter-provider";
 import { getRequestLogger } from "../lib/request-context";
 import { pipeReaderToResponse } from "../lib/stream";
+import { sanitizeUpstreamError } from "../lib/upstream-error";
 
 const router = Router();
 
@@ -93,6 +94,7 @@ export async function handleOpenRouterModelList(
 
   if (!upstream.ok) {
     const upstreamError = await readUpstreamError(upstream);
+    const sanitizedUpstreamError = sanitizeUpstreamError(upstreamError);
 
     const contentType = upstream.headers.get("content-type") || "application/json";
     response.status(upstream.status);
@@ -109,7 +111,9 @@ export async function handleOpenRouterModelList(
     );
 
     response.end(
-      typeof upstreamError === "string" ? upstreamError : JSON.stringify(upstreamError),
+      typeof sanitizedUpstreamError === "string"
+        ? sanitizedUpstreamError
+        : JSON.stringify(sanitizedUpstreamError),
     );
     return;
   }
@@ -169,6 +173,7 @@ async function passthrough(
 
   if (!upstream.ok) {
     const upstreamError = await readUpstreamError(upstream);
+    const sanitizedUpstreamError = sanitizeUpstreamError(upstreamError);
     requestLogger.warn(
       {
         status: upstream.status,
@@ -181,7 +186,9 @@ async function passthrough(
     );
 
     response.end(
-      typeof upstreamError === "string" ? upstreamError : JSON.stringify(upstreamError),
+      typeof sanitizedUpstreamError === "string"
+        ? sanitizedUpstreamError
+        : JSON.stringify(sanitizedUpstreamError),
     );
     return;
   }

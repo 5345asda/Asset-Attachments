@@ -5,6 +5,7 @@ import {
   sanitizeAnthropicBody,
 } from "../lib/anthropic-request";
 import { getRequestLogger } from "../lib/request-context";
+import { sanitizeUpstreamError } from "../lib/upstream-error";
 import {
   pipeAnthropicStreamWithUsageAdjust,
 } from "../lib/stream";
@@ -151,6 +152,7 @@ async function passthrough(
 
   if (!upstream.ok) {
     const upstreamError = await readUpstreamError(upstream);
+    const sanitizedUpstreamError = sanitizeUpstreamError(upstreamError);
     requestLogger.warn(
       {
         status: upstream.status,
@@ -165,7 +167,9 @@ async function passthrough(
     );
 
     response.end(
-      typeof upstreamError === "string" ? upstreamError : JSON.stringify(upstreamError),
+      typeof sanitizedUpstreamError === "string"
+        ? sanitizedUpstreamError
+        : JSON.stringify(sanitizedUpstreamError),
     );
     return;
   }
