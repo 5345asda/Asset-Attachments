@@ -723,6 +723,111 @@ test("anthropic passthrough accepts direct Anthropic secrets without Replit inte
   assert.equal(headers.get("x-api-key"), "anthropic-direct-test-key");
 });
 
+test("anthropic passthrough rewrites pure output_config.format requests into forced tool calls and restores tool_use responses", async (t) => {
+  const previousEnv = {
+    PROXY_API_KEY: process.env.PROXY_API_KEY,
+    AI_INTEGRATIONS_ANTHROPIC_BASE_URL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL,
+    AI_INTEGRATIONS_ANTHROPIC_API_KEY: process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY,
+  };
+
+  process.env.PROXY_API_KEY = "sk-proxy-test";
+  process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL = "https://anthropic.example.test";
+  process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY = "anthropic-test-key";
+
+  const originalFetch = globalThis.fetch;
+  let lastRequestBody = "";
+
+  globalThis.fetch = (async (_input, init) => {
+    lastRequestBody = typeof init?.body === "string" ? init.body : "";
+
+    return new Response(JSON.stringify({
+      id: "msg_structured",
+      type: "message",
+      role: "assistant",
+      model: "claude-sonnet-4-6",
+      content: [
+        {
+          type: "tool_use",
+          id: "toolu_structured_1",
+          name: "structured_output",
+          input: {
+            title: "hello",
+          },
+        },
+      ],
+      stop_reason: "tool_use",
+      stop_sequence: null,
+      usage: {
+        input_tokens: 12,
+        output_tokens: 5,
+      },
+    }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  }) as typeof fetch;
+
+  const server = await startAppServer();
+
+  t.after(async () => {
+    globalThis.fetch = originalFetch;
+    await server.close();
+
+    for (const [key, value] of Object.entries(previousEnv)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  });
+
+  const schema = {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      title: { type: "string" },
+    },
+    required: ["title"],
+  };
+
+  const response = await postJson(`http://127.0.0.1:${server.port}/api/anthropic/v1/messages`, {
+    headers: {
+      authorization: "Bearer sk-proxy-test",
+      "anthropic-version": "2023-06-01",
+    },
+    body: {
+      model: "claude-sonnet-4-6",
+      max_tokens: 64,
+      output_config: {
+        format: {
+          type: "json_schema",
+          name: "todo",
+          schema,
+        },
+      },
+      messages: [{ role: "user", content: "hello" }],
+    },
+  });
+
+  const forwardedBody = JSON.parse(lastRequestBody);
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(response.body.content, [
+    {
+      type: "text",
+      text: "{\"title\":\"hello\"}",
+    },
+  ]);
+  assert.equal(response.body.stop_reason, "end_turn");
+  assert.ok(Array.isArray(forwardedBody.tools));
+  assert.equal(forwardedBody.tools.length, 1);
+  assert.deepEqual(forwardedBody.tools[0]?.input_schema, schema);
+  assert.equal(forwardedBody.tool_choice?.type, "tool");
+  assert.equal(forwardedBody.tool_choice?.name, forwardedBody.tools[0]?.name);
+  assert.equal(forwardedBody.output_config?.format, undefined);
+});
+
 test("openrouter model list proxies the configured /models endpoint for direct OpenRouter secrets", async (t) => {
   const previousEnv = {
     PROXY_API_KEY: process.env.PROXY_API_KEY,
@@ -1294,6 +1399,114 @@ test("gemini passthrough preserves native streamGenerateContent SSE responses", 
   assert.equal(
     await response.text(),
     "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"hello\"}]}}]}\n\n",
+  );
+});
+
+test("anthropic passthrough restores synthetic structured-output tool streams back to native text SSE", async (t) => {
+  const previousEnv = {
+    PROXY_API_KEY: process.env.PROXY_API_KEY,
+    AI_INTEGRATIONS_ANTHROPIC_BASE_URL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL,
+    AI_INTEGRATIONS_ANTHROPIC_API_KEY: process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY,
+  };
+
+  process.env.PROXY_API_KEY = "sk-proxy-test";
+  process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL = "https://anthropic.example.test";
+  process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY = "anthropic-test-key";
+
+  const originalFetch = globalThis.fetch;
+  let lastRequestBody = "";
+
+  globalThis.fetch = (async (_input, init) => {
+    lastRequestBody = typeof init?.body === "string" ? init.body : "";
+
+    return new Response(
+      [
+        "data: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_structured\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-sonnet-4-6\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":12,\"output_tokens\":0}}}",
+        "",
+        "data: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"tool_use\",\"id\":\"toolu_structured_1\",\"name\":\"structured_output\",\"input\":{}}}",
+        "",
+        "data: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"{\\\"title\\\":\\\"hello\\\"}\"}}",
+        "",
+        "data: {\"type\":\"content_block_stop\",\"index\":0}",
+        "",
+        "data: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"tool_use\",\"stop_sequence\":null},\"usage\":{\"output_tokens\":5}}",
+        "",
+        "data: {\"type\":\"message_stop\"}",
+        "",
+      ].join("\n"),
+      {
+        status: 200,
+        headers: { "content-type": "text/event-stream" },
+      },
+    );
+  }) as typeof fetch;
+
+  const server = await startAppServer();
+
+  t.after(async () => {
+    globalThis.fetch = originalFetch;
+    await server.close();
+
+    for (const [key, value] of Object.entries(previousEnv)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  });
+
+  const response = await originalFetch(`http://127.0.0.1:${server.port}/api/anthropic/v1/messages`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: "Bearer sk-proxy-test",
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-6",
+      max_tokens: 64,
+      stream: true,
+      output_config: {
+        format: {
+          type: "json_schema",
+          name: "todo",
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              title: { type: "string" },
+            },
+            required: ["title"],
+          },
+        },
+      },
+      messages: [{ role: "user", content: "hello" }],
+    }),
+  });
+
+  const forwardedBody = JSON.parse(lastRequestBody);
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("content-type"), "text/event-stream");
+  assert.ok(Array.isArray(forwardedBody.tools));
+  assert.equal(forwardedBody.tool_choice?.type, "tool");
+  assert.equal(
+    await response.text(),
+    [
+      "data: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_structured\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-sonnet-4-6\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":12,\"output_tokens\":0}}}",
+      "",
+      "data: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}",
+      "",
+      "data: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"{\\\"title\\\":\\\"hello\\\"}\"}}",
+      "",
+      "data: {\"type\":\"content_block_stop\",\"index\":0}",
+      "",
+      "data: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\",\"stop_sequence\":null},\"usage\":{\"output_tokens\":5}}",
+      "",
+      "data: {\"type\":\"message_stop\"}",
+      "",
+    ].join("\n"),
   );
 });
 

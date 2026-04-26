@@ -1,5 +1,9 @@
 import type { Response } from "express";
 import { applyBillingAnthropic, createCacheUsageNormalizer } from "./billing";
+import {
+  createAnthropicStructuredOutputEventTransformer,
+  type AnthropicStructuredOutputShim,
+} from "./anthropic-structured-output";
 import { logger } from "./logger";
 
 function writeKeepAlive(res: Response): void {
@@ -38,10 +42,14 @@ export async function pipeReaderToResponse(
 export async function pipeAnthropicStreamWithUsageAdjust(
   reader: ReadableStreamDefaultReader<Uint8Array>,
   res: Response,
+  options?: {
+    structuredOutputShim?: AnthropicStructuredOutputShim;
+  },
 ): Promise<void> {
   const dec = new TextDecoder();
   let buf = "";
   const normalizeCacheUsage = createCacheUsageNormalizer();
+  const transformEvent = createAnthropicStructuredOutputEventTransformer(options?.structuredOutputShim);
 
   const writeLine = (line: string) => {
     if (!line.startsWith("data: ")) {
@@ -56,7 +64,7 @@ export async function pipeAnthropicStreamWithUsageAdjust(
     }
 
     try {
-      const event = JSON.parse(raw);
+      const event: any = JSON.parse(raw);
 
       if (event.type === "message_start" && event.message?.usage) {
         const rawUsage = event.message.usage;
@@ -87,12 +95,8 @@ export async function pipeAnthropicStreamWithUsageAdjust(
           },
           "Anthropic adjusted usage (after billing, sent to client)",
         );
-
-        res.write(`data: ${JSON.stringify(event)}\n`);
-        return;
       }
-
-      if (
+      else if (
         event.type === "message_delta" &&
         event.usage &&
         (event.usage.cache_read_input_tokens ||
@@ -125,10 +129,10 @@ export async function pipeAnthropicStreamWithUsageAdjust(
           },
           "Anthropic adjusted usage (after billing, sent to client)",
         );
-
-        res.write(`data: ${JSON.stringify(event)}\n`);
-        return;
       }
+
+      res.write(`data: ${JSON.stringify(transformEvent(event))}\n`);
+      return;
     } catch {
       // Ignore malformed SSE data and forward it as-is.
     }

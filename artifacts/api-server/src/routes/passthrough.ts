@@ -4,6 +4,11 @@ import {
   anthropicModelList,
   sanitizeAnthropicBody,
 } from "../lib/anthropic-request";
+import {
+  prepareAnthropicStructuredOutputRequest,
+  restoreAnthropicStructuredOutputResponse,
+  type AnthropicStructuredOutputShim,
+} from "../lib/anthropic-structured-output";
 import { getRequestLogger } from "../lib/request-context";
 import { sanitizeUpstreamError } from "../lib/upstream-error";
 import {
@@ -115,8 +120,12 @@ async function passthrough(
   }
 
   let body = readRequestBody(request);
+  let structuredOutputShim: AnthropicStructuredOutputShim | undefined;
   if (body) {
     body = sanitizeAnthropicBody(body);
+    const preparedStructuredOutput = prepareAnthropicStructuredOutputRequest(body);
+    body = preparedStructuredOutput.body;
+    structuredOutputShim = preparedStructuredOutput.shim;
   }
 
   const target = buildTargetUrl(anthropic.baseUrl, request);
@@ -133,6 +142,7 @@ async function passthrough(
       max_tokens,
       stream: !!stream,
       providerSource: anthropic.source,
+      structuredOutputShim: !!structuredOutputShim,
       tools: Array.isArray(tools) ? tools.length : undefined,
     },
     "Passthrough request",
@@ -180,7 +190,7 @@ async function passthrough(
     response.setHeader("Connection", "keep-alive");
 
     const reader = upstream.body.getReader() as ReadableStreamDefaultReader<Uint8Array>;
-    await pipeAnthropicStreamWithUsageAdjust(reader, response);
+    await pipeAnthropicStreamWithUsageAdjust(reader, response, { structuredOutputShim });
     return;
   }
 
@@ -191,7 +201,7 @@ async function passthrough(
       if (data?.usage) {
         data.usage = applyBillingAnthropic(data.usage);
       }
-      response.end(JSON.stringify(data));
+      response.end(JSON.stringify(restoreAnthropicStructuredOutputResponse(data, structuredOutputShim)));
     } catch {
       response.end(Buffer.from(arrayBuffer));
     }
