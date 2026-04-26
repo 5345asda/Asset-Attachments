@@ -9,6 +9,7 @@ import {
   restoreAnthropicStructuredOutputResponse,
   type AnthropicStructuredOutputShim,
 } from "../lib/anthropic-structured-output";
+import { normalizeAnthropicResponseMessage } from "../lib/anthropic-message-id";
 import { getRequestLogger } from "../lib/request-context";
 import { sanitizeUpstreamError } from "../lib/upstream-error";
 import {
@@ -201,7 +202,13 @@ async function passthrough(
       if (data?.usage) {
         data.usage = applyBillingAnthropic(data.usage);
       }
-      response.end(JSON.stringify(restoreAnthropicStructuredOutputResponse(data, structuredOutputShim)));
+      response.end(
+        JSON.stringify(
+          normalizeAnthropicResponseMessage(
+            restoreAnthropicStructuredOutputResponse(data, structuredOutputShim),
+          ),
+        ),
+      );
     } catch {
       response.end(Buffer.from(arrayBuffer));
     }

@@ -1,5 +1,6 @@
 import type { Response } from "express";
 import { applyBillingAnthropic, createCacheUsageNormalizer } from "./billing";
+import { normalizeAnthropicStreamEvent } from "./anthropic-message-id";
 import {
   createAnthropicStructuredOutputEventTransformer,
   type AnthropicStructuredOutputShim,
@@ -131,7 +132,7 @@ export async function pipeAnthropicStreamWithUsageAdjust(
         );
       }
 
-      res.write(`data: ${JSON.stringify(transformEvent(event))}\n`);
+      res.write(`data: ${JSON.stringify(normalizeAnthropicStreamEvent(transformEvent(event)))}\n`);
       return;
     } catch {
       // Ignore malformed SSE data and forward it as-is.

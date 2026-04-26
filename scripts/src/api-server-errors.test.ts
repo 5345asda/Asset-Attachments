@@ -828,6 +828,75 @@ test("anthropic passthrough rewrites pure output_config.format requests into for
   assert.equal(forwardedBody.output_config?.format, undefined);
 });
 
+test("anthropic passthrough normalizes wrapped assistant message ids in JSON responses", async (t) => {
+  const previousEnv = {
+    PROXY_API_KEY: process.env.PROXY_API_KEY,
+    AI_INTEGRATIONS_ANTHROPIC_BASE_URL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL,
+    AI_INTEGRATIONS_ANTHROPIC_API_KEY: process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY,
+  };
+
+  process.env.PROXY_API_KEY = "sk-proxy-test";
+  process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL = "https://anthropic.example.test";
+  process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY = "anthropic-test-key";
+
+  const originalFetch = globalThis.fetch;
+
+  globalThis.fetch = (async () => new Response(JSON.stringify({
+    id: "msg_vrtx_014NqVbhWDzeoYEcTKXM6wcY",
+    type: "message",
+    role: "assistant",
+    model: "claude-opus-4-7",
+    content: [
+      {
+        type: "text",
+        text: "{\"name\":\"Alice\",\"age\":30,\"city\":\"Tokyo\"}",
+      },
+    ],
+    stop_reason: "end_turn",
+    stop_sequence: null,
+    usage: {
+      input_tokens: 986,
+      output_tokens: 88,
+    },
+  }), {
+    status: 200,
+    headers: { "content-type": "application/json" },
+  })) as typeof fetch;
+
+  const server = await startAppServer();
+
+  t.after(async () => {
+    globalThis.fetch = originalFetch;
+    await server.close();
+
+    for (const [key, value] of Object.entries(previousEnv)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  });
+
+  const response = await postJson(`http://127.0.0.1:${server.port}/api/anthropic/v1/messages`, {
+    headers: {
+      authorization: "Bearer sk-proxy-test",
+      "anthropic-version": "2023-06-01",
+    },
+    body: {
+      model: "claude-opus-4-7",
+      max_tokens: 1024,
+      messages: [{ role: "user", content: "Extract the person info from Alice is 30 years old and lives in Tokyo." }],
+    },
+  });
+
+  assert.equal(response.status, 200);
+  assert.match(response.body.id, /^msg_[A-Za-z0-9]+$/);
+  assert.doesNotMatch(response.body.id, /vrtx/i);
+  assert.equal(response.body.type, "message");
+  assert.equal(response.body.role, "assistant");
+});
+
 test("openrouter model list proxies the configured /models endpoint for direct OpenRouter secrets", async (t) => {
   const previousEnv = {
     PROXY_API_KEY: process.env.PROXY_API_KEY,
@@ -1508,6 +1577,82 @@ test("anthropic passthrough restores synthetic structured-output tool streams ba
       "",
     ].join("\n"),
   );
+});
+
+test("anthropic passthrough normalizes wrapped assistant message ids in SSE message_start events", async (t) => {
+  const previousEnv = {
+    PROXY_API_KEY: process.env.PROXY_API_KEY,
+    AI_INTEGRATIONS_ANTHROPIC_BASE_URL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL,
+    AI_INTEGRATIONS_ANTHROPIC_API_KEY: process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY,
+  };
+
+  process.env.PROXY_API_KEY = "sk-proxy-test";
+  process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL = "https://anthropic.example.test";
+  process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY = "anthropic-test-key";
+
+  const originalFetch = globalThis.fetch;
+
+  globalThis.fetch = (async () => new Response(
+    [
+      "data: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_vrtx_014NqVbhWDzeoYEcTKXM6wcY\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-opus-4-7\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":12,\"output_tokens\":0}}}",
+      "",
+      "data: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"{\"}}",
+      "",
+      "data: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"\\\"ok\\\":true}\"}}",
+      "",
+      "data: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\",\"stop_sequence\":null},\"usage\":{\"output_tokens\":5}}",
+      "",
+      "data: {\"type\":\"message_stop\"}",
+      "",
+    ].join("\n"),
+    {
+      status: 200,
+      headers: { "content-type": "text/event-stream" },
+    },
+  )) as typeof fetch;
+
+  const server = await startAppServer();
+
+  t.after(async () => {
+    globalThis.fetch = originalFetch;
+    await server.close();
+
+    for (const [key, value] of Object.entries(previousEnv)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  });
+
+  const response = await originalFetch(`http://127.0.0.1:${server.port}/api/anthropic/v1/messages`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: "Bearer sk-proxy-test",
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: "claude-opus-4-7",
+      max_tokens: 64,
+      stream: true,
+      messages: [{ role: "user", content: "hello" }],
+    }),
+  });
+
+  const raw = await response.text();
+  const event = raw
+    .split("\n")
+    .find((line) => line.startsWith("data: ") && line.includes("\"type\":\"message_start\""));
+
+  assert.equal(response.status, 200);
+  assert.ok(event);
+
+  const parsed = JSON.parse(event!.slice(6));
+  assert.match(parsed.message?.id ?? "", /^msg_[A-Za-z0-9]+$/);
+  assert.doesNotMatch(parsed.message?.id ?? "", /vrtx/i);
+  assert.equal(parsed.message?.type, "message");
 });
 
 test("anthropic passthrough adds task budget beta for opus 4.7 and drops obsolete effort beta", async (t) => {
