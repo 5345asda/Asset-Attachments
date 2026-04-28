@@ -8,11 +8,7 @@ export const ANTHROPIC_MODELS = [
   "claude-sonnet-4-6",
   "claude-sonnet-4-5",
   "claude-haiku-4-5",
-  "claude-3-5-sonnet-20241022",
-  "claude-3-5-haiku-20241022",
-  "claude-3-opus-20240229",
-  "claude-3-sonnet-20240229",
-  "claude-3-haiku-20240307",
+  "claude-opus-4-1",
 ];
 
 const CLAUDE_OPUS_4_7 = "claude-opus-4-7";

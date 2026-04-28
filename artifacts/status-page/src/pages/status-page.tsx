@@ -18,11 +18,7 @@ const CLAUDE_MODELS = [
   "claude-sonnet-4-6",
   "claude-sonnet-4-5",
   "claude-haiku-4-5",
-  "claude-3-5-sonnet-20241022",
-  "claude-3-5-haiku-20241022",
-  "claude-3-opus-20240229",
-  "claude-3-sonnet-20240229",
-  "claude-3-haiku-20240307",
+  "claude-opus-4-1",
 ];
 
 const GEMINI_MODELS = [
@@ -496,7 +492,7 @@ console.log(data);`;
                   <span className="text-foreground"> type=anthropic</span>,
                   <span className="text-foreground"> baseURL={baseUrl || " /api/anthropic"}</span>,
                   <span className="text-foreground"> defaultTestModel=claude-opus-4-5</span>,
-                  <span className="text-foreground"> supportedModels=claude-opus-4-7 / claude-opus-4-6 / claude-opus-4-5 / claude-sonnet-4-6</span>.
+                  <span className="text-foreground"> supportedModels=claude-opus-4-7 / claude-opus-4-6 / claude-opus-4-5 / claude-sonnet-4-6 / claude-sonnet-4-5 / claude-haiku-4-5 / claude-opus-4-1</span>.
                   All three paths are synced back with
                   <span className="text-foreground"> status=enabled</span>,
                   <span className="text-foreground"> settings.passThroughUserAgent=inherit</span>, and
