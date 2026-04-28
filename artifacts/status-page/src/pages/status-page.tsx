@@ -500,7 +500,7 @@ console.log(data);`;
                   All three paths are synced back with
                   <span className="text-foreground"> status=enabled</span>,
                   <span className="text-foreground"> settings.passThroughUserAgent=inherit</span>, and
-                  <span className="text-foreground"> settings.passThroughBody=true</span>.
+                  <span className="text-foreground"> settings.passThroughBody=false</span>.
                 </p>
               </div>
             </div>

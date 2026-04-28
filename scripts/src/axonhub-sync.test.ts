@@ -66,7 +66,7 @@ const EXPECTED_AXONHUB_OPENROUTER_MODELS = [
 ] as const;
 
 const EXPECTED_AXONHUB_CHANNEL_SETTINGS = {
-  passThroughBody: true,
+  passThroughBody: false,
 } as const;
 
 function toTitleCase(value: string): string {
