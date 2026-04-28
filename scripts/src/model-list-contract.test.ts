@@ -27,6 +27,9 @@ const EXPECTED_AXONHUB_GEMINI_MODELS = [
 const EXPECTED_AXONHUB_OPENROUTER_MODELS = [
   "moonshotai/kimi-k2.6",
   "moonshotai/kimi-k2.5",
+  "qwen/qwen3.6-flash",
+  "qwen/qwen3.6-35b-a3b",
+  "qwen/qwen3.6-max-preview",
   "z-ai/glm-5.1",
   "z-ai/glm-5v-turbo",
   "z-ai/glm-5-turbo",
@@ -81,10 +84,12 @@ test("AxonHub status-page copy stays aligned with the backend sync model lists",
   );
   assert.match(
     statusPageSource,
-    /supportedModels=moonshotai\/kimi-k2\.6 \/ moonshotai\/kimi-k2\.5 \/ z-ai\/glm-5\.1 \/ z-ai\/glm-5v-turbo \/ z-ai\/glm-5-turbo \/ z-ai\/glm-5 \/ z-ai\/glm-4\.7-flash \/ z-ai\/glm-4\.7 \/ openai\/gpt-5\.4-nano \/ openai\/gpt-5\.4-pro \/ openai\/gpt-4o \/ x-ai\/grok-4\.20-multi-agent \/ x-ai\/grok-4\.20 \/ deepseek\/deepseek-v4-pro \/ deepseek\/deepseek-v4-flash \/ deepseek\/deepseek-v3\.2 \/ deepseek\/deepseek-v3\.2-exp \/ deepseek\/deepseek-r1 \/ deepseek\/deepseek-r1-0528 \/ minimax\/minimax-m2\.7 \/ minimax\/minimax-m2\.5 \/ xiaomi\/mimo-v2\.5 \/ xiaomi\/mimo-v2\.5-pro/,
+    /supportedModels=moonshotai\/kimi-k2\.6 \/ moonshotai\/kimi-k2\.5 \/ qwen\/qwen3\.6-flash \/ qwen\/qwen3\.6-35b-a3b \/ qwen\/qwen3\.6-max-preview \/ z-ai\/glm-5\.1 \/ z-ai\/glm-5v-turbo \/ z-ai\/glm-5-turbo \/ z-ai\/glm-5 \/ z-ai\/glm-4\.7-flash \/ z-ai\/glm-4\.7 \/ openai\/gpt-5\.4-nano \/ openai\/gpt-5\.4-pro \/ openai\/gpt-4o \/ x-ai\/grok-4\.20-multi-agent \/ x-ai\/grok-4\.20 \/ deepseek\/deepseek-v4-pro \/ deepseek\/deepseek-v4-flash \/ deepseek\/deepseek-v3\.2 \/ deepseek\/deepseek-v3\.2-exp \/ deepseek\/deepseek-r1 \/ deepseek\/deepseek-r1-0528 \/ minimax\/minimax-m2\.7 \/ minimax\/minimax-m2\.5 \/ xiaomi\/mimo-v2\.5 \/ xiaomi\/mimo-v2\.5-pro/,
   );
   assert.match(
     statusPageSource,
     /supportedModels=claude-opus-4-7 \/ claude-opus-4-6 \/ claude-opus-4-5 \/ claude-sonnet-4-6/,
   );
+  assert.match(statusPageSource, /settings\.passThroughUserAgent=true/);
+  assert.match(statusPageSource, /settings\.passThroughBody=true/);
 });

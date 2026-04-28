@@ -19,6 +19,9 @@ export const AXONHUB_OPENROUTER_DEFAULT_TEST_MODEL = "z-ai/glm-4.7";
 export const AXONHUB_OPENROUTER_SUPPORTED_MODELS = [
   "moonshotai/kimi-k2.6",
   "moonshotai/kimi-k2.5",
+  "qwen/qwen3.6-flash",
+  "qwen/qwen3.6-35b-a3b",
+  "qwen/qwen3.6-max-preview",
   "z-ai/glm-5.1",
   "z-ai/glm-5v-turbo",
   "z-ai/glm-5-turbo",
@@ -195,6 +198,10 @@ interface AxonHubCreateChannelInput {
   manualModels: string[];
   autoSyncSupportedModels: false;
   autoSyncModelPattern: "";
+  settings: {
+    passThroughUserAgent: true;
+    passThroughBody: true;
+  };
   tags: string[];
   remark: string;
 }
@@ -269,6 +276,10 @@ export function buildAxonHubChannelInput({
     manualModels: supportedModels,
     autoSyncSupportedModels: false,
     autoSyncModelPattern: "",
+    settings: {
+      passThroughUserAgent: true,
+      passThroughBody: true,
+    },
     tags: [],
     remark: AXONHUB_REMARK,
   };

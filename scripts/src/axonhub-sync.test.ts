@@ -39,6 +39,9 @@ const EXPECTED_AXONHUB_GEMINI_MODELS = [
 const EXPECTED_AXONHUB_OPENROUTER_MODELS = [
   "moonshotai/kimi-k2.6",
   "moonshotai/kimi-k2.5",
+  "qwen/qwen3.6-flash",
+  "qwen/qwen3.6-35b-a3b",
+  "qwen/qwen3.6-max-preview",
   "z-ai/glm-5.1",
   "z-ai/glm-5v-turbo",
   "z-ai/glm-5-turbo",
@@ -61,6 +64,11 @@ const EXPECTED_AXONHUB_OPENROUTER_MODELS = [
   "xiaomi/mimo-v2.5",
   "xiaomi/mimo-v2.5-pro",
 ] as const;
+
+const EXPECTED_AXONHUB_CHANNEL_SETTINGS = {
+  passThroughUserAgent: true,
+  passThroughBody: true,
+} as const;
 
 function toTitleCase(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1);
@@ -139,6 +147,7 @@ test("buildAxonHubChannelInput uses the fixed anthropic channel format", () => {
     manualModels: AXONHUB_SUPPORTED_MODELS,
     autoSyncSupportedModels: false,
     autoSyncModelPattern: "",
+    settings: EXPECTED_AXONHUB_CHANNEL_SETTINGS,
     tags: [],
     remark: "Managed by Asset-Attachments",
   });
@@ -163,6 +172,7 @@ test("buildAxonHubChannelInput uses the fixed gemini channel format", () => {
     manualModels: EXPECTED_AXONHUB_GEMINI_MODELS,
     autoSyncSupportedModels: false,
     autoSyncModelPattern: "",
+    settings: EXPECTED_AXONHUB_CHANNEL_SETTINGS,
     tags: [],
     remark: "Managed by Asset-Attachments",
   });
@@ -187,6 +197,7 @@ test("buildAxonHubChannelInput uses the fixed openrouter channel format", () => 
     manualModels: EXPECTED_AXONHUB_OPENROUTER_MODELS,
     autoSyncSupportedModels: false,
     autoSyncModelPattern: "",
+    settings: EXPECTED_AXONHUB_CHANNEL_SETTINGS,
     tags: [],
     remark: "Managed by Asset-Attachments",
   });
@@ -391,6 +402,7 @@ test("syncAxonHubChannel creates a new anthropic channel when anthropic is below
     manualModels: AXONHUB_SUPPORTED_MODELS,
     autoSyncSupportedModels: false,
     autoSyncModelPattern: "",
+    settings: EXPECTED_AXONHUB_CHANNEL_SETTINGS,
     tags: [],
     remark: "Managed by Asset-Attachments",
   });
@@ -480,6 +492,7 @@ test("syncAxonHubChannel updates the existing anthropic channel for the current 
     manualModels: AXONHUB_SUPPORTED_MODELS,
     autoSyncSupportedModels: false,
     autoSyncModelPattern: "",
+    settings: EXPECTED_AXONHUB_CHANNEL_SETTINGS,
     tags: [],
     remark: "Managed by Asset-Attachments",
   });
@@ -581,6 +594,7 @@ test("syncAxonHubChannel updates the existing anthropic channel when AxonHub ret
     manualModels: AXONHUB_SUPPORTED_MODELS,
     autoSyncSupportedModels: false,
     autoSyncModelPattern: "",
+    settings: EXPECTED_AXONHUB_CHANNEL_SETTINGS,
     tags: [],
     remark: "Managed by Asset-Attachments",
   });
@@ -669,6 +683,7 @@ test("syncAxonHubChannel creates a new gemini channel when gemini has the strong
     manualModels: EXPECTED_AXONHUB_GEMINI_MODELS,
     autoSyncSupportedModels: false,
     autoSyncModelPattern: "",
+    settings: EXPECTED_AXONHUB_CHANNEL_SETTINGS,
     tags: [],
     remark: "Managed by Asset-Attachments",
   });
@@ -745,6 +760,7 @@ test("syncAxonHubChannel creates a new openrouter channel when openrouter is bel
     manualModels: EXPECTED_AXONHUB_OPENROUTER_MODELS,
     autoSyncSupportedModels: false,
     autoSyncModelPattern: "",
+    settings: EXPECTED_AXONHUB_CHANNEL_SETTINGS,
     tags: [],
     remark: "Managed by Asset-Attachments",
   });
