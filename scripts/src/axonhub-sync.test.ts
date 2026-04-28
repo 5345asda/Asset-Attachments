@@ -66,7 +66,6 @@ const EXPECTED_AXONHUB_OPENROUTER_MODELS = [
 ] as const;
 
 const EXPECTED_AXONHUB_CHANNEL_SETTINGS = {
-  passThroughUserAgent: true,
   passThroughBody: true,
 } as const;
 

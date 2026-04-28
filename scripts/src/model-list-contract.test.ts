@@ -90,6 +90,6 @@ test("AxonHub status-page copy stays aligned with the backend sync model lists",
     statusPageSource,
     /supportedModels=claude-opus-4-7 \/ claude-opus-4-6 \/ claude-opus-4-5 \/ claude-sonnet-4-6/,
   );
-  assert.match(statusPageSource, /settings\.passThroughUserAgent=true/);
+  assert.match(statusPageSource, /settings\.passThroughUserAgent=inherit/);
   assert.match(statusPageSource, /settings\.passThroughBody=true/);
 });

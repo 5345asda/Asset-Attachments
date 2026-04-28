@@ -199,7 +199,6 @@ interface AxonHubCreateChannelInput {
   autoSyncSupportedModels: false;
   autoSyncModelPattern: "";
   settings: {
-    passThroughUserAgent: true;
     passThroughBody: true;
   };
   tags: string[];
@@ -277,7 +276,6 @@ export function buildAxonHubChannelInput({
     autoSyncSupportedModels: false,
     autoSyncModelPattern: "",
     settings: {
-      passThroughUserAgent: true,
       passThroughBody: true,
     },
     tags: [],

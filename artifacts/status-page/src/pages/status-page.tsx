@@ -499,7 +499,7 @@ console.log(data);`;
                   <span className="text-foreground"> supportedModels=claude-opus-4-7 / claude-opus-4-6 / claude-opus-4-5 / claude-sonnet-4-6</span>.
                   All three paths are synced back with
                   <span className="text-foreground"> status=enabled</span>,
-                  <span className="text-foreground"> settings.passThroughUserAgent=true</span>, and
+                  <span className="text-foreground"> settings.passThroughUserAgent=inherit</span>, and
                   <span className="text-foreground"> settings.passThroughBody=true</span>.
                 </p>
               </div>
