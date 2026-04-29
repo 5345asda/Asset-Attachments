@@ -37,6 +37,23 @@ export const OPENAI_RESPONSES_SUPPORTED_MODELS = [
   "o3-mini",
 ] as const;
 
+// Live-probed subset that can successfully return reasoning.encrypted_content
+// during OpenAI Responses requests. AxonHub codex health checks depend on
+// this capability, so keep it narrower than the general /responses list.
+export const OPENAI_ENCRYPTED_CONTENT_SUPPORTED_MODELS = [
+  "gpt-5.5",
+  "gpt-5.4",
+  "gpt-5.3-codex",
+  "gpt-5.2",
+  "gpt-5.1",
+  "gpt-5",
+  "gpt-5-mini",
+  "gpt-5-nano",
+  "o3",
+  "o4-mini",
+  "o3-mini",
+] as const;
+
 export const OPENAI_IMAGE_GENERATION_SUPPORTED_MODELS = [
   "gpt-image-1",
   "gpt-image-2",
