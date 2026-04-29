@@ -1,33 +1,13 @@
 import { Router, type Request, type Response } from "express";
 import { ApiError } from "../lib/api-error";
 import { applyBillingOai } from "../lib/billing";
+import { OPENAI_SUPPORTED_MODELS } from "../lib/openai-models";
 import { getOpenAIProviderConfig } from "../lib/openai-provider";
 import { getRequestLogger } from "../lib/request-context";
 import { pipeReaderToResponse } from "../lib/stream";
 import { sanitizeUpstreamError } from "../lib/upstream-error";
 
 const router = Router();
-
-export const OPENAI_SUPPORTED_MODELS = [
-  "gpt-5.5",
-  "gpt-5.4",
-  "gpt-5.3-codex",
-  "gpt-5.2",
-  "gpt-5.1",
-  "gpt-5",
-  "gpt-5-mini",
-  "gpt-5-nano",
-  "gpt-4.1",
-  "gpt-4.1-mini",
-  "gpt-4.1-nano",
-  "gpt-4o",
-  "gpt-4o-mini",
-  "o3",
-  "o4-mini",
-  "o3-mini",
-  "gpt-image-1",
-  "gpt-image-2",
-] as const;
 
 export const openAIModelList = {
   data: OPENAI_SUPPORTED_MODELS.map((id) => ({
@@ -83,6 +63,66 @@ function readRequestBody(request: Request): Record<string, unknown> | undefined 
   return request.body as Record<string, unknown>;
 }
 
+function isOpenAIChatCompletionsRequest(request: Request): boolean {
+  return request.path === "/v1/chat/completions" || request.path === "/chat/completions";
+}
+
+function isOpenAIResponsesRequest(request: Request): boolean {
+  return request.path === "/v1/responses" || request.path === "/responses";
+}
+
+function normalizeOpenAIRequestBody(
+  request: Request,
+  body: Record<string, unknown> | undefined,
+): Record<string, unknown> | undefined {
+  if (!body) {
+    return body;
+  }
+
+  const maxTokens = body.max_tokens;
+  const maxCompletionTokens = body.max_completion_tokens;
+
+  if (isOpenAIChatCompletionsRequest(request)) {
+    if (maxTokens === undefined && maxCompletionTokens === undefined) {
+      return body;
+    }
+
+    const normalizedMaxCompletionTokens = maxCompletionTokens ?? maxTokens;
+    const {
+      max_tokens: _legacyMaxTokens,
+      ...rest
+    } = body;
+
+    return normalizedMaxCompletionTokens === undefined
+      ? rest
+      : {
+        ...rest,
+        max_completion_tokens: normalizedMaxCompletionTokens,
+      };
+  }
+
+  if (isOpenAIResponsesRequest(request)) {
+    const normalizedMaxOutputTokens = body.max_output_tokens ?? maxCompletionTokens ?? maxTokens;
+
+    if (normalizedMaxOutputTokens === undefined) {
+      return body;
+    }
+
+    const {
+      max_tokens: _legacyMaxTokens,
+      max_completion_tokens: _chatCompletionMaxTokens,
+      ...rest
+    } = body;
+
+    return {
+      ...rest,
+      max_output_tokens: normalizedMaxOutputTokens,
+    };
+  }
+
+  return body;
+}
+
 async function readUpstreamError(upstream: globalThis.Response): Promise<unknown> {
   const raw = await upstream.text().catch(() => "");
   try {
@@ -93,7 +133,7 @@ async function readUpstreamError(upstream: globalThis.Response): Promise<unknown
 }
 
 function shouldAdjustOpenAIUsage(request: Request): boolean {
-  return request.path === "/v1/chat/completions" || request.path === "/chat/completions";
+  return isOpenAIChatCompletionsRequest(request);
 }
 
 function maybeAdjustUsage(
@@ -140,7 +180,7 @@ async function passthrough(
     });
   }
 
-  const body = readRequestBody(request);
+  const body = normalizeOpenAIRequestBody(request, readRequestBody(request));
   const target = buildTargetUrl(openai.baseUrl, request);
   const headers = buildOpenAIHeaders(openai.apiKey, request);
 

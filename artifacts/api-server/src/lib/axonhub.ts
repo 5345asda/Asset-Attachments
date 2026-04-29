@@ -1,3 +1,8 @@
+import {
+  OPENAI_DEFAULT_TEST_MODEL,
+  OPENAI_SUPPORTED_MODELS,
+} from "./openai-models";
+
 export const AXONHUB_ORIGIN = "https://axonhub.qwqtao.com";
 export const AXONHUB_DEFAULT_TEST_MODEL = "claude-opus-4-5";
 export const AXONHUB_SUPPORTED_MODELS = [
@@ -18,27 +23,8 @@ export const AXONHUB_GEMINI_SUPPORTED_MODELS = [
   "gemini-2.5-flash",
   "gemini-2.5-flash-image",
 ] as const;
-export const AXONHUB_OPENAI_DEFAULT_TEST_MODEL = "gpt-5.5";
-export const AXONHUB_OPENAI_SUPPORTED_MODELS = [
-  "gpt-5.5",
-  "gpt-5.4",
-  "gpt-5.3-codex",
-  "gpt-5.2",
-  "gpt-5.1",
-  "gpt-5",
-  "gpt-5-mini",
-  "gpt-5-nano",
-  "gpt-4.1",
-  "gpt-4.1-mini",
-  "gpt-4.1-nano",
-  "gpt-4o",
-  "gpt-4o-mini",
-  "o3",
-  "o4-mini",
-  "o3-mini",
-  "gpt-image-1",
-  "gpt-image-2",
-] as const;
+export const AXONHUB_OPENAI_DEFAULT_TEST_MODEL = OPENAI_DEFAULT_TEST_MODEL;
+export const AXONHUB_OPENAI_SUPPORTED_MODELS = OPENAI_SUPPORTED_MODELS;
 export const AXONHUB_OPENROUTER_DEFAULT_TEST_MODEL = "z-ai/glm-4.7";
 export const AXONHUB_OPENROUTER_SUPPORTED_MODELS = [
   "moonshotai/kimi-k2.6",

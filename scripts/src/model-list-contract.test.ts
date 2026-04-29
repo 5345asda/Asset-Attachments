@@ -6,6 +6,10 @@ import { fileURLToPath } from "node:url";
 
 import { ANTHROPIC_MODELS } from "../../artifacts/api-server/src/lib/anthropic-request.ts";
 import {
+  OPENAI_DEFAULT_TEST_MODEL,
+  OPENAI_SUPPORTED_MODELS,
+} from "../../artifacts/api-server/src/lib/openai-models.ts";
+import {
   AXONHUB_DEFAULT_TEST_MODEL,
   AXONHUB_SUPPORTED_MODELS,
   AXONHUB_GEMINI_DEFAULT_TEST_MODEL,
@@ -101,8 +105,10 @@ test("AxonHub status-page copy stays aligned with the backend sync model lists",
   assert.deepEqual(AXONHUB_SUPPORTED_MODELS, EXPECTED_AXONHUB_ANTHROPIC_MODELS);
   assert.deepEqual(AXONHUB_GEMINI_SUPPORTED_MODELS, EXPECTED_AXONHUB_GEMINI_MODELS);
   assert.equal(AXONHUB_GEMINI_DEFAULT_TEST_MODEL, "gemini-2.5-flash");
+  assert.equal(OPENAI_DEFAULT_TEST_MODEL, "gpt-5.5");
+  assert.equal(AXONHUB_OPENAI_SUPPORTED_MODELS, OPENAI_SUPPORTED_MODELS);
   assert.deepEqual(AXONHUB_OPENAI_SUPPORTED_MODELS, EXPECTED_AXONHUB_OPENAI_MODELS);
-  assert.equal(AXONHUB_OPENAI_DEFAULT_TEST_MODEL, "gpt-5.5");
+  assert.equal(AXONHUB_OPENAI_DEFAULT_TEST_MODEL, OPENAI_DEFAULT_TEST_MODEL);
   assert.deepEqual(AXONHUB_OPENROUTER_SUPPORTED_MODELS, EXPECTED_AXONHUB_OPENROUTER_MODELS);
   assert.equal(AXONHUB_OPENROUTER_DEFAULT_TEST_MODEL, "z-ai/glm-4.7");
 

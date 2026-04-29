@@ -1561,6 +1561,80 @@ test("openai passthrough accepts Replit integration secrets and forwards chat co
   assert.ok(response.headers["x-request-id"]);
 });
 
+test("openai chat completions passthrough rewrites max_tokens into max_completion_tokens", async (t) => {
+  const previousEnv = {
+    PROXY_API_KEY: process.env.PROXY_API_KEY,
+    AI_INTEGRATIONS_OPENAI_BASE_URL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+    AI_INTEGRATIONS_OPENAI_API_KEY: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+    OPENAI_BASE_URL: process.env.OPENAI_BASE_URL,
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+  };
+
+  process.env.PROXY_API_KEY = "sk-proxy-test";
+  process.env.AI_INTEGRATIONS_OPENAI_BASE_URL = "https://openai.integration.test/v1";
+  process.env.AI_INTEGRATIONS_OPENAI_API_KEY = "openai-integration-test-key";
+  delete process.env.OPENAI_BASE_URL;
+  delete process.env.OPENAI_API_KEY;
+
+  const originalFetch = globalThis.fetch;
+  let lastRequestBody = "";
+
+  globalThis.fetch = (async (_input, init) => {
+    lastRequestBody = typeof init?.body === "string" ? init.body : "";
+
+    return new Response(JSON.stringify({
+      id: "chatcmpl-openai",
+      object: "chat.completion",
+      choices: [
+        {
+          index: 0,
+          message: {
+            role: "assistant",
+            content: "normalized",
+          },
+          finish_reason: "stop",
+        },
+      ],
+    }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  }) as typeof fetch;
+
+  const server = await startAppServer();
+
+  t.after(async () => {
+    globalThis.fetch = originalFetch;
+    await server.close();
+
+    for (const [key, value] of Object.entries(previousEnv)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  });
+
+  const response = await postJson(`http://127.0.0.1:${server.port}/api/openai/v1/chat/completions`, {
+    headers: {
+      authorization: "Bearer sk-proxy-test",
+    },
+    body: {
+      model: "gpt-5.5",
+      messages: [{ role: "user", content: "hello" }],
+      max_tokens: 321,
+    },
+  });
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(JSON.parse(lastRequestBody), {
+    model: "gpt-5.5",
+    messages: [{ role: "user", content: "hello" }],
+    max_completion_tokens: 321,
+  });
+});
+
 test("openai passthrough accepts Replit integration secrets and forwards responses requests", async (t) => {
   const previousEnv = {
     PROXY_API_KEY: process.env.PROXY_API_KEY,
@@ -1660,6 +1734,72 @@ test("openai passthrough accepts Replit integration secrets and forwards respons
     total_tokens: 13,
   });
   assert.ok(response.headers["x-request-id"]);
+});
+
+test("openai responses passthrough rewrites completion token limits into max_output_tokens", async (t) => {
+  const previousEnv = {
+    PROXY_API_KEY: process.env.PROXY_API_KEY,
+    AI_INTEGRATIONS_OPENAI_BASE_URL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+    AI_INTEGRATIONS_OPENAI_API_KEY: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+    OPENAI_BASE_URL: process.env.OPENAI_BASE_URL,
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+  };
+
+  process.env.PROXY_API_KEY = "sk-proxy-test";
+  process.env.AI_INTEGRATIONS_OPENAI_BASE_URL = "https://openai.integration.test/v1";
+  process.env.AI_INTEGRATIONS_OPENAI_API_KEY = "openai-integration-test-key";
+  delete process.env.OPENAI_BASE_URL;
+  delete process.env.OPENAI_API_KEY;
+
+  const originalFetch = globalThis.fetch;
+  let lastRequestBody = "";
+
+  globalThis.fetch = (async (_input, init) => {
+    lastRequestBody = typeof init?.body === "string" ? init.body : "";
+
+    return new Response(JSON.stringify({
+      id: "resp_openai",
+      object: "response",
+      output: [],
+    }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  }) as typeof fetch;
+
+  const server = await startAppServer();
+
+  t.after(async () => {
+    globalThis.fetch = originalFetch;
+    await server.close();
+
+    for (const [key, value] of Object.entries(previousEnv)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  });
+
+  const response = await postJson(`http://127.0.0.1:${server.port}/api/openai/v1/responses`, {
+    headers: {
+      authorization: "Bearer sk-proxy-test",
+    },
+    body: {
+      model: "gpt-5.5",
+      input: "hello",
+      max_tokens: 111,
+      max_completion_tokens: 222,
+    },
+  });
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(JSON.parse(lastRequestBody), {
+    model: "gpt-5.5",
+    input: "hello",
+    max_output_tokens: 222,
+  });
 });
 
 test("openai passthrough accepts Replit integration secrets and forwards image generation requests", async (t) => {
