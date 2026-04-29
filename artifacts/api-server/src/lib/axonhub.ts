@@ -18,6 +18,27 @@ export const AXONHUB_GEMINI_SUPPORTED_MODELS = [
   "gemini-2.5-flash",
   "gemini-2.5-flash-image",
 ] as const;
+export const AXONHUB_OPENAI_DEFAULT_TEST_MODEL = "gpt-5.5";
+export const AXONHUB_OPENAI_SUPPORTED_MODELS = [
+  "gpt-5.5",
+  "gpt-5.4",
+  "gpt-5.3-codex",
+  "gpt-5.2",
+  "gpt-5.1",
+  "gpt-5",
+  "gpt-5-mini",
+  "gpt-5-nano",
+  "gpt-4.1",
+  "gpt-4.1-mini",
+  "gpt-4.1-nano",
+  "gpt-4o",
+  "gpt-4o-mini",
+  "o3",
+  "o4-mini",
+  "o3-mini",
+  "gpt-image-1",
+  "gpt-image-2",
+] as const;
 export const AXONHUB_OPENROUTER_DEFAULT_TEST_MODEL = "z-ai/glm-4.7";
 export const AXONHUB_OPENROUTER_SUPPORTED_MODELS = [
   "moonshotai/kimi-k2.6",
@@ -55,6 +76,7 @@ const AXONHUB_PROVIDER_ORDER: readonly AxonHubProvider[] = [
   "anthropic",
   "openrouter",
   "gemini",
+  "openai",
 ];
 const AXONHUB_LOOKUP_PAGE_SIZE = 100;
 
@@ -149,7 +171,7 @@ export interface SyncAxonHubChannelResult {
   channel: GraphQlChannelNode;
 }
 
-export type AxonHubProvider = "anthropic" | "gemini" | "openrouter";
+export type AxonHubProvider = "anthropic" | "gemini" | "openai" | "openrouter";
 
 interface AxonHubProviderStats {
   provider: AxonHubProvider;
@@ -167,6 +189,7 @@ function normalizeAxonHubProviderType(type?: string | null): AxonHubProvider | n
   if (
     normalized === "anthropic"
     || normalized === "gemini"
+    || normalized === "openai"
     || normalized === "openrouter"
   ) {
     return normalized;
@@ -257,14 +280,18 @@ export function buildAxonHubChannelInput({
   const normalizedOrigin = normalizeOrigin(projectOrigin);
   const supportedModels = provider === "gemini"
     ? [...AXONHUB_GEMINI_SUPPORTED_MODELS]
-    : provider === "openrouter"
-      ? [...AXONHUB_OPENROUTER_SUPPORTED_MODELS]
-      : [...AXONHUB_SUPPORTED_MODELS];
+    : provider === "openai"
+      ? [...AXONHUB_OPENAI_SUPPORTED_MODELS]
+      : provider === "openrouter"
+        ? [...AXONHUB_OPENROUTER_SUPPORTED_MODELS]
+        : [...AXONHUB_SUPPORTED_MODELS];
   const defaultTestModel = provider === "gemini"
     ? AXONHUB_GEMINI_DEFAULT_TEST_MODEL
+    : provider === "openai"
+      ? AXONHUB_OPENAI_DEFAULT_TEST_MODEL
     : provider === "openrouter"
-      ? AXONHUB_OPENROUTER_DEFAULT_TEST_MODEL
-      : AXONHUB_DEFAULT_TEST_MODEL;
+        ? AXONHUB_OPENROUTER_DEFAULT_TEST_MODEL
+        : AXONHUB_DEFAULT_TEST_MODEL;
 
   return {
     type: provider,

@@ -10,6 +10,8 @@ import {
   AXONHUB_SUPPORTED_MODELS,
   AXONHUB_GEMINI_DEFAULT_TEST_MODEL,
   AXONHUB_GEMINI_SUPPORTED_MODELS,
+  AXONHUB_OPENAI_DEFAULT_TEST_MODEL,
+  AXONHUB_OPENAI_SUPPORTED_MODELS,
   AXONHUB_OPENROUTER_DEFAULT_TEST_MODEL,
   AXONHUB_OPENROUTER_SUPPORTED_MODELS,
 } from "../../artifacts/api-server/src/lib/axonhub.ts";
@@ -41,6 +43,26 @@ const EXPECTED_AXONHUB_GEMINI_MODELS = [
   "gemini-2.5-pro",
   "gemini-2.5-flash",
   "gemini-2.5-flash-image",
+] as const;
+const EXPECTED_AXONHUB_OPENAI_MODELS = [
+  "gpt-5.5",
+  "gpt-5.4",
+  "gpt-5.3-codex",
+  "gpt-5.2",
+  "gpt-5.1",
+  "gpt-5",
+  "gpt-5-mini",
+  "gpt-5-nano",
+  "gpt-4.1",
+  "gpt-4.1-mini",
+  "gpt-4.1-nano",
+  "gpt-4o",
+  "gpt-4o-mini",
+  "o3",
+  "o4-mini",
+  "o3-mini",
+  "gpt-image-1",
+  "gpt-image-2",
 ] as const;
 const EXPECTED_AXONHUB_OPENROUTER_MODELS = [
   "moonshotai/kimi-k2.6",
@@ -79,6 +101,8 @@ test("AxonHub status-page copy stays aligned with the backend sync model lists",
   assert.deepEqual(AXONHUB_SUPPORTED_MODELS, EXPECTED_AXONHUB_ANTHROPIC_MODELS);
   assert.deepEqual(AXONHUB_GEMINI_SUPPORTED_MODELS, EXPECTED_AXONHUB_GEMINI_MODELS);
   assert.equal(AXONHUB_GEMINI_DEFAULT_TEST_MODEL, "gemini-2.5-flash");
+  assert.deepEqual(AXONHUB_OPENAI_SUPPORTED_MODELS, EXPECTED_AXONHUB_OPENAI_MODELS);
+  assert.equal(AXONHUB_OPENAI_DEFAULT_TEST_MODEL, "gpt-5.5");
   assert.deepEqual(AXONHUB_OPENROUTER_SUPPORTED_MODELS, EXPECTED_AXONHUB_OPENROUTER_MODELS);
   assert.equal(AXONHUB_OPENROUTER_DEFAULT_TEST_MODEL, "z-ai/glm-4.7");
 
@@ -100,6 +124,14 @@ test("AxonHub status-page copy stays aligned with the backend sync model lists",
   );
   assert.match(
     statusPageSource,
+    /defaultTestModel=gpt-5\.5/,
+  );
+  assert.match(
+    statusPageSource,
+    /supportedModels=gpt-5\.5 \/ gpt-5\.4 \/ gpt-5\.3-codex \/ gpt-5\.2 \/ gpt-5\.1 \/ gpt-5 \/ gpt-5-mini \/ gpt-5-nano \/ gpt-4\.1 \/ gpt-4\.1-mini \/ gpt-4\.1-nano \/ gpt-4o \/ gpt-4o-mini \/ o3 \/ o4-mini \/ o3-mini \/ gpt-image-1 \/ gpt-image-2/,
+  );
+  assert.match(
+    statusPageSource,
     /defaultTestModel=z-ai\/glm-4\.7/,
   );
   assert.match(
@@ -113,6 +145,7 @@ test("AxonHub status-page copy stays aligned with the backend sync model lists",
     statusPageSource,
     /supportedModels=claude-opus-4-7 \/ claude-opus-4-6 \/ claude-opus-4-5 \/ claude-sonnet-4-6 \/ claude-sonnet-4-5 \/ claude-haiku-4-5 \/ claude-opus-4-1/,
   );
+  assert.match(statusPageSource, /All four paths are synced back with/);
   assert.match(statusPageSource, /settings\.passThroughUserAgent=inherit/);
   assert.match(statusPageSource, /settings\.passThroughBody=false/);
 });

@@ -7,6 +7,8 @@ import {
   AXONHUB_SUPPORTED_MODELS,
   AXONHUB_GEMINI_DEFAULT_TEST_MODEL,
   AXONHUB_GEMINI_SUPPORTED_MODELS,
+  AXONHUB_OPENAI_DEFAULT_TEST_MODEL,
+  AXONHUB_OPENAI_SUPPORTED_MODELS,
   AXONHUB_OPENROUTER_DEFAULT_TEST_MODEL,
   AXONHUB_OPENROUTER_SUPPORTED_MODELS,
   buildAxonHubChannelInput,
@@ -34,6 +36,27 @@ const EXPECTED_AXONHUB_GEMINI_MODELS = [
   "gemini-2.5-pro",
   "gemini-2.5-flash",
   "gemini-2.5-flash-image",
+] as const;
+
+const EXPECTED_AXONHUB_OPENAI_MODELS = [
+  "gpt-5.5",
+  "gpt-5.4",
+  "gpt-5.3-codex",
+  "gpt-5.2",
+  "gpt-5.1",
+  "gpt-5",
+  "gpt-5-mini",
+  "gpt-5-nano",
+  "gpt-4.1",
+  "gpt-4.1-mini",
+  "gpt-4.1-nano",
+  "gpt-4o",
+  "gpt-4o-mini",
+  "o3",
+  "o4-mini",
+  "o3-mini",
+  "gpt-image-1",
+  "gpt-image-2",
 ] as const;
 
 const EXPECTED_AXONHUB_OPENROUTER_MODELS = [
@@ -97,7 +120,7 @@ function managedChannel({
 }
 
 function managedProviderChannels(
-  provider: "anthropic" | "gemini" | "openrouter",
+  provider: "anthropic" | "gemini" | "openai" | "openrouter",
   count: number,
   {
     status = "enabled",
@@ -177,6 +200,31 @@ test("buildAxonHubChannelInput uses the fixed gemini channel format", () => {
   });
 });
 
+test("buildAxonHubChannelInput uses the fixed openai channel format", () => {
+  const input = buildAxonHubChannelInput({
+    provider: "openai",
+    projectOrigin: "https://proxy.example:8443/",
+    proxyKey: "sk-proxy-test",
+  });
+
+  assert.deepEqual(input, {
+    type: "openai",
+    name: "proxy",
+    baseURL: "https://proxy.example:8443/api/openai",
+    credentials: {
+      apiKey: "sk-proxy-test",
+    },
+    supportedModels: EXPECTED_AXONHUB_OPENAI_MODELS,
+    defaultTestModel: AXONHUB_OPENAI_DEFAULT_TEST_MODEL,
+    manualModels: EXPECTED_AXONHUB_OPENAI_MODELS,
+    autoSyncSupportedModels: false,
+    autoSyncModelPattern: "",
+    settings: EXPECTED_AXONHUB_CHANNEL_SETTINGS,
+    tags: [],
+    remark: "Managed by Asset-Attachments",
+  });
+});
+
 test("buildAxonHubChannelInput uses the fixed openrouter channel format", () => {
   const input = buildAxonHubChannelInput({
     provider: "openrouter",
@@ -207,6 +255,7 @@ test("pickAxonHubChannelProvider only counts managed enabled channels toward the
     ...managedProviderChannels("anthropic", 10, { startIndex: 1 }),
     ...managedProviderChannels("openrouter", 9, { startIndex: 101 }),
     ...managedProviderChannels("gemini", 10, { startIndex: 201 }),
+    ...managedProviderChannels("openai", 10, { startIndex: 301 }),
     managedChannel({
       id: "gid://axonhub/Channel/999",
       type: "openrouter",
@@ -230,13 +279,14 @@ test("pickAxonHubChannelProvider breaks minimum enabled floor ties by archived d
     ...managedProviderChannels("anthropic", 8, { startIndex: 1 }),
     ...managedProviderChannels("openrouter", 8, { startIndex: 101 }),
     ...managedProviderChannels("gemini", 10, { startIndex: 201 }),
+    ...managedProviderChannels("openai", 10, { startIndex: 301 }),
     ...managedProviderChannels("anthropic", 5, {
       status: "archived",
-      startIndex: 301,
+      startIndex: 401,
     }),
     ...managedProviderChannels("openrouter", 30, {
       status: "archived",
-      startIndex: 401,
+      startIndex: 501,
     }),
   ]);
 
@@ -248,17 +298,18 @@ test("pickAxonHubChannelProvider can still choose anthropic after floors are met
     ...managedProviderChannels("anthropic", 10, { startIndex: 1 }),
     ...managedProviderChannels("openrouter", 10, { startIndex: 101 }),
     ...managedProviderChannels("gemini", 10, { startIndex: 201 }),
+    ...managedProviderChannels("openai", 10, { startIndex: 301 }),
     ...managedProviderChannels("anthropic", 60, {
-      status: "archived",
-      startIndex: 301,
-    }),
-    ...managedProviderChannels("openrouter", 20, {
       status: "archived",
       startIndex: 401,
     }),
-    ...managedProviderChannels("gemini", 20, {
+    ...managedProviderChannels("openrouter", 20, {
       status: "archived",
       startIndex: 501,
+    }),
+    ...managedProviderChannels("gemini", 20, {
+      status: "archived",
+      startIndex: 601,
     }),
   ]);
 
@@ -270,17 +321,22 @@ test("pickAxonHubChannelProvider prefers the provider whose archived share most 
     ...managedProviderChannels("anthropic", 16, { startIndex: 1 }),
     ...managedProviderChannels("openrouter", 18, { startIndex: 101 }),
     ...managedProviderChannels("gemini", 14, { startIndex: 201 }),
+    ...managedProviderChannels("openai", 16, { startIndex: 301 }),
     ...managedProviderChannels("anthropic", 20, {
-      status: "archived",
-      startIndex: 301,
-    }),
-    ...managedProviderChannels("openrouter", 80, {
       status: "archived",
       startIndex: 401,
     }),
-    ...managedProviderChannels("gemini", 10, {
+    ...managedProviderChannels("openrouter", 80, {
       status: "archived",
       startIndex: 501,
+    }),
+    ...managedProviderChannels("gemini", 10, {
+      status: "archived",
+      startIndex: 601,
+    }),
+    ...managedProviderChannels("openai", 10, {
+      status: "archived",
+      startIndex: 701,
     }),
   ]);
 
@@ -292,9 +348,10 @@ test("pickAxonHubChannelProvider falls back to the fewest enabled channels when 
     ...managedProviderChannels("anthropic", 12, { startIndex: 1 }),
     ...managedProviderChannels("openrouter", 10, { startIndex: 101 }),
     ...managedProviderChannels("gemini", 11, { startIndex: 201 }),
+    ...managedProviderChannels("openai", 9, { startIndex: 301 }),
   ]);
 
-  assert.equal(provider, "openrouter");
+  assert.equal(provider, "openai");
 });
 
 test("pickAxonHubChannelProvider normalizes title-cased provider and status values from AxonHub before counting", () => {
@@ -314,15 +371,97 @@ test("pickAxonHubChannelProvider normalizes title-cased provider and status valu
       titleCaseType: true,
       titleCaseStatus: true,
     }),
+    ...managedProviderChannels("openai", 10, {
+      startIndex: 301,
+      titleCaseType: true,
+      titleCaseStatus: true,
+    }),
     ...managedProviderChannels("openrouter", 15, {
       status: "archived",
-      startIndex: 301,
+      startIndex: 401,
       titleCaseType: true,
       titleCaseStatus: true,
     }),
   ]);
 
   assert.equal(provider, "openrouter");
+});
+
+test("syncAxonHubChannel creates a new openai channel when openai is below the minimum enabled floor", async () => {
+  const calls: Array<{ input: FetchInput; init?: RequestInit }> = [];
+  const fetchMock: typeof fetch = async (input, init) => {
+    calls.push({ input, init });
+
+    const body = JSON.parse(String(init?.body ?? "{}")) as {
+      query?: string;
+    };
+
+    if (body.query?.includes("query SyncAxonHubChannelLookup")) {
+      return jsonResponse({
+        data: {
+          queryChannels: {
+            edges: [
+              ...managedProviderChannels("anthropic", 10).map((node) => ({ node })),
+              ...managedProviderChannels("openrouter", 10, { startIndex: 101 }).map((node) => ({ node })),
+              ...managedProviderChannels("gemini", 10, { startIndex: 201 }).map((node) => ({ node })),
+              ...managedProviderChannels("openai", 9, { startIndex: 301 }).map((node) => ({ node })),
+            ],
+          },
+        },
+      });
+    }
+
+    if (body.query?.includes("mutation CreateChannel")) {
+      return jsonResponse({
+        data: {
+          createChannel: {
+            id: "gid://axonhub/Channel/199",
+            name: "proxy",
+            type: "openai",
+            baseURL: "https://proxy.example/api/openai",
+            status: "enabled",
+          },
+        },
+      });
+    }
+
+    throw new Error(`Unexpected GraphQL document: ${body.query}`);
+  };
+
+  const result = await syncAxonHubChannel({
+    projectOrigin: "https://proxy.example",
+    proxyKey: "sk-proxy-test",
+    adminToken: "plain-token",
+    fetchImpl: fetchMock,
+  });
+
+  assert.equal(result.mode, "created");
+  assert.equal(result.provider, "openai");
+  assert.equal(result.channel.id, "gid://axonhub/Channel/199");
+  assert.equal(calls.length, 2);
+
+  const createBody = JSON.parse(String(calls[1]?.init?.body ?? "{}")) as {
+    variables?: {
+      input?: unknown;
+    };
+  };
+
+  assert.deepEqual(createBody.variables?.input, {
+    type: "openai",
+    name: "proxy",
+    baseURL: "https://proxy.example/api/openai",
+    credentials: {
+      apiKey: "sk-proxy-test",
+    },
+    supportedModels: AXONHUB_OPENAI_SUPPORTED_MODELS,
+    defaultTestModel: AXONHUB_OPENAI_DEFAULT_TEST_MODEL,
+    manualModels: AXONHUB_OPENAI_SUPPORTED_MODELS,
+    autoSyncSupportedModels: false,
+    autoSyncModelPattern: "",
+    settings: EXPECTED_AXONHUB_CHANNEL_SETTINGS,
+    tags: [],
+    remark: "Managed by Asset-Attachments",
+  });
 });
 
 test("syncAxonHubChannel creates a new anthropic channel when anthropic is below the minimum enabled floor", async () => {
@@ -342,6 +481,7 @@ test("syncAxonHubChannel creates a new anthropic channel when anthropic is below
               ...managedProviderChannels("anthropic", 9).map((node) => ({ node })),
               ...managedProviderChannels("openrouter", 10, { startIndex: 101 }).map((node) => ({ node })),
               ...managedProviderChannels("gemini", 10, { startIndex: 201 }).map((node) => ({ node })),
+              ...managedProviderChannels("openai", 10, { startIndex: 301 }).map((node) => ({ node })),
             ],
           },
         },
@@ -435,6 +575,7 @@ test("syncAxonHubChannel updates the existing anthropic channel for the current 
               },
               ...managedProviderChannels("openrouter", 10, { startIndex: 101 }).map((node) => ({ node })),
               ...managedProviderChannels("gemini", 10, { startIndex: 201 }).map((node) => ({ node })),
+              ...managedProviderChannels("openai", 10, { startIndex: 301 }).map((node) => ({ node })),
             ],
           },
         },
@@ -537,6 +678,11 @@ test("syncAxonHubChannel updates the existing anthropic channel when AxonHub ret
                 titleCaseType: true,
                 titleCaseStatus: true,
               }).map((node) => ({ node })),
+              ...managedProviderChannels("openai", 10, {
+                startIndex: 301,
+                titleCaseType: true,
+                titleCaseStatus: true,
+              }).map((node) => ({ node })),
             ],
           },
         },
@@ -619,17 +765,22 @@ test("syncAxonHubChannel creates a new gemini channel when gemini has the strong
               ...managedProviderChannels("anthropic", 14).map((node) => ({ node })),
               ...managedProviderChannels("openrouter", 14, { startIndex: 101 }).map((node) => ({ node })),
               ...managedProviderChannels("gemini", 10, { startIndex: 201 }).map((node) => ({ node })),
+              ...managedProviderChannels("openai", 14, { startIndex: 301 }).map((node) => ({ node })),
               ...managedProviderChannels("anthropic", 20, {
-                status: "archived",
-                startIndex: 301,
-              }).map((node) => ({ node })),
-              ...managedProviderChannels("openrouter", 10, {
                 status: "archived",
                 startIndex: 401,
               }).map((node) => ({ node })),
-              ...managedProviderChannels("gemini", 70, {
+              ...managedProviderChannels("openrouter", 10, {
                 status: "archived",
                 startIndex: 501,
+              }).map((node) => ({ node })),
+              ...managedProviderChannels("gemini", 70, {
+                status: "archived",
+                startIndex: 601,
+              }).map((node) => ({ node })),
+              ...managedProviderChannels("openai", 10, {
+                status: "archived",
+                startIndex: 701,
               }).map((node) => ({ node })),
             ],
           },
@@ -708,6 +859,7 @@ test("syncAxonHubChannel creates a new openrouter channel when openrouter is bel
               ...managedProviderChannels("anthropic", 10).map((node) => ({ node })),
               ...managedProviderChannels("openrouter", 9, { startIndex: 101 }).map((node) => ({ node })),
               ...managedProviderChannels("gemini", 10, { startIndex: 201 }).map((node) => ({ node })),
+              ...managedProviderChannels("openai", 10, { startIndex: 301 }).map((node) => ({ node })),
             ],
           },
         },
