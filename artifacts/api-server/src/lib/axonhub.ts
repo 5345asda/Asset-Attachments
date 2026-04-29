@@ -1,6 +1,7 @@
 import {
+  OPENAI_CHAT_COMPLETIONS_SUPPORTED_MODELS,
   OPENAI_DEFAULT_TEST_MODEL,
-  OPENAI_SUPPORTED_MODELS,
+  OPENAI_RESPONSES_SUPPORTED_MODELS,
 } from "./openai-models";
 
 export const AXONHUB_ORIGIN = "https://axonhub.qwqtao.com";
@@ -24,7 +25,9 @@ export const AXONHUB_GEMINI_SUPPORTED_MODELS = [
   "gemini-2.5-flash-image",
 ] as const;
 export const AXONHUB_OPENAI_DEFAULT_TEST_MODEL = OPENAI_DEFAULT_TEST_MODEL;
-export const AXONHUB_OPENAI_SUPPORTED_MODELS = OPENAI_SUPPORTED_MODELS;
+export const AXONHUB_OPENAI_SUPPORTED_MODELS = OPENAI_CHAT_COMPLETIONS_SUPPORTED_MODELS;
+export const AXONHUB_CODEX_DEFAULT_TEST_MODEL = "gpt-5.3-codex";
+export const AXONHUB_CODEX_SUPPORTED_MODELS = OPENAI_RESPONSES_SUPPORTED_MODELS;
 export const AXONHUB_OPENROUTER_DEFAULT_TEST_MODEL = "z-ai/glm-4.7";
 export const AXONHUB_OPENROUTER_SUPPORTED_MODELS = [
   "moonshotai/kimi-k2.6",
@@ -63,6 +66,7 @@ const AXONHUB_PROVIDER_ORDER: readonly AxonHubProvider[] = [
   "openrouter",
   "gemini",
   "openai",
+  "codex",
 ];
 const AXONHUB_LOOKUP_PAGE_SIZE = 100;
 
@@ -157,7 +161,7 @@ export interface SyncAxonHubChannelResult {
   channel: GraphQlChannelNode;
 }
 
-export type AxonHubProvider = "anthropic" | "gemini" | "openai" | "openrouter";
+export type AxonHubProvider = "anthropic" | "gemini" | "openai" | "openrouter" | "codex";
 
 interface AxonHubProviderStats {
   provider: AxonHubProvider;
@@ -176,6 +180,7 @@ function normalizeAxonHubProviderType(type?: string | null): AxonHubProvider | n
     normalized === "anthropic"
     || normalized === "gemini"
     || normalized === "openai"
+    || normalized === "codex"
     || normalized === "openrouter"
   ) {
     return normalized;
@@ -268,6 +273,8 @@ export function buildAxonHubChannelInput({
     ? [...AXONHUB_GEMINI_SUPPORTED_MODELS]
     : provider === "openai"
       ? [...AXONHUB_OPENAI_SUPPORTED_MODELS]
+      : provider === "codex"
+        ? [...AXONHUB_CODEX_SUPPORTED_MODELS]
       : provider === "openrouter"
         ? [...AXONHUB_OPENROUTER_SUPPORTED_MODELS]
         : [...AXONHUB_SUPPORTED_MODELS];
@@ -275,14 +282,17 @@ export function buildAxonHubChannelInput({
     ? AXONHUB_GEMINI_DEFAULT_TEST_MODEL
     : provider === "openai"
       ? AXONHUB_OPENAI_DEFAULT_TEST_MODEL
-    : provider === "openrouter"
+      : provider === "codex"
+        ? AXONHUB_CODEX_DEFAULT_TEST_MODEL
+      : provider === "openrouter"
         ? AXONHUB_OPENROUTER_DEFAULT_TEST_MODEL
         : AXONHUB_DEFAULT_TEST_MODEL;
+  const basePathProvider = provider === "codex" ? "openai" : provider;
 
   return {
     type: provider,
     name: deriveChannelName(normalizedOrigin),
-    baseURL: `${normalizedOrigin}/api/${provider}`,
+    baseURL: `${normalizedOrigin}/api/${basePathProvider}`,
     credentials: {
       apiKey: proxyKey,
     },

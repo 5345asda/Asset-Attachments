@@ -1352,6 +1352,110 @@ test("openai model list stays on the curated supported-model list even when dire
   assert.ok(response.headers.get("x-request-id"));
 });
 
+test("openai chat completions rejects image-only models", async (t) => {
+  const previousEnv = {
+    PROXY_API_KEY: process.env.PROXY_API_KEY,
+    AI_INTEGRATIONS_OPENAI_BASE_URL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+    AI_INTEGRATIONS_OPENAI_API_KEY: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+    OPENAI_BASE_URL: process.env.OPENAI_BASE_URL,
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+  };
+
+  process.env.PROXY_API_KEY = "sk-proxy-test";
+  process.env.AI_INTEGRATIONS_OPENAI_BASE_URL = "https://openai.integration.test/v1";
+  process.env.AI_INTEGRATIONS_OPENAI_API_KEY = "openai-integration-test-key";
+  delete process.env.OPENAI_BASE_URL;
+  delete process.env.OPENAI_API_KEY;
+
+  const originalFetch = globalThis.fetch;
+  let upstreamCalls = 0;
+  globalThis.fetch = (async () => {
+    upstreamCalls += 1;
+    throw new Error("Unexpected upstream fetch for rejected chat model");
+  }) as typeof fetch;
+
+  const server = await startAppServer();
+
+  t.after(async () => {
+    globalThis.fetch = originalFetch;
+    await server.close();
+
+    for (const [key, value] of Object.entries(previousEnv)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  });
+
+  const response = await postJson(`http://127.0.0.1:${server.port}/api/openai/v1/chat/completions`, {
+    headers: {
+      authorization: "Bearer sk-proxy-test",
+    },
+    body: {
+      model: "gpt-image-1",
+      messages: [{ role: "user", content: "hello" }],
+    },
+  });
+
+  assert.equal(response.status, 400);
+  assert.equal(upstreamCalls, 0);
+  assert.match(String(response.body.error?.message ?? ""), /not supported on .*chat\/completions/i);
+});
+
+test("openai chat completions rejects codex-only responses models", async (t) => {
+  const previousEnv = {
+    PROXY_API_KEY: process.env.PROXY_API_KEY,
+    AI_INTEGRATIONS_OPENAI_BASE_URL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+    AI_INTEGRATIONS_OPENAI_API_KEY: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+    OPENAI_BASE_URL: process.env.OPENAI_BASE_URL,
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+  };
+
+  process.env.PROXY_API_KEY = "sk-proxy-test";
+  process.env.AI_INTEGRATIONS_OPENAI_BASE_URL = "https://openai.integration.test/v1";
+  process.env.AI_INTEGRATIONS_OPENAI_API_KEY = "openai-integration-test-key";
+  delete process.env.OPENAI_BASE_URL;
+  delete process.env.OPENAI_API_KEY;
+
+  const originalFetch = globalThis.fetch;
+  let upstreamCalls = 0;
+  globalThis.fetch = (async () => {
+    upstreamCalls += 1;
+    throw new Error("Unexpected upstream fetch for rejected codex chat model");
+  }) as typeof fetch;
+
+  const server = await startAppServer();
+
+  t.after(async () => {
+    globalThis.fetch = originalFetch;
+    await server.close();
+
+    for (const [key, value] of Object.entries(previousEnv)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  });
+
+  const response = await postJson(`http://127.0.0.1:${server.port}/api/openai/v1/chat/completions`, {
+    headers: {
+      authorization: "Bearer sk-proxy-test",
+    },
+    body: {
+      model: "gpt-5.3-codex",
+      messages: [{ role: "user", content: "hello" }],
+    },
+  });
+
+  assert.equal(response.status, 400);
+  assert.equal(upstreamCalls, 0);
+  assert.match(String(response.body.error?.message ?? ""), /not supported on .*chat\/completions/i);
+});
+
 test("openrouter passthrough accepts Replit integration secrets and forwards OpenAI-compatible chat completions", async (t) => {
   const previousEnv = {
     PROXY_API_KEY: process.env.PROXY_API_KEY,
@@ -1734,6 +1838,140 @@ test("openai passthrough accepts Replit integration secrets and forwards respons
     total_tokens: 13,
   });
   assert.ok(response.headers["x-request-id"]);
+});
+
+test("openai responses accepts codex-capable responses models", async (t) => {
+  const previousEnv = {
+    PROXY_API_KEY: process.env.PROXY_API_KEY,
+    AI_INTEGRATIONS_OPENAI_BASE_URL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+    AI_INTEGRATIONS_OPENAI_API_KEY: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+    OPENAI_BASE_URL: process.env.OPENAI_BASE_URL,
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+  };
+
+  process.env.PROXY_API_KEY = "sk-proxy-test";
+  process.env.AI_INTEGRATIONS_OPENAI_BASE_URL = "https://openai.integration.test/v1";
+  process.env.AI_INTEGRATIONS_OPENAI_API_KEY = "openai-integration-test-key";
+  delete process.env.OPENAI_BASE_URL;
+  delete process.env.OPENAI_API_KEY;
+
+  const originalFetch = globalThis.fetch;
+  let fetchCalled = false;
+  let lastRequestUrl = "";
+  let lastRequestBody = "";
+
+  globalThis.fetch = (async (input, init) => {
+    fetchCalled = true;
+    lastRequestUrl = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    lastRequestBody = typeof init?.body === "string" ? init.body : "";
+
+    return new Response(JSON.stringify({
+      id: "resp_codex",
+      object: "response",
+      output: [
+        {
+          type: "message",
+          role: "assistant",
+          content: [
+            {
+              type: "output_text",
+              text: "hello from codex responses",
+            },
+          ],
+        },
+      ],
+    }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  }) as typeof fetch;
+
+  const server = await startAppServer();
+
+  t.after(async () => {
+    globalThis.fetch = originalFetch;
+    await server.close();
+
+    for (const [key, value] of Object.entries(previousEnv)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  });
+
+  const requestBody = {
+    model: "gpt-5.3-codex",
+    input: "hello",
+    max_output_tokens: 16,
+  };
+
+  const response = await postJson(`http://127.0.0.1:${server.port}/api/openai/v1/responses`, {
+    headers: {
+      authorization: "Bearer sk-proxy-test",
+    },
+    body: requestBody,
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(fetchCalled, true);
+  assert.equal(lastRequestUrl, "https://openai.integration.test/v1/responses");
+  assert.deepEqual(JSON.parse(lastRequestBody), requestBody);
+  assert.equal(response.body.id, "resp_codex");
+  assert.equal(response.body.output?.[0]?.content?.[0]?.text, "hello from codex responses");
+});
+
+test("openai responses rejects image-only models", async (t) => {
+  const previousEnv = {
+    PROXY_API_KEY: process.env.PROXY_API_KEY,
+    AI_INTEGRATIONS_OPENAI_BASE_URL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+    AI_INTEGRATIONS_OPENAI_API_KEY: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+    OPENAI_BASE_URL: process.env.OPENAI_BASE_URL,
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+  };
+
+  process.env.PROXY_API_KEY = "sk-proxy-test";
+  process.env.AI_INTEGRATIONS_OPENAI_BASE_URL = "https://openai.integration.test/v1";
+  process.env.AI_INTEGRATIONS_OPENAI_API_KEY = "openai-integration-test-key";
+  delete process.env.OPENAI_BASE_URL;
+  delete process.env.OPENAI_API_KEY;
+
+  const originalFetch = globalThis.fetch;
+  let upstreamCalls = 0;
+  globalThis.fetch = (async () => {
+    upstreamCalls += 1;
+    throw new Error("Unexpected upstream fetch for rejected responses model");
+  }) as typeof fetch;
+
+  const server = await startAppServer();
+
+  t.after(async () => {
+    globalThis.fetch = originalFetch;
+    await server.close();
+
+    for (const [key, value] of Object.entries(previousEnv)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  });
+
+  const response = await postJson(`http://127.0.0.1:${server.port}/api/openai/v1/responses`, {
+    headers: {
+      authorization: "Bearer sk-proxy-test",
+    },
+    body: {
+      model: "gpt-image-2",
+      input: "hello",
+    },
+  });
+
+  assert.equal(response.status, 400);
+  assert.equal(upstreamCalls, 0);
+  assert.match(String(response.body.error?.message ?? ""), /not supported on .*responses/i);
 });
 
 test("openai responses passthrough rewrites completion token limits into max_output_tokens", async (t) => {

@@ -6,10 +6,14 @@ import { fileURLToPath } from "node:url";
 
 import { ANTHROPIC_MODELS } from "../../artifacts/api-server/src/lib/anthropic-request.ts";
 import {
+  OPENAI_CHAT_COMPLETIONS_SUPPORTED_MODELS,
   OPENAI_DEFAULT_TEST_MODEL,
-  OPENAI_SUPPORTED_MODELS,
+  OPENAI_IMAGE_GENERATION_SUPPORTED_MODELS,
+  OPENAI_RESPONSES_SUPPORTED_MODELS,
 } from "../../artifacts/api-server/src/lib/openai-models.ts";
 import {
+  AXONHUB_CODEX_DEFAULT_TEST_MODEL,
+  AXONHUB_CODEX_SUPPORTED_MODELS,
   AXONHUB_DEFAULT_TEST_MODEL,
   AXONHUB_SUPPORTED_MODELS,
   AXONHUB_GEMINI_DEFAULT_TEST_MODEL,
@@ -51,6 +55,23 @@ const EXPECTED_AXONHUB_GEMINI_MODELS = [
 const EXPECTED_AXONHUB_OPENAI_MODELS = [
   "gpt-5.5",
   "gpt-5.4",
+  "gpt-5.2",
+  "gpt-5.1",
+  "gpt-5",
+  "gpt-5-mini",
+  "gpt-5-nano",
+  "gpt-4.1",
+  "gpt-4.1-mini",
+  "gpt-4.1-nano",
+  "gpt-4o",
+  "gpt-4o-mini",
+  "o3",
+  "o4-mini",
+  "o3-mini",
+] as const;
+const EXPECTED_AXONHUB_CODEX_MODELS = [
+  "gpt-5.5",
+  "gpt-5.4",
   "gpt-5.3-codex",
   "gpt-5.2",
   "gpt-5.1",
@@ -65,8 +86,6 @@ const EXPECTED_AXONHUB_OPENAI_MODELS = [
   "o3",
   "o4-mini",
   "o3-mini",
-  "gpt-image-1",
-  "gpt-image-2",
 ] as const;
 const EXPECTED_AXONHUB_OPENROUTER_MODELS = [
   "moonshotai/kimi-k2.6",
@@ -106,9 +125,51 @@ test("AxonHub status-page copy stays aligned with the backend sync model lists",
   assert.deepEqual(AXONHUB_GEMINI_SUPPORTED_MODELS, EXPECTED_AXONHUB_GEMINI_MODELS);
   assert.equal(AXONHUB_GEMINI_DEFAULT_TEST_MODEL, "gemini-2.5-flash");
   assert.equal(OPENAI_DEFAULT_TEST_MODEL, "gpt-5.5");
-  assert.equal(AXONHUB_OPENAI_SUPPORTED_MODELS, OPENAI_SUPPORTED_MODELS);
+  assert.deepEqual(OPENAI_CHAT_COMPLETIONS_SUPPORTED_MODELS, [
+    "gpt-5.5",
+    "gpt-5.4",
+    "gpt-5.2",
+    "gpt-5.1",
+    "gpt-5",
+    "gpt-5-mini",
+    "gpt-5-nano",
+    "gpt-4.1",
+    "gpt-4.1-mini",
+    "gpt-4.1-nano",
+    "gpt-4o",
+    "gpt-4o-mini",
+    "o3",
+    "o4-mini",
+    "o3-mini",
+  ]);
+  assert.deepEqual(OPENAI_RESPONSES_SUPPORTED_MODELS, [
+    "gpt-5.5",
+    "gpt-5.4",
+    "gpt-5.3-codex",
+    "gpt-5.2",
+    "gpt-5.1",
+    "gpt-5",
+    "gpt-5-mini",
+    "gpt-5-nano",
+    "gpt-4.1",
+    "gpt-4.1-mini",
+    "gpt-4.1-nano",
+    "gpt-4o",
+    "gpt-4o-mini",
+    "o3",
+    "o4-mini",
+    "o3-mini",
+  ]);
+  assert.deepEqual(OPENAI_IMAGE_GENERATION_SUPPORTED_MODELS, [
+    "gpt-image-1",
+    "gpt-image-2",
+  ]);
+  assert.equal(AXONHUB_OPENAI_SUPPORTED_MODELS, OPENAI_CHAT_COMPLETIONS_SUPPORTED_MODELS);
   assert.deepEqual(AXONHUB_OPENAI_SUPPORTED_MODELS, EXPECTED_AXONHUB_OPENAI_MODELS);
   assert.equal(AXONHUB_OPENAI_DEFAULT_TEST_MODEL, OPENAI_DEFAULT_TEST_MODEL);
+  assert.equal(AXONHUB_CODEX_SUPPORTED_MODELS, OPENAI_RESPONSES_SUPPORTED_MODELS);
+  assert.deepEqual(AXONHUB_CODEX_SUPPORTED_MODELS, EXPECTED_AXONHUB_CODEX_MODELS);
+  assert.equal(AXONHUB_CODEX_DEFAULT_TEST_MODEL, "gpt-5.3-codex");
   assert.deepEqual(AXONHUB_OPENROUTER_SUPPORTED_MODELS, EXPECTED_AXONHUB_OPENROUTER_MODELS);
   assert.equal(AXONHUB_OPENROUTER_DEFAULT_TEST_MODEL, "z-ai/glm-4.7");
 
@@ -134,7 +195,15 @@ test("AxonHub status-page copy stays aligned with the backend sync model lists",
   );
   assert.match(
     statusPageSource,
-    /supportedModels=gpt-5\.5 \/ gpt-5\.4 \/ gpt-5\.3-codex \/ gpt-5\.2 \/ gpt-5\.1 \/ gpt-5 \/ gpt-5-mini \/ gpt-5-nano \/ gpt-4\.1 \/ gpt-4\.1-mini \/ gpt-4\.1-nano \/ gpt-4o \/ gpt-4o-mini \/ o3 \/ o4-mini \/ o3-mini \/ gpt-image-1 \/ gpt-image-2/,
+    /supportedModels=gpt-5\.5 \/ gpt-5\.4 \/ gpt-5\.2 \/ gpt-5\.1 \/ gpt-5 \/ gpt-5-mini \/ gpt-5-nano \/ gpt-4\.1 \/ gpt-4\.1-mini \/ gpt-4\.1-nano \/ gpt-4o \/ gpt-4o-mini \/ o3 \/ o4-mini \/ o3-mini/,
+  );
+  assert.match(
+    statusPageSource,
+    /defaultTestModel=gpt-5\.3-codex/,
+  );
+  assert.match(
+    statusPageSource,
+    /supportedModels=gpt-5\.5 \/ gpt-5\.4 \/ gpt-5\.3-codex \/ gpt-5\.2 \/ gpt-5\.1 \/ gpt-5 \/ gpt-5-mini \/ gpt-5-nano \/ gpt-4\.1 \/ gpt-4\.1-mini \/ gpt-4\.1-nano \/ gpt-4o \/ gpt-4o-mini \/ o3 \/ o4-mini \/ o3-mini/,
   );
   assert.match(
     statusPageSource,
@@ -151,7 +220,7 @@ test("AxonHub status-page copy stays aligned with the backend sync model lists",
     statusPageSource,
     /supportedModels=claude-opus-4-7 \/ claude-opus-4-6 \/ claude-opus-4-5 \/ claude-sonnet-4-6 \/ claude-sonnet-4-5 \/ claude-haiku-4-5 \/ claude-opus-4-1/,
   );
-  assert.match(statusPageSource, /All four paths are synced back with/);
+  assert.match(statusPageSource, /All five paths are synced back with/);
   assert.match(statusPageSource, /settings\.passThroughUserAgent=inherit/);
   assert.match(statusPageSource, /settings\.passThroughBody=false/);
 });

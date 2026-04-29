@@ -109,7 +109,7 @@ export default function StatusPage() {
   const [axonhubSyncResult, setAxonhubSyncResult] = useState<null | {
     axonhubOrigin: string;
     mode: "created" | "updated";
-    provider: "anthropic" | "gemini" | "openai" | "openrouter";
+    provider: "anthropic" | "gemini" | "openai" | "openrouter" | "codex";
     channel: {
       id: string;
       name: string;
@@ -273,7 +273,7 @@ console.log(data);`;
 
       const body = await response.json() as {
         mode?: "created" | "updated";
-        provider?: "anthropic" | "gemini" | "openai" | "openrouter";
+        provider?: "anthropic" | "gemini" | "openai" | "openrouter" | "codex";
         axonhubOrigin?: string;
         channel?: {
           id: string;
@@ -492,7 +492,12 @@ console.log(data);`;
                   <span className="text-foreground"> type=openai</span>,
                   <span className="text-foreground"> baseURL=/api/openai</span>,
                   <span className="text-foreground"> defaultTestModel=gpt-5.5</span>,
-                  <span className="text-foreground"> supportedModels=gpt-5.5 / gpt-5.4 / gpt-5.3-codex / gpt-5.2 / gpt-5.1 / gpt-5 / gpt-5-mini / gpt-5-nano / gpt-4.1 / gpt-4.1-mini / gpt-4.1-nano / gpt-4o / gpt-4o-mini / o3 / o4-mini / o3-mini / gpt-image-1 / gpt-image-2</span>.
+                  <span className="text-foreground"> supportedModels=gpt-5.5 / gpt-5.4 / gpt-5.2 / gpt-5.1 / gpt-5 / gpt-5-mini / gpt-5-nano / gpt-4.1 / gpt-4.1-mini / gpt-4.1-nano / gpt-4o / gpt-4o-mini / o3 / o4-mini / o3-mini</span>.
+                  <span className="text-foreground"> codex</span> uses
+                  <span className="text-foreground"> type=codex</span>,
+                  <span className="text-foreground"> baseURL=/api/openai</span>,
+                  <span className="text-foreground"> defaultTestModel=gpt-5.3-codex</span>,
+                  <span className="text-foreground"> supportedModels=gpt-5.5 / gpt-5.4 / gpt-5.3-codex / gpt-5.2 / gpt-5.1 / gpt-5 / gpt-5-mini / gpt-5-nano / gpt-4.1 / gpt-4.1-mini / gpt-4.1-nano / gpt-4o / gpt-4o-mini / o3 / o4-mini / o3-mini</span>.
                   <span className="text-foreground"> openrouter</span> uses
                   <span className="text-foreground"> type=openrouter</span>,
                   <span className="text-foreground"> baseURL=/api/openrouter</span>,
@@ -503,7 +508,7 @@ console.log(data);`;
                   <span className="text-foreground"> baseURL={baseUrl || " /api/anthropic"}</span>,
                   <span className="text-foreground"> defaultTestModel=claude-opus-4-5</span>,
                   <span className="text-foreground"> supportedModels=claude-opus-4-7 / claude-opus-4-6 / claude-opus-4-5 / claude-sonnet-4-6 / claude-sonnet-4-5 / claude-haiku-4-5 / claude-opus-4-1</span>.
-                  All four paths are synced back with
+                  All five paths are synced back with
                   <span className="text-foreground"> status=enabled</span>,
                   <span className="text-foreground"> settings.passThroughUserAgent=inherit</span>, and
                   <span className="text-foreground"> settings.passThroughBody=false</span>.

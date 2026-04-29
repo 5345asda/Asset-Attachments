@@ -1,7 +1,12 @@
 import { Router, type Request, type Response } from "express";
 import { ApiError } from "../lib/api-error";
 import { applyBillingOai } from "../lib/billing";
-import { OPENAI_SUPPORTED_MODELS } from "../lib/openai-models";
+import {
+  OPENAI_CHAT_COMPLETIONS_SUPPORTED_MODELS,
+  OPENAI_IMAGE_GENERATION_SUPPORTED_MODELS,
+  OPENAI_RESPONSES_SUPPORTED_MODELS,
+  OPENAI_SUPPORTED_MODELS,
+} from "../lib/openai-models";
 import { getOpenAIProviderConfig } from "../lib/openai-provider";
 import { getRequestLogger } from "../lib/request-context";
 import { pipeReaderToResponse } from "../lib/stream";
@@ -69,6 +74,54 @@ function isOpenAIChatCompletionsRequest(request: Request): boolean {
 
 function isOpenAIResponsesRequest(request: Request): boolean {
   return request.path === "/v1/responses" || request.path === "/responses";
+}
+
+function isOpenAIImageGenerationRequest(request: Request): boolean {
+  return request.path === "/v1/images/generations" || request.path === "/images/generations";
+}
+
+function getSupportedOpenAIModelsForRequest(request: Request): readonly string[] | null {
+  if (isOpenAIChatCompletionsRequest(request)) {
+    return OPENAI_CHAT_COMPLETIONS_SUPPORTED_MODELS;
+  }
+
+  if (isOpenAIResponsesRequest(request)) {
+    return OPENAI_RESPONSES_SUPPORTED_MODELS;
+  }
+
+  if (isOpenAIImageGenerationRequest(request)) {
+    return OPENAI_IMAGE_GENERATION_SUPPORTED_MODELS;
+  }
+
+  return null;
+}
+
+function assertSupportedOpenAIModel(
+  request: Request,
+  body: Record<string, unknown> | undefined,
+): void {
+  if (!body || typeof body.model !== "string") {
+    return;
+  }
+
+  const supportedModels = getSupportedOpenAIModelsForRequest(request);
+
+  if (!supportedModels || supportedModels.includes(body.model)) {
+    return;
+  }
+
+  throw new ApiError({
+    status: 400,
+    message: `Model ${body.model} is not supported on ${request.path}`,
+    type: "invalid_request_error",
+    code: "openai_model_not_supported_for_endpoint",
+    details: {
+      provider: "openai",
+      endpoint: request.path,
+      model: body.model,
+    },
+    logLevel: "warn",
+  });
 }
 
 function normalizeOpenAIRequestBody(
@@ -181,6 +234,7 @@ async function passthrough(
   }
 
   const body = normalizeOpenAIRequestBody(request, readRequestBody(request));
+  assertSupportedOpenAIModel(request, body);
   const target = buildTargetUrl(openai.baseUrl, request);
   const headers = buildOpenAIHeaders(openai.apiKey, request);
 
