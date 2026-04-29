@@ -347,7 +347,7 @@ test("public openrouter model routes expose an empty OpenAI-compatible shape wit
   assert.ok(legacyResponse.headers.get("x-request-id"));
 });
 
-test("public openai model routes expose an empty OpenAI-compatible shape without provider config", async (t) => {
+test("public openai model routes expose the curated supported-model list without provider config", async (t) => {
   const previousEnv = {
     PROXY_API_KEY: process.env.PROXY_API_KEY,
     AI_INTEGRATIONS_OPENAI_BASE_URL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
@@ -390,6 +390,7 @@ test("public openai model routes expose an empty OpenAI-compatible shape without
     data?: Array<{
       id?: string;
       object?: string;
+      owned_by?: string;
     }>;
   };
   const legacyResponse = await originalFetch(`http://127.0.0.1:${server.port}/api/openai/models`);
@@ -398,7 +399,31 @@ test("public openai model routes expose an empty OpenAI-compatible shape without
   assert.equal(response.status, 200);
   assert.equal(legacyResponse.status, 200);
   assert.equal(upstreamCalls, 0);
-  assert.deepEqual(body, { data: [] });
+  assert.deepEqual(
+    body.data?.map((model) => model.id),
+    [
+      "gpt-5.5",
+      "gpt-5.4",
+      "gpt-5.3-codex",
+      "gpt-5.2",
+      "gpt-5.1",
+      "gpt-5",
+      "gpt-5-mini",
+      "gpt-5-nano",
+      "gpt-4.1",
+      "gpt-4.1-mini",
+      "gpt-4.1-nano",
+      "gpt-4o",
+      "gpt-4o-mini",
+      "o3",
+      "o4-mini",
+      "o3-mini",
+      "gpt-image-1",
+      "gpt-image-2",
+    ],
+  );
+  assert.equal(body.data?.[0]?.object, "model");
+  assert.equal(body.data?.[0]?.owned_by, "openai");
   assert.deepEqual(legacyBody, body);
   assert.ok(response.headers.get("x-request-id"));
   assert.ok(legacyResponse.headers.get("x-request-id"));
@@ -518,6 +543,55 @@ test("openai responses passthrough returns 503 when OpenAI provider is not confi
     body: {
       model: "gpt-5",
       input: "hello",
+    },
+  });
+
+  assert.equal(response.status, 503);
+  assert.deepEqual(response.body, {
+    error: {
+      message: "OpenAI provider not configured",
+      type: "service_unavailable",
+    },
+  });
+  assert.ok(response.headers["x-request-id"]);
+});
+
+test("openai image generations passthrough returns 503 when OpenAI provider is not configured", async (t) => {
+  const previousEnv = {
+    PROXY_API_KEY: process.env.PROXY_API_KEY,
+    AI_INTEGRATIONS_OPENAI_BASE_URL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+    AI_INTEGRATIONS_OPENAI_API_KEY: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+    OPENAI_BASE_URL: process.env.OPENAI_BASE_URL,
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+  };
+
+  process.env.PROXY_API_KEY = "sk-proxy-test";
+  delete process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
+  delete process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+  delete process.env.OPENAI_BASE_URL;
+  delete process.env.OPENAI_API_KEY;
+
+  const server = await startAppServer();
+
+  t.after(async () => {
+    await server.close();
+
+    for (const [key, value] of Object.entries(previousEnv)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  });
+
+  const response = await postJson(`http://127.0.0.1:${server.port}/api/openai/v1/images/generations`, {
+    headers: {
+      authorization: "Bearer sk-proxy-test",
+    },
+    body: {
+      model: "gpt-image-1",
+      prompt: "hello",
     },
   });
 
@@ -1201,7 +1275,7 @@ test("openrouter model list uses the official OpenRouter /models endpoint for Re
   assert.ok(response.headers.get("x-request-id"));
 });
 
-test("openai model list proxies the configured /models endpoint for direct OpenAI secrets", async (t) => {
+test("openai model list stays on the curated supported-model list even when direct OpenAI secrets are configured", async (t) => {
   const previousEnv = {
     PROXY_API_KEY: process.env.PROXY_API_KEY,
     AI_INTEGRATIONS_OPENAI_BASE_URL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
@@ -1217,26 +1291,11 @@ test("openai model list proxies the configured /models endpoint for direct OpenA
   process.env.OPENAI_API_KEY = "openai-direct-test-key";
 
   const originalFetch = globalThis.fetch;
-  let lastRequestUrl = "";
-  let lastRequestHeaders: unknown;
+  let upstreamCalls = 0;
 
   globalThis.fetch = (async (input, init) => {
-    lastRequestUrl = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
-    lastRequestHeaders = init?.headers;
-
-    return new Response(JSON.stringify({
-      data: [
-        {
-          id: "gpt-5",
-          object: "model",
-          created: 1740000000,
-          owned_by: "openai",
-        },
-      ],
-    }), {
-      status: 200,
-      headers: { "content-type": "application/json" },
-    });
+    upstreamCalls += 1;
+    throw new Error(`Unexpected upstream fetch in OpenAI model route: ${String(input)} ${String(init?.method ?? "GET")}`);
   }) as typeof fetch;
 
   const server = await startAppServer();
@@ -1264,11 +1323,30 @@ test("openai model list proxies the configured /models endpoint for direct OpenA
   };
 
   assert.equal(response.status, 200);
-  assert.equal(lastRequestUrl, "https://api.openai.example/v1/models");
-
-  const headers = new Headers(lastRequestHeaders as Record<string, string>);
-  assert.equal(headers.get("authorization"), "Bearer openai-direct-test-key");
-  assert.equal(body.data?.[0]?.id, "gpt-5");
+  assert.equal(upstreamCalls, 0);
+  assert.deepEqual(
+    body.data?.map((model) => model.id),
+    [
+      "gpt-5.5",
+      "gpt-5.4",
+      "gpt-5.3-codex",
+      "gpt-5.2",
+      "gpt-5.1",
+      "gpt-5",
+      "gpt-5-mini",
+      "gpt-5-nano",
+      "gpt-4.1",
+      "gpt-4.1-mini",
+      "gpt-4.1-nano",
+      "gpt-4o",
+      "gpt-4o-mini",
+      "o3",
+      "o4-mini",
+      "o3-mini",
+      "gpt-image-1",
+      "gpt-image-2",
+    ],
+  );
   assert.equal(body.data?.[0]?.object, "model");
   assert.equal(body.data?.[0]?.owned_by, "openai");
   assert.ok(response.headers.get("x-request-id"));
@@ -1581,6 +1659,92 @@ test("openai passthrough accepts Replit integration secrets and forwards respons
     output_tokens: 5,
     total_tokens: 13,
   });
+  assert.ok(response.headers["x-request-id"]);
+});
+
+test("openai passthrough accepts Replit integration secrets and forwards image generation requests", async (t) => {
+  const previousEnv = {
+    PROXY_API_KEY: process.env.PROXY_API_KEY,
+    AI_INTEGRATIONS_OPENAI_BASE_URL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+    AI_INTEGRATIONS_OPENAI_API_KEY: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+    OPENAI_BASE_URL: process.env.OPENAI_BASE_URL,
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+  };
+
+  process.env.PROXY_API_KEY = "sk-proxy-test";
+  process.env.AI_INTEGRATIONS_OPENAI_BASE_URL = "https://openai.integration.test/v1";
+  process.env.AI_INTEGRATIONS_OPENAI_API_KEY = "openai-integration-test-key";
+  delete process.env.OPENAI_BASE_URL;
+  delete process.env.OPENAI_API_KEY;
+
+  const originalFetch = globalThis.fetch;
+  let fetchCalled = false;
+  let lastRequestUrl = "";
+  let lastRequestHeaders: unknown;
+  let lastRequestBody = "";
+
+  globalThis.fetch = (async (input, init) => {
+    fetchCalled = true;
+    lastRequestUrl = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    lastRequestHeaders = init?.headers;
+    lastRequestBody = typeof init?.body === "string" ? init.body : "";
+
+    return new Response(JSON.stringify({
+      created: 1740000000,
+      data: [
+        {
+          b64_json: "ZmFrZS1pbWFnZS1ieXRlcw==",
+          revised_prompt: "hello",
+        },
+      ],
+    }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  }) as typeof fetch;
+
+  const server = await startAppServer();
+
+  t.after(async () => {
+    globalThis.fetch = originalFetch;
+    await server.close();
+
+    for (const [key, value] of Object.entries(previousEnv)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  });
+
+  const requestBody = {
+    model: "gpt-image-1",
+    prompt: "hello",
+    size: "1024x1024",
+  };
+
+  const response = await postJson(`http://127.0.0.1:${server.port}/api/openai/v1/images/generations`, {
+    headers: {
+      authorization: "Bearer sk-proxy-test",
+    },
+    body: requestBody,
+  });
+
+  assert.equal(response.status, 200);
+  if (!fetchCalled) {
+    throw new Error("Expected OpenAI image generations fetch to be called.");
+  }
+
+  assert.equal(lastRequestUrl, "https://openai.integration.test/v1/images/generations");
+  assert.deepEqual(JSON.parse(lastRequestBody), requestBody);
+
+  const headers = new Headers(lastRequestHeaders as Record<string, string>);
+  assert.equal(headers.get("authorization"), "Bearer openai-integration-test-key");
+  assert.equal(headers.get("content-type"), "application/json");
+  assert.equal(response.body.created, 1740000000);
+  assert.equal(response.body.data?.[0]?.revised_prompt, "hello");
+  assert.equal(response.body.data?.[0]?.b64_json, "ZmFrZS1pbWFnZS1ieXRlcw==");
   assert.ok(response.headers["x-request-id"]);
 });
 

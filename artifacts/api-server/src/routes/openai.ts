@@ -8,8 +8,34 @@ import { sanitizeUpstreamError } from "../lib/upstream-error";
 
 const router = Router();
 
-export const openAIEmptyModelList = {
-  data: [],
+export const OPENAI_SUPPORTED_MODELS = [
+  "gpt-5.5",
+  "gpt-5.4",
+  "gpt-5.3-codex",
+  "gpt-5.2",
+  "gpt-5.1",
+  "gpt-5",
+  "gpt-5-mini",
+  "gpt-5-nano",
+  "gpt-4.1",
+  "gpt-4.1-mini",
+  "gpt-4.1-nano",
+  "gpt-4o",
+  "gpt-4o-mini",
+  "o3",
+  "o4-mini",
+  "o3-mini",
+  "gpt-image-1",
+  "gpt-image-2",
+] as const;
+
+export const openAIModelList = {
+  data: OPENAI_SUPPORTED_MODELS.map((id) => ({
+    id,
+    object: "model",
+    created: 1740000000,
+    owned_by: "openai",
+  })),
 };
 
 function buildTargetUrl(baseUrl: string, request: Request): string {
@@ -17,10 +43,6 @@ function buildTargetUrl(baseUrl: string, request: Request): string {
   const upstreamPath = request.path.replace(/^\/v1\//, "").replace(/^\//, "");
   const query = request.url.includes("?") ? request.url.slice(request.url.indexOf("?")) : "";
   return `${cleanBaseUrl}/${upstreamPath}${query}`;
-}
-
-function buildModelListUrl(baseUrl: string): string {
-  return `${baseUrl.replace(/\/$/, "")}/models`;
 }
 
 function buildOpenAIHeaders(apiKey: string, request?: Request): Record<string, string> {
@@ -94,53 +116,10 @@ function maybeAdjustUsage(
 }
 
 export async function handleOpenAIModelList(
-  request: Request,
+  _request: Request,
   response: Response,
 ): Promise<void> {
-  const requestLogger = getRequestLogger(request);
-  const openai = getOpenAIProviderConfig();
-
-  if (!openai.configured) {
-    response.json(openAIEmptyModelList);
-    return;
-  }
-
-  const target = buildModelListUrl(openai.baseUrl);
-  const upstream = await fetch(target, {
-    method: "GET",
-    headers: buildOpenAIHeaders(openai.apiKey),
-  });
-
-  if (!upstream.ok) {
-    const upstreamError = await readUpstreamError(upstream);
-    const sanitizedUpstreamError = sanitizeUpstreamError(upstreamError);
-
-    const contentType = upstream.headers.get("content-type") || "application/json";
-    response.status(upstream.status);
-    response.setHeader("Content-Type", contentType);
-
-    requestLogger.warn(
-      {
-        status: upstream.status,
-        target,
-        method: request.method,
-        upstreamError,
-      },
-      `OpenAI upstream ${upstream.status} error`,
-    );
-
-    response.end(
-      typeof sanitizedUpstreamError === "string"
-        ? sanitizedUpstreamError
-        : JSON.stringify(sanitizedUpstreamError),
-    );
-    return;
-  }
-
-  const contentType = upstream.headers.get("content-type") || "application/json";
-  response.status(upstream.status);
-  response.setHeader("Content-Type", contentType);
-  response.end(Buffer.from(await upstream.arrayBuffer()));
+  response.json(openAIModelList);
 }
 
 async function passthrough(
@@ -244,6 +223,14 @@ router.post("/v1/responses", async (request, response) => {
 });
 
 router.post("/responses", async (request, response) => {
+  await passthrough(request, response);
+});
+
+router.post("/v1/images/generations", async (request, response) => {
+  await passthrough(request, response);
+});
+
+router.post("/images/generations", async (request, response) => {
   await passthrough(request, response);
 });
 

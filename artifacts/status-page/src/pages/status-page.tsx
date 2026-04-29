@@ -30,6 +30,11 @@ const GEMINI_MODELS = [
   "gemini-2.5-flash-image",
 ];
 
+const OPENAI_IMAGE_MODELS = [
+  "gpt-image-1",
+  "gpt-image-2",
+];
+
 function useCopy() {
   const [copied, setCopied] = useState<string | null>(null);
   const copy = (text: string, id: string) => {
@@ -559,6 +564,7 @@ console.log(data);`;
               { method: "GET", path: "/openai/v1/models", desc: "List available OpenAI models" },
               { method: "POST", path: "/openai/v1/chat/completions", desc: "OpenAI chat completions API" },
               { method: "POST", path: "/openai/v1/responses", desc: "OpenAI responses API" },
+              { method: "POST", path: "/openai/v1/images/generations", desc: "OpenAI image generation API (gpt-image-1 / gpt-image-2)" },
             ].map((ep) => (
               <div key={ep.path} className="flex items-start gap-3 p-3 rounded-lg bg-black/20 border border-white/5">
                 <span className={`mt-0.5 shrink-0 text-xs font-bold px-1.5 py-0.5 rounded font-mono ${
@@ -580,7 +586,7 @@ console.log(data);`;
           <div className="flex items-center gap-2 mb-4">
             <Code2 className="w-4 h-4 text-primary" />
             <span className="text-sm font-semibold text-foreground">Available Models</span>
-            <span className="ml-auto text-xs text-muted-foreground">{CLAUDE_MODELS.length + GEMINI_MODELS.length} models</span>
+            <span className="ml-auto text-xs text-muted-foreground">{CLAUDE_MODELS.length + GEMINI_MODELS.length + OPENAI_IMAGE_MODELS.length} models</span>
           </div>
           <div className="space-y-4">
             <div>
@@ -604,6 +610,20 @@ console.log(data);`;
                   <div
                     key={model}
                     className="flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
+                  >
+                    <span className="font-mono">{model}</span>
+                    <CopyButton text={model} id={`model-${model}`} />
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">OpenAI Images</p>
+              <div className="flex flex-wrap gap-2">
+                {OPENAI_IMAGE_MODELS.map((model) => (
+                  <div
+                    key={model}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium text-sky-400 bg-sky-500/10 border-sky-500/20"
                   >
                     <span className="font-mono">{model}</span>
                     <CopyButton text={model} id={`model-${model}`} />
