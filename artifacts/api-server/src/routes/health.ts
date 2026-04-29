@@ -4,6 +4,7 @@ import { PROXY_API_KEY } from "../lib/proxy-key";
 import { getAnthropicProviderConfig } from "../lib/anthropic-provider";
 import { getGeminiProviderConfig } from "../lib/gemini-provider";
 import { getOpenRouterProviderConfig } from "../lib/openrouter-provider";
+import { getOpenAIProviderConfig } from "../lib/openai-provider";
 
 const router: IRouter = Router();
 
@@ -16,11 +17,12 @@ router.get("/proxy-info", (_req, res) => {
   const anthropic = getAnthropicProviderConfig();
   const gemini = getGeminiProviderConfig();
   const openrouter = getOpenRouterProviderConfig();
+  const openai = getOpenAIProviderConfig();
 
   res.json({
     proxyKey: PROXY_API_KEY,
-    ready: anthropic.configured || gemini.configured || openrouter.configured,
-    providers: ["anthropic", "gemini", "openrouter"],
+    ready: anthropic.configured || gemini.configured || openrouter.configured || openai.configured,
+    providers: ["anthropic", "gemini", "openrouter", "openai"],
     integrations: {
       anthropic: {
         configured: anthropic.configured,
@@ -30,6 +32,9 @@ router.get("/proxy-info", (_req, res) => {
       },
       openrouter: {
         configured: openrouter.configured,
+      },
+      openai: {
+        configured: openai.configured,
       },
     },
   });

@@ -4,6 +4,7 @@ import axonhubRouter from "./axonhub";
 import passthroughRouter from "./passthrough";
 import geminiRouter from "./gemini";
 import openrouterRouter, { handleOpenRouterModelList } from "./openrouter";
+import openaiRouter, { handleOpenAIModelList } from "./openai";
 import { PROXY_API_KEY } from "../lib/proxy-key";
 import { ApiError } from "../lib/api-error";
 import { getRequestLogger } from "../lib/request-context";
@@ -107,8 +108,15 @@ router.get("/openrouter/v1/models", async (request, response) => {
 router.get("/openrouter/models", async (request, response) => {
   await handleOpenRouterModelList(request, response);
 });
+router.get("/openai/v1/models", async (request, response) => {
+  await handleOpenAIModelList(request, response);
+});
+router.get("/openai/models", async (request, response) => {
+  await handleOpenAIModelList(request, response);
+});
 router.use("/anthropic", proxyAuth, passthroughRouter);
 router.use("/gemini", proxyAuth, geminiRouter);
 router.use("/openrouter", proxyAuth, openrouterRouter);
+router.use("/openai", proxyAuth, openaiRouter);
 
 export default router;

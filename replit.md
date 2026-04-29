@@ -7,7 +7,7 @@
 如果你只能做一轮对话，就直接执行下面这段，不要自己推断其它部署拓扑：
 
 ```text
-这是一个通过 Git 导入的单入口 Replit 原生接口仓库。部署方式以根目录 .replit、根 package.json 和当前 replit.md 的现行内容为准。直接以当前项目根目录工作；如发现旧残留，再在项目根目录执行 rm -rf artifacts/mockup-sandbox artifacts/api-portal artifacts/api-server/.replit-artifact。当前项目根目录只保留 artifacts/api-server 和 artifacts/status-page 作为部署 artifact。允许维护 `artifacts/status-page/.replit-artifact/artifact.toml` 作为工作区预览注册，但不要新增、修改或切换其他 artifact 或临时脚本，不要修改业务代码来迁就 Deploy 面板。Anthropic 需要启用 Replit integration；Gemini 也需要启用 Replit integration；如果项目启用了 OpenRouter integration，也优先走 Replit 内置接入，不要额外要求用户填写 OpenRouter API Key。然后执行 pnpm install。Run 用 pnpm dev；但 `artifacts/status-page/.replit-artifact/artifact.toml` 的 `[services.development].run` 必须固定为 `pnpm -w run dev`，不要改回 `pnpm dev`，否则会只启动 status-page 包而绕过根目录统一入口。Deploy 面板固定填写：Build command: pnpm run build:deploy；Run command: pnpm start。部署后检查 /、/api/healthz、/api/proxy-info，并按已配置 provider 继续检查 /api/anthropic/v1/models、/api/gemini/v1beta/models 或 /api/openrouter/v1/models；其中 models 路由必须返回 JSON，不能返回 HTML 或鉴权错误。
+这是一个通过 Git 导入的单入口 Replit 原生接口仓库。部署方式以根目录 .replit、根 package.json 和当前 replit.md 的现行内容为准。直接以当前项目根目录工作；如发现旧残留，再在项目根目录执行 rm -rf artifacts/mockup-sandbox artifacts/api-portal artifacts/api-server/.replit-artifact。当前项目根目录只保留 artifacts/api-server 和 artifacts/status-page 作为部署 artifact。允许维护 `artifacts/status-page/.replit-artifact/artifact.toml` 作为工作区预览注册，但不要新增、修改或切换其他 artifact 或临时脚本，不要修改业务代码来迁就 Deploy 面板。Anthropic 需要启用 Replit integration；Gemini 也需要启用 Replit integration；如果项目启用了 OpenRouter integration，也优先走 Replit 内置接入，不要额外要求用户填写 OpenRouter API Key；如果项目启用了 OpenAI integration，也优先走 Replit 内置接入。然后执行 pnpm install。Run 用 pnpm dev；但 `artifacts/status-page/.replit-artifact/artifact.toml` 的 `[services.development].run` 必须固定为 `pnpm -w run dev`，不要改回 `pnpm dev`，否则会只启动 status-page 包而绕过根目录统一入口。Deploy 面板固定填写：Build command: pnpm run build:deploy；Run command: pnpm start。部署后检查 /、/api/healthz、/api/proxy-info，并按已配置 provider 继续检查 /api/anthropic/v1/models、/api/gemini/v1beta/models、/api/openrouter/v1/models 或 /api/openai/v1/models；其中 models 路由必须返回 JSON，不能返回 HTML 或鉴权错误。
 ```
 
 Deploy 面板固定填写：
@@ -50,7 +50,7 @@ Deploy 面板固定填写：
 - 应用监听 `PORT`，开发默认按 `3000` 理解。
 - 本地进程验证优先请求实际监听端口，例如 `http://127.0.0.1:$PORT/...`。
 - 工作区预览下拉如果需要显示状态页，使用 `artifacts/status-page/.replit-artifact/artifact.toml` 对应的 `/` 预览入口。
-- 对外验收先看公开域名上的 `/`、`/api/healthz`、`/api/proxy-info`，再根据实际配置去看 `/api/anthropic/v1/models`、`/api/gemini/v1beta/models` 或 `/api/openrouter/v1/models`，不要混用本地端口和公网路由概念。
+- 对外验收先看公开域名上的 `/`、`/api/healthz`、`/api/proxy-info`，再根据实际配置去看 `/api/anthropic/v1/models`、`/api/gemini/v1beta/models`、`/api/openrouter/v1/models` 或 `/api/openai/v1/models`，不要混用本地端口和公网路由概念。
 
 ## 不要做
 
@@ -68,6 +68,7 @@ Deploy 面板固定填写：
 - 如果启用了 Anthropic，`GET /api/anthropic/v1/models` 返回 JSON 模型列表，不是 HTML，也不是 401。
 - 如果启用了 Gemini integration，`GET /api/gemini/v1beta/models` 返回 JSON 模型列表，不是 HTML，也不是 401。
 - 如果启用了 OpenRouter integration，`GET /api/openrouter/v1/models` 返回 JSON 模型列表，不是 HTML，也不是 401。
+- 如果启用了 OpenAI integration，`GET /api/openai/v1/models` 返回 JSON 模型列表，不是 HTML，也不是 401。
 - 页面如果显示 `Setup Required`，优先判断当前项目是否既没有 Anthropic integration，也没有 Gemini integration。
 
 如果需要补充验证，再跑这两条：

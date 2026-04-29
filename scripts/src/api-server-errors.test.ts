@@ -347,6 +347,63 @@ test("public openrouter model routes expose an empty OpenAI-compatible shape wit
   assert.ok(legacyResponse.headers.get("x-request-id"));
 });
 
+test("public openai model routes expose an empty OpenAI-compatible shape without provider config", async (t) => {
+  const previousEnv = {
+    PROXY_API_KEY: process.env.PROXY_API_KEY,
+    AI_INTEGRATIONS_OPENAI_BASE_URL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+    AI_INTEGRATIONS_OPENAI_API_KEY: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+    OPENAI_BASE_URL: process.env.OPENAI_BASE_URL,
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+  };
+
+  process.env.PROXY_API_KEY = "sk-proxy-test";
+  delete process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
+  delete process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+  delete process.env.OPENAI_BASE_URL;
+  delete process.env.OPENAI_API_KEY;
+
+  const originalFetch = globalThis.fetch;
+  let upstreamCalls = 0;
+
+  globalThis.fetch = (async (input, init) => {
+    upstreamCalls += 1;
+    throw new Error(`Unexpected upstream fetch in public OpenAI model route: ${String(input)} ${String(init?.method ?? "GET")}`);
+  }) as typeof fetch;
+
+  const server = await startAppServer();
+
+  t.after(async () => {
+    globalThis.fetch = originalFetch;
+    await server.close();
+
+    for (const [key, value] of Object.entries(previousEnv)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  });
+
+  const response = await originalFetch(`http://127.0.0.1:${server.port}/api/openai/v1/models`);
+  const body = await response.json() as {
+    data?: Array<{
+      id?: string;
+      object?: string;
+    }>;
+  };
+  const legacyResponse = await originalFetch(`http://127.0.0.1:${server.port}/api/openai/models`);
+  const legacyBody = await legacyResponse.json() as typeof body;
+
+  assert.equal(response.status, 200);
+  assert.equal(legacyResponse.status, 200);
+  assert.equal(upstreamCalls, 0);
+  assert.deepEqual(body, { data: [] });
+  assert.deepEqual(legacyBody, body);
+  assert.ok(response.headers.get("x-request-id"));
+  assert.ok(legacyResponse.headers.get("x-request-id"));
+});
+
 test("legacy /api/v1 routes are no longer supported", async (t) => {
   const previousProxyKey = process.env.PROXY_API_KEY;
   process.env.PROXY_API_KEY = "sk-proxy-test";
@@ -376,35 +433,102 @@ test("legacy /api/v1 routes are no longer supported", async (t) => {
   assert.equal(response.status, 404);
 });
 
-test("non-gemini legacy provider passthrough routes are no longer supported", async (t) => {
-  const previousProxyKey = process.env.PROXY_API_KEY;
+test("openai passthrough returns 503 when OpenAI provider is not configured", async (t) => {
+  const previousEnv = {
+    PROXY_API_KEY: process.env.PROXY_API_KEY,
+    AI_INTEGRATIONS_OPENAI_BASE_URL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+    AI_INTEGRATIONS_OPENAI_API_KEY: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+    OPENAI_BASE_URL: process.env.OPENAI_BASE_URL,
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+  };
+
   process.env.PROXY_API_KEY = "sk-proxy-test";
+  delete process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
+  delete process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+  delete process.env.OPENAI_BASE_URL;
+  delete process.env.OPENAI_API_KEY;
 
   const server = await startAppServer();
 
   t.after(async () => {
     await server.close();
 
-    if (previousProxyKey === undefined) {
-      delete process.env.PROXY_API_KEY;
-    } else {
-      process.env.PROXY_API_KEY = previousProxyKey;
+    for (const [key, value] of Object.entries(previousEnv)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
     }
   });
 
-  const response = await fetch(`http://127.0.0.1:${server.port}/api/openai/v1/chat/completions`, {
-    method: "POST",
+  const response = await postJson(`http://127.0.0.1:${server.port}/api/openai/v1/chat/completions`, {
     headers: {
-      "content-type": "application/json",
       authorization: "Bearer sk-proxy-test",
     },
-    body: JSON.stringify({
+    body: {
       model: "gpt-5",
       messages: [{ role: "user", content: "hello" }],
-    }),
+    },
   });
 
-  assert.equal(response.status, 404);
+  assert.equal(response.status, 503);
+  assert.deepEqual(response.body, {
+    error: {
+      message: "OpenAI provider not configured",
+      type: "service_unavailable",
+    },
+  });
+  assert.ok(response.headers["x-request-id"]);
+});
+
+test("openai responses passthrough returns 503 when OpenAI provider is not configured", async (t) => {
+  const previousEnv = {
+    PROXY_API_KEY: process.env.PROXY_API_KEY,
+    AI_INTEGRATIONS_OPENAI_BASE_URL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+    AI_INTEGRATIONS_OPENAI_API_KEY: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+    OPENAI_BASE_URL: process.env.OPENAI_BASE_URL,
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+  };
+
+  process.env.PROXY_API_KEY = "sk-proxy-test";
+  delete process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
+  delete process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+  delete process.env.OPENAI_BASE_URL;
+  delete process.env.OPENAI_API_KEY;
+
+  const server = await startAppServer();
+
+  t.after(async () => {
+    await server.close();
+
+    for (const [key, value] of Object.entries(previousEnv)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  });
+
+  const response = await postJson(`http://127.0.0.1:${server.port}/api/openai/v1/responses`, {
+    headers: {
+      authorization: "Bearer sk-proxy-test",
+    },
+    body: {
+      model: "gpt-5",
+      input: "hello",
+    },
+  });
+
+  assert.equal(response.status, 503);
+  assert.deepEqual(response.body, {
+    error: {
+      message: "OpenAI provider not configured",
+      type: "service_unavailable",
+    },
+  });
+  assert.ok(response.headers["x-request-id"]);
 });
 
 test("gemini passthrough returns 503 when Gemini provider is not configured", async (t) => {
@@ -1077,6 +1201,79 @@ test("openrouter model list uses the official OpenRouter /models endpoint for Re
   assert.ok(response.headers.get("x-request-id"));
 });
 
+test("openai model list proxies the configured /models endpoint for direct OpenAI secrets", async (t) => {
+  const previousEnv = {
+    PROXY_API_KEY: process.env.PROXY_API_KEY,
+    AI_INTEGRATIONS_OPENAI_BASE_URL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+    AI_INTEGRATIONS_OPENAI_API_KEY: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+    OPENAI_BASE_URL: process.env.OPENAI_BASE_URL,
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+  };
+
+  process.env.PROXY_API_KEY = "sk-proxy-test";
+  delete process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
+  delete process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+  process.env.OPENAI_BASE_URL = "https://api.openai.example/v1";
+  process.env.OPENAI_API_KEY = "openai-direct-test-key";
+
+  const originalFetch = globalThis.fetch;
+  let lastRequestUrl = "";
+  let lastRequestHeaders: unknown;
+
+  globalThis.fetch = (async (input, init) => {
+    lastRequestUrl = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    lastRequestHeaders = init?.headers;
+
+    return new Response(JSON.stringify({
+      data: [
+        {
+          id: "gpt-5",
+          object: "model",
+          created: 1740000000,
+          owned_by: "openai",
+        },
+      ],
+    }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  }) as typeof fetch;
+
+  const server = await startAppServer();
+
+  t.after(async () => {
+    globalThis.fetch = originalFetch;
+    await server.close();
+
+    for (const [key, value] of Object.entries(previousEnv)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  });
+
+  const response = await originalFetch(`http://127.0.0.1:${server.port}/api/openai/v1/models`);
+  const body = await response.json() as {
+    data?: Array<{
+      id?: string;
+      object?: string;
+      owned_by?: string;
+    }>;
+  };
+
+  assert.equal(response.status, 200);
+  assert.equal(lastRequestUrl, "https://api.openai.example/v1/models");
+
+  const headers = new Headers(lastRequestHeaders as Record<string, string>);
+  assert.equal(headers.get("authorization"), "Bearer openai-direct-test-key");
+  assert.equal(body.data?.[0]?.id, "gpt-5");
+  assert.equal(body.data?.[0]?.object, "model");
+  assert.equal(body.data?.[0]?.owned_by, "openai");
+  assert.ok(response.headers.get("x-request-id"));
+});
+
 test("openrouter passthrough accepts Replit integration secrets and forwards OpenAI-compatible chat completions", async (t) => {
   const previousEnv = {
     PROXY_API_KEY: process.env.PROXY_API_KEY,
@@ -1184,6 +1381,206 @@ test("openrouter passthrough accepts Replit integration secrets and forwards Ope
   assert.equal(headers.get("content-type"), "application/json");
   assert.equal(response.body.id, "chatcmpl-openrouter");
   assert.equal(response.body.choices?.[0]?.message?.content, "hello from openrouter");
+  assert.ok(response.headers["x-request-id"]);
+});
+
+test("openai passthrough accepts Replit integration secrets and forwards chat completions", async (t) => {
+  const previousEnv = {
+    PROXY_API_KEY: process.env.PROXY_API_KEY,
+    AI_INTEGRATIONS_OPENAI_BASE_URL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+    AI_INTEGRATIONS_OPENAI_API_KEY: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+    OPENAI_BASE_URL: process.env.OPENAI_BASE_URL,
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+  };
+
+  process.env.PROXY_API_KEY = "sk-proxy-test";
+  process.env.AI_INTEGRATIONS_OPENAI_BASE_URL = "https://openai.integration.test/v1";
+  process.env.AI_INTEGRATIONS_OPENAI_API_KEY = "openai-integration-test-key";
+  delete process.env.OPENAI_BASE_URL;
+  delete process.env.OPENAI_API_KEY;
+
+  const originalFetch = globalThis.fetch;
+  let fetchCalled = false;
+  let lastRequestUrl = "";
+  let lastRequestHeaders: unknown;
+  let lastRequestBody = "";
+
+  globalThis.fetch = (async (input, init) => {
+    fetchCalled = true;
+    lastRequestUrl = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    lastRequestHeaders = init?.headers;
+    lastRequestBody = typeof init?.body === "string" ? init.body : "";
+
+    return new Response(JSON.stringify({
+      id: "chatcmpl-openai",
+      object: "chat.completion",
+      choices: [
+        {
+          index: 0,
+          message: {
+            role: "assistant",
+            content: "hello from openai",
+          },
+          finish_reason: "stop",
+        },
+      ],
+      usage: {
+        prompt_tokens: 10,
+        completion_tokens: 4,
+        total_tokens: 14,
+      },
+    }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  }) as typeof fetch;
+
+  const server = await startAppServer();
+
+  t.after(async () => {
+    globalThis.fetch = originalFetch;
+    await server.close();
+
+    for (const [key, value] of Object.entries(previousEnv)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  });
+
+  const requestBody = {
+    model: "gpt-5",
+    messages: [{ role: "user", content: "hello" }],
+  };
+
+  const response = await postJson(`http://127.0.0.1:${server.port}/api/openai/v1/chat/completions`, {
+    headers: {
+      authorization: "Bearer sk-proxy-test",
+    },
+    body: requestBody,
+  });
+
+  assert.equal(response.status, 200);
+  if (!fetchCalled) {
+    throw new Error("Expected OpenAI chat completions fetch to be called.");
+  }
+
+  assert.equal(lastRequestUrl, "https://openai.integration.test/v1/chat/completions");
+  assert.deepEqual(JSON.parse(lastRequestBody), requestBody);
+
+  const headers = new Headers(lastRequestHeaders as Record<string, string>);
+  assert.equal(headers.get("authorization"), "Bearer openai-integration-test-key");
+  assert.equal(headers.get("content-type"), "application/json");
+  assert.equal(response.body.id, "chatcmpl-openai");
+  assert.equal(response.body.choices?.[0]?.message?.content, "hello from openai");
+  assert.deepEqual(response.body.usage, {
+    prompt_tokens: 10,
+    completion_tokens: 4,
+    total_tokens: 14,
+  });
+  assert.ok(response.headers["x-request-id"]);
+});
+
+test("openai passthrough accepts Replit integration secrets and forwards responses requests", async (t) => {
+  const previousEnv = {
+    PROXY_API_KEY: process.env.PROXY_API_KEY,
+    AI_INTEGRATIONS_OPENAI_BASE_URL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+    AI_INTEGRATIONS_OPENAI_API_KEY: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+    OPENAI_BASE_URL: process.env.OPENAI_BASE_URL,
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+  };
+
+  process.env.PROXY_API_KEY = "sk-proxy-test";
+  process.env.AI_INTEGRATIONS_OPENAI_BASE_URL = "https://openai.integration.test/v1";
+  process.env.AI_INTEGRATIONS_OPENAI_API_KEY = "openai-integration-test-key";
+  delete process.env.OPENAI_BASE_URL;
+  delete process.env.OPENAI_API_KEY;
+
+  const originalFetch = globalThis.fetch;
+  let fetchCalled = false;
+  let lastRequestUrl = "";
+  let lastRequestHeaders: unknown;
+  let lastRequestBody = "";
+
+  globalThis.fetch = (async (input, init) => {
+    fetchCalled = true;
+    lastRequestUrl = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    lastRequestHeaders = init?.headers;
+    lastRequestBody = typeof init?.body === "string" ? init.body : "";
+
+    return new Response(JSON.stringify({
+      id: "resp_openai",
+      object: "response",
+      output: [
+        {
+          type: "message",
+          role: "assistant",
+          content: [
+            {
+              type: "output_text",
+              text: "hello from responses",
+            },
+          ],
+        },
+      ],
+      usage: {
+        input_tokens: 8,
+        output_tokens: 5,
+        total_tokens: 13,
+      },
+    }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  }) as typeof fetch;
+
+  const server = await startAppServer();
+
+  t.after(async () => {
+    globalThis.fetch = originalFetch;
+    await server.close();
+
+    for (const [key, value] of Object.entries(previousEnv)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  });
+
+  const requestBody = {
+    model: "gpt-5",
+    input: "hello",
+  };
+
+  const response = await postJson(`http://127.0.0.1:${server.port}/api/openai/v1/responses`, {
+    headers: {
+      authorization: "Bearer sk-proxy-test",
+    },
+    body: requestBody,
+  });
+
+  assert.equal(response.status, 200);
+  if (!fetchCalled) {
+    throw new Error("Expected OpenAI responses fetch to be called.");
+  }
+
+  assert.equal(lastRequestUrl, "https://openai.integration.test/v1/responses");
+  assert.deepEqual(JSON.parse(lastRequestBody), requestBody);
+
+  const headers = new Headers(lastRequestHeaders as Record<string, string>);
+  assert.equal(headers.get("authorization"), "Bearer openai-integration-test-key");
+  assert.equal(headers.get("content-type"), "application/json");
+  assert.equal(response.body.id, "resp_openai");
+  assert.equal(response.body.output?.[0]?.content?.[0]?.text, "hello from responses");
+  assert.deepEqual(response.body.usage, {
+    input_tokens: 8,
+    output_tokens: 5,
+    total_tokens: 13,
+  });
   assert.ok(response.headers["x-request-id"]);
 });
 

@@ -5,6 +5,7 @@
 - 对外支持 `/api/anthropic/*`
 - 对外支持 `/api/gemini/*`
 - 对外支持 `/api/openrouter/*`
+- 对外支持 `/api/openai/*`
 
 ## 只看这几个文件
 
@@ -49,3 +50,6 @@
 | `POST /api/gemini/v1beta/models/{model}:streamGenerateContent?alt=sse` | 是 | Gemini 原生流式接口 |
 | `GET /api/openrouter/v1/models` | 否 | 返回 OpenRouter OpenAI 兼容模型列表 |
 | `POST /api/openrouter/v1/chat/completions` | 是 | OpenRouter OpenAI 兼容 chat completions 接口 |
+| `GET /api/openai/v1/models` | 否 | 返回 OpenAI 模型列表 |
+| `POST /api/openai/v1/chat/completions` | 是 | OpenAI chat completions 接口 |
+| `POST /api/openai/v1/responses` | 是 | OpenAI responses 接口 |

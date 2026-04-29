@@ -556,6 +556,9 @@ console.log(data);`;
               { method: "POST", path: "/v1/messages", desc: "Anthropic native messages API (streaming supported)" },
               { method: "GET", path: "/v1beta/models", desc: "List available Gemini models" },
               { method: "POST", path: "/v1beta/models/{model}:generateContent", desc: "Gemini native generateContent API" },
+              { method: "GET", path: "/openai/v1/models", desc: "List available OpenAI models" },
+              { method: "POST", path: "/openai/v1/chat/completions", desc: "OpenAI chat completions API" },
+              { method: "POST", path: "/openai/v1/responses", desc: "OpenAI responses API" },
             ].map((ep) => (
               <div key={ep.path} className="flex items-start gap-3 p-3 rounded-lg bg-black/20 border border-white/5">
                 <span className={`mt-0.5 shrink-0 text-xs font-bold px-1.5 py-0.5 rounded font-mono ${
