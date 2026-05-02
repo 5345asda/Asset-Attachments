@@ -14,7 +14,7 @@ args = ["pnpm", "store", "prune"]
 env = { "CI" = "true" }
 
 [workflows]
-runButton = "Project"
+runButton = "Start application"
 
 [gitHubImport]
 requiredFiles = [".replit", "package.json", "pnpm-workspace.yaml"]

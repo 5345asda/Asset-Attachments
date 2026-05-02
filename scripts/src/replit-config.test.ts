@@ -283,6 +283,14 @@ test(".replit pins the one-click deployment commands at the repo root", async ()
   assert.match(replitConfig, /^build = "pnpm run build:deploy"$/m);
   assert.match(replitConfig, /^run = "pnpm start"$/m);
   assert.match(replitConfig, /^router = "application"$/m);
+  assert.match(replitConfig, /^runButton = "Start application"$/m);
+});
+
+test("runtime fast-start .replit avoids Replit-disabled workflow names", async () => {
+  const buildScript = await readFile(path.join(repoRoot, "scripts", "build-replit-runtime.mjs"), "utf8");
+
+  assert.match(buildScript, /runButton = "Start application"/);
+  assert.doesNotMatch(buildScript, /runButton = "Project"/);
 });
 
 test("api-server production build avoids source maps and dev-only pretty logging transport", async () => {

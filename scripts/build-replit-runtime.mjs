@@ -114,7 +114,7 @@ router = "application"
 deploymentTarget = "autoscale"
 
 [workflows]
-runButton = "Project"
+runButton = "Start application"
 
 [gitHubImport]
 requiredFiles = [".replit", "package.json", "server/start.mjs"]
