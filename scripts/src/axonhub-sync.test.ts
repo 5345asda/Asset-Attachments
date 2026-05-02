@@ -73,6 +73,20 @@ const EXPECTED_AXONHUB_CODEX_MODELS = [
 ] as const;
 
 const EXPECTED_AXONHUB_OPENROUTER_MODELS = [
+  "anthropic/claude-opus-4.7",
+  "anthropic/claude-opus-4.6-fast",
+  "anthropic/claude-sonnet-4.6",
+  "anthropic/claude-opus-4.6",
+  "anthropic/claude-opus-4.5",
+  "anthropic/claude-haiku-4.5",
+  "anthropic/claude-sonnet-4.5",
+  "anthropic/claude-opus-4.1",
+  "anthropic/claude-opus-4",
+  "anthropic/claude-sonnet-4",
+  "anthropic/claude-3.7-sonnet",
+  "anthropic/claude-3.7-sonnet:thinking",
+  "anthropic/claude-3.5-haiku",
+  "anthropic/claude-3-haiku",
   "moonshotai/kimi-k2.6",
   "moonshotai/kimi-k2.5",
   "qwen/qwen3.6-flash",

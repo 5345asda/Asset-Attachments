@@ -84,6 +84,20 @@ const EXPECTED_AXONHUB_CODEX_MODELS = [
   "o3-mini",
 ] as const;
 const EXPECTED_AXONHUB_OPENROUTER_MODELS = [
+  "anthropic/claude-opus-4.7",
+  "anthropic/claude-opus-4.6-fast",
+  "anthropic/claude-sonnet-4.6",
+  "anthropic/claude-opus-4.6",
+  "anthropic/claude-opus-4.5",
+  "anthropic/claude-haiku-4.5",
+  "anthropic/claude-sonnet-4.5",
+  "anthropic/claude-opus-4.1",
+  "anthropic/claude-opus-4",
+  "anthropic/claude-sonnet-4",
+  "anthropic/claude-3.7-sonnet",
+  "anthropic/claude-3.7-sonnet:thinking",
+  "anthropic/claude-3.5-haiku",
+  "anthropic/claude-3-haiku",
   "moonshotai/kimi-k2.6",
   "moonshotai/kimi-k2.5",
   "qwen/qwen3.6-flash",
@@ -207,7 +221,7 @@ test("AxonHub status-page copy stays aligned with the backend sync model lists",
   );
   assert.match(
     statusPageSource,
-    /supportedModels=moonshotai\/kimi-k2\.6 \/ moonshotai\/kimi-k2\.5 \/ qwen\/qwen3\.6-flash \/ qwen\/qwen3\.6-35b-a3b \/ qwen\/qwen3\.6-max-preview \/ z-ai\/glm-5\.1 \/ z-ai\/glm-5v-turbo \/ z-ai\/glm-5-turbo \/ z-ai\/glm-5 \/ z-ai\/glm-4\.7-flash \/ z-ai\/glm-4\.7 \/ openai\/gpt-5\.4-nano \/ openai\/gpt-5\.4-pro \/ openai\/gpt-4o \/ x-ai\/grok-4\.20-multi-agent \/ x-ai\/grok-4\.20 \/ deepseek\/deepseek-v4-pro \/ deepseek\/deepseek-v4-flash \/ deepseek\/deepseek-v3\.2 \/ deepseek\/deepseek-v3\.2-exp \/ deepseek\/deepseek-r1 \/ deepseek\/deepseek-r1-0528 \/ minimax\/minimax-m2\.7 \/ minimax\/minimax-m2\.5 \/ xiaomi\/mimo-v2\.5 \/ xiaomi\/mimo-v2\.5-pro/,
+    /supportedModels=anthropic\/claude-opus-4\.7 \/ anthropic\/claude-opus-4\.6-fast \/ anthropic\/claude-sonnet-4\.6 \/ anthropic\/claude-opus-4\.6 \/ anthropic\/claude-opus-4\.5 \/ anthropic\/claude-haiku-4\.5 \/ anthropic\/claude-sonnet-4\.5 \/ anthropic\/claude-opus-4\.1 \/ anthropic\/claude-opus-4 \/ anthropic\/claude-sonnet-4 \/ anthropic\/claude-3\.7-sonnet \/ anthropic\/claude-3\.7-sonnet:thinking \/ anthropic\/claude-3\.5-haiku \/ anthropic\/claude-3-haiku \/ moonshotai\/kimi-k2\.6 \/ moonshotai\/kimi-k2\.5 \/ qwen\/qwen3\.6-flash \/ qwen\/qwen3\.6-35b-a3b \/ qwen\/qwen3\.6-max-preview \/ z-ai\/glm-5\.1 \/ z-ai\/glm-5v-turbo \/ z-ai\/glm-5-turbo \/ z-ai\/glm-5 \/ z-ai\/glm-4\.7-flash \/ z-ai\/glm-4\.7 \/ openai\/gpt-5\.4-nano \/ openai\/gpt-5\.4-pro \/ openai\/gpt-4o \/ x-ai\/grok-4\.20-multi-agent \/ x-ai\/grok-4\.20 \/ deepseek\/deepseek-v4-pro \/ deepseek\/deepseek-v4-flash \/ deepseek\/deepseek-v3\.2 \/ deepseek\/deepseek-v3\.2-exp \/ deepseek\/deepseek-r1 \/ deepseek\/deepseek-r1-0528 \/ minimax\/minimax-m2\.7 \/ minimax\/minimax-m2\.5 \/ xiaomi\/mimo-v2\.5 \/ xiaomi\/mimo-v2\.5-pro/,
   );
   assert.match(statusPageSource, /\/openai\/v1\/images\/generations/);
   assert.match(statusPageSource, /gpt-image-1/);
