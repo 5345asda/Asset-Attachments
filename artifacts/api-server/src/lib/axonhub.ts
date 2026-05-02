@@ -59,6 +59,7 @@ export const AXONHUB_OPENROUTER_SUPPORTED_MODELS = [
   "openai/gpt-5.4-nano",
   "openai/gpt-5.4-pro",
   "openai/gpt-4o",
+  "x-ai/grok-4.3",
   "x-ai/grok-4.20-multi-agent",
   "x-ai/grok-4.20",
   "deepseek/deepseek-v4-pro",
