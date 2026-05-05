@@ -508,9 +508,11 @@ console.log(data);`;
                   <span className="text-foreground"> baseURL={baseUrl || " /api/anthropic"}</span>,
                   <span className="text-foreground"> defaultTestModel=claude-opus-4-5</span>,
                   <span className="text-foreground"> supportedModels=claude-opus-4-7 / claude-opus-4-6 / claude-opus-4-5 / claude-sonnet-4-6 / claude-sonnet-4-5 / claude-haiku-4-5 / claude-opus-4-1</span>.
-                  All five paths are synced back with
+                  OpenRouter is synced back with
                   <span className="text-foreground"> status=enabled</span>,
                   <span className="text-foreground"> settings.passThroughUserAgent=inherit</span>, and
+                  <span className="text-foreground"> settings.passThroughBody=true</span>.
+                  Other AxonHub paths keep
                   <span className="text-foreground"> settings.passThroughBody=false</span>.
                 </p>
               </div>

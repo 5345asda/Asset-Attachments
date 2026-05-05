@@ -245,7 +245,7 @@ interface AxonHubCreateChannelInput {
   autoSyncSupportedModels: false;
   autoSyncModelPattern: "";
   settings: {
-    passThroughBody: false;
+    passThroughBody: boolean;
   };
   tags: string[];
   remark: string;
@@ -331,7 +331,7 @@ export function buildAxonHubChannelInput({
     autoSyncSupportedModels: false,
     autoSyncModelPattern: "",
     settings: {
-      passThroughBody: false,
+      passThroughBody: provider === "openrouter",
     },
     tags: [],
     remark: AXONHUB_REMARK,

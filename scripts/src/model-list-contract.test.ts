@@ -244,7 +244,9 @@ test("AxonHub status-page copy stays aligned with the backend sync model lists",
     statusPageSource,
     /supportedModels=claude-opus-4-7 \/ claude-opus-4-6 \/ claude-opus-4-5 \/ claude-sonnet-4-6 \/ claude-sonnet-4-5 \/ claude-haiku-4-5 \/ claude-opus-4-1/,
   );
-  assert.match(statusPageSource, /All five paths are synced back with/);
+  assert.match(statusPageSource, /OpenRouter is synced back with/);
   assert.match(statusPageSource, /settings\.passThroughUserAgent=inherit/);
+  assert.match(statusPageSource, /settings\.passThroughBody=true/);
+  assert.match(statusPageSource, /Other AxonHub paths keep/);
   assert.match(statusPageSource, /settings\.passThroughBody=false/);
 });

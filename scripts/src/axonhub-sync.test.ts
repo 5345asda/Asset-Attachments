@@ -133,6 +133,10 @@ const EXPECTED_AXONHUB_CHANNEL_SETTINGS = {
   passThroughBody: false,
 } as const;
 
+const EXPECTED_AXONHUB_OPENROUTER_CHANNEL_SETTINGS = {
+  passThroughBody: true,
+} as const;
+
 function toTitleCase(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
@@ -292,7 +296,7 @@ test("buildAxonHubChannelInput uses the fixed codex channel format", () => {
   });
 });
 
-test("buildAxonHubChannelInput uses the fixed openrouter channel format", () => {
+test("buildAxonHubChannelInput uses the fixed openrouter channel format with body passthrough", () => {
   const input = buildAxonHubChannelInput({
     provider: "openrouter",
     projectOrigin: "https://proxy.example:8443/",
@@ -311,7 +315,7 @@ test("buildAxonHubChannelInput uses the fixed openrouter channel format", () => 
     manualModels: EXPECTED_AXONHUB_OPENROUTER_MODELS,
     autoSyncSupportedModels: false,
     autoSyncModelPattern: "",
-    settings: EXPECTED_AXONHUB_CHANNEL_SETTINGS,
+    settings: EXPECTED_AXONHUB_OPENROUTER_CHANNEL_SETTINGS,
     tags: [],
     remark: "Managed by Asset-Attachments",
   });
@@ -1088,7 +1092,7 @@ test("syncAxonHubChannel creates a new openrouter channel when openrouter is bel
     manualModels: EXPECTED_AXONHUB_OPENROUTER_MODELS,
     autoSyncSupportedModels: false,
     autoSyncModelPattern: "",
-    settings: EXPECTED_AXONHUB_CHANNEL_SETTINGS,
+    settings: EXPECTED_AXONHUB_OPENROUTER_CHANNEL_SETTINGS,
     tags: [],
     remark: "Managed by Asset-Attachments",
   });
