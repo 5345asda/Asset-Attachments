@@ -11,7 +11,7 @@ import {
 } from "../lib/anthropic-structured-output";
 import { normalizeAnthropicResponseMessage } from "../lib/anthropic-message-id";
 import { getRequestLogger } from "../lib/request-context";
-import { sanitizeUpstreamError } from "../lib/upstream-error";
+import { normalizeUpstreamStatus, sanitizeUpstreamError } from "../lib/upstream-error";
 import {
   pipeAnthropicStreamWithUsageAdjust,
 } from "../lib/stream";
@@ -159,7 +159,7 @@ async function passthrough(
   const isStream =
     contentType.includes("text/event-stream") || contentType.includes("application/stream");
 
-  response.status(upstream.status);
+  response.status(normalizeUpstreamStatus(upstream.status));
   response.setHeader("Content-Type", contentType);
 
   if (!upstream.ok) {

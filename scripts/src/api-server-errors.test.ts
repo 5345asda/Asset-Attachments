@@ -429,7 +429,7 @@ test("public openai model routes expose the curated supported-model list without
   assert.ok(legacyResponse.headers.get("x-request-id"));
 });
 
-test("legacy /api/v1 routes are no longer supported", async (t) => {
+test("legacy /api/v1 routes return 401 instead of 404", async (t) => {
   const previousProxyKey = process.env.PROXY_API_KEY;
   process.env.PROXY_API_KEY = "sk-proxy-test";
 
@@ -455,7 +455,28 @@ test("legacy /api/v1 routes are no longer supported", async (t) => {
       messages: [{ role: "user", content: "hello" }],
     }),
   });
-  assert.equal(response.status, 404);
+  assert.equal(response.status, 401);
+});
+
+test("unmatched routes return 401 instead of 404", async (t) => {
+  const previousProxyKey = process.env.PROXY_API_KEY;
+  process.env.PROXY_API_KEY = "sk-proxy-test";
+
+  const server = await startAppServer();
+
+  t.after(async () => {
+    await server.close();
+
+    if (previousProxyKey === undefined) {
+      delete process.env.PROXY_API_KEY;
+    } else {
+      process.env.PROXY_API_KEY = previousProxyKey;
+    }
+  });
+
+  const response = await fetch(`http://127.0.0.1:${server.port}/totally-missing`);
+
+  assert.equal(response.status, 401);
 });
 
 test("openai passthrough returns 503 when OpenAI provider is not configured", async (t) => {
@@ -762,6 +783,64 @@ test("openrouter passthrough redacts upstream spend-limit errors", async (t) => 
     "Request failed: Forbidden, error: Provider account unavailable., type: api_error",
   );
   assert.doesNotMatch(body, /Free tier monthly spend limit exceeded/i);
+  assert.ok(response.headers.get("x-request-id"));
+});
+
+test("openrouter model list maps upstream 404 to 401", async (t) => {
+  const previousEnv = {
+    PROXY_API_KEY: process.env.PROXY_API_KEY,
+    AI_INTEGRATIONS_OPENROUTER_BASE_URL: process.env.AI_INTEGRATIONS_OPENROUTER_BASE_URL,
+    AI_INTEGRATIONS_OPENROUTER_API_KEY: process.env.AI_INTEGRATIONS_OPENROUTER_API_KEY,
+    OPENROUTER_BASE_URL: process.env.OPENROUTER_BASE_URL,
+    OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
+  };
+
+  process.env.PROXY_API_KEY = "sk-proxy-test";
+  process.env.AI_INTEGRATIONS_OPENROUTER_BASE_URL = "https://openrouter.integration.test/api/v1";
+  process.env.AI_INTEGRATIONS_OPENROUTER_API_KEY = "openrouter-integration-test-key";
+  delete process.env.OPENROUTER_BASE_URL;
+  delete process.env.OPENROUTER_API_KEY;
+
+  const originalFetch = globalThis.fetch;
+
+  globalThis.fetch = (async () => new Response(
+    JSON.stringify({
+      error: {
+        message: "No such upstream endpoint",
+        type: "not_found",
+      },
+    }),
+    {
+      status: 404,
+      headers: { "content-type": "application/json" },
+    },
+  )) as typeof fetch;
+
+  const server = await startAppServer();
+
+  t.after(async () => {
+    globalThis.fetch = originalFetch;
+    await server.close();
+
+    for (const [key, value] of Object.entries(previousEnv)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  });
+
+  const response = await originalFetch(`http://127.0.0.1:${server.port}/api/openrouter/v1/models`);
+  const body = await response.json();
+
+  assert.equal(response.status, 401);
+  assert.deepEqual(body, {
+    error: {
+      message: "No such upstream endpoint",
+      type: "not_found",
+    },
+  });
   assert.ok(response.headers.get("x-request-id"));
 });
 
@@ -1661,6 +1740,71 @@ test("openai passthrough accepts Replit integration secrets and forwards chat co
     prompt_tokens: 10,
     completion_tokens: 4,
     total_tokens: 14,
+  });
+  assert.ok(response.headers["x-request-id"]);
+});
+
+test("openai chat completions maps upstream 404 to 401", async (t) => {
+  const previousEnv = {
+    PROXY_API_KEY: process.env.PROXY_API_KEY,
+    AI_INTEGRATIONS_OPENAI_BASE_URL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+    AI_INTEGRATIONS_OPENAI_API_KEY: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+    OPENAI_BASE_URL: process.env.OPENAI_BASE_URL,
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+  };
+
+  process.env.PROXY_API_KEY = "sk-proxy-test";
+  process.env.AI_INTEGRATIONS_OPENAI_BASE_URL = "https://openai.integration.test/v1";
+  process.env.AI_INTEGRATIONS_OPENAI_API_KEY = "openai-integration-test-key";
+  delete process.env.OPENAI_BASE_URL;
+  delete process.env.OPENAI_API_KEY;
+
+  const originalFetch = globalThis.fetch;
+
+  globalThis.fetch = (async () => new Response(
+    JSON.stringify({
+      error: {
+        message: "The requested resource does not exist",
+        type: "invalid_request_error",
+      },
+    }),
+    {
+      status: 404,
+      headers: { "content-type": "application/json" },
+    },
+  )) as typeof fetch;
+
+  const server = await startAppServer();
+
+  t.after(async () => {
+    globalThis.fetch = originalFetch;
+    await server.close();
+
+    for (const [key, value] of Object.entries(previousEnv)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  });
+
+  const response = await postJson(`http://127.0.0.1:${server.port}/api/openai/v1/chat/completions`, {
+    headers: {
+      authorization: "Bearer sk-proxy-test",
+    },
+    body: {
+      model: "gpt-5",
+      messages: [{ role: "user", content: "hello" }],
+    },
+  });
+
+  assert.equal(response.status, 401);
+  assert.deepEqual(response.body, {
+    error: {
+      message: "The requested resource does not exist",
+      type: "invalid_request_error",
+    },
   });
   assert.ok(response.headers["x-request-id"]);
 });

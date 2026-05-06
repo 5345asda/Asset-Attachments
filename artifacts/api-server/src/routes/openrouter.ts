@@ -4,7 +4,7 @@ import { applyBillingOai } from "../lib/billing";
 import { getOpenRouterProviderConfig } from "../lib/openrouter-provider";
 import { getRequestLogger } from "../lib/request-context";
 import { pipeReaderToResponse } from "../lib/stream";
-import { sanitizeUpstreamError } from "../lib/upstream-error";
+import { normalizeUpstreamStatus, sanitizeUpstreamError } from "../lib/upstream-error";
 
 const router = Router();
 
@@ -97,7 +97,7 @@ export async function handleOpenRouterModelList(
     const sanitizedUpstreamError = sanitizeUpstreamError(upstreamError);
 
     const contentType = upstream.headers.get("content-type") || "application/json";
-    response.status(upstream.status);
+    response.status(normalizeUpstreamStatus(upstream.status));
     response.setHeader("Content-Type", contentType);
 
     requestLogger.warn(
@@ -119,7 +119,7 @@ export async function handleOpenRouterModelList(
   }
 
   const contentType = upstream.headers.get("content-type") || "application/json";
-  response.status(upstream.status);
+  response.status(normalizeUpstreamStatus(upstream.status));
   response.setHeader("Content-Type", contentType);
   response.end(Buffer.from(await upstream.arrayBuffer()));
 }
@@ -168,7 +168,7 @@ async function passthrough(
   const isStream =
     contentType.includes("text/event-stream") || contentType.includes("application/stream");
 
-  response.status(upstream.status);
+  response.status(normalizeUpstreamStatus(upstream.status));
   response.setHeader("Content-Type", contentType);
 
   if (!upstream.ok) {

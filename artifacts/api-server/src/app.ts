@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { existsSync } from "node:fs";
 import router from "./routes";
 import { logger } from "./lib/logger";
-import { handleRouteError } from "./lib/api-error";
+import { ApiError, handleRouteError } from "./lib/api-error";
 import { createHttpLoggerOptions } from "./lib/request-context";
 
 const app: Express = express();
@@ -25,6 +25,19 @@ if (staticDir && existsSync(staticDir)) {
   });
   logger.info({ staticDir }, "Serving static frontend files");
 }
+
+app.use((req, _res, next) => {
+  next(new ApiError({
+    status: 401,
+    message: "Unauthorized",
+    code: "route_not_found",
+    details: {
+      method: req.method,
+      path: req.originalUrl,
+    },
+    logLevel: "warn",
+  }));
+});
 
 app.use(handleRouteError);
 
