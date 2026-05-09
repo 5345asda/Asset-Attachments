@@ -14,6 +14,7 @@ export const ANTHROPIC_MODELS = [
 const CLAUDE_OPUS_4_7 = "claude-opus-4-7";
 const TEMPERATURE_DEPRECATED_MODELS = new Set(["claude-opus-4-7"]);
 const STRICT_SAMPLING_DISABLED_MODELS = new Set(["claude-opus-4-7"]);
+const ANTHROPIC_TOOL_NAME_PATTERN = /^[a-zA-Z0-9_-]{1,64}$/;
 
 const now = new Date().toISOString();
 
@@ -39,6 +40,61 @@ type Message = {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function normalizeAnthropicTools(tools: unknown, model: unknown): unknown {
+  if (!Array.isArray(tools)) {
+    return tools;
+  }
+
+  let trimmedCount = 0;
+  let droppedCount = 0;
+  const normalized: unknown[] = [];
+
+  for (const tool of tools) {
+    if (!isRecord(tool)) {
+      droppedCount += 1;
+      continue;
+    }
+
+    const rawName = tool.name;
+    if (typeof rawName !== "string") {
+      droppedCount += 1;
+      continue;
+    }
+
+    const name = rawName.trim();
+    if (!ANTHROPIC_TOOL_NAME_PATTERN.test(name)) {
+      droppedCount += 1;
+      continue;
+    }
+
+    if (name !== rawName) {
+      trimmedCount += 1;
+      normalized.push({ ...tool, name });
+      continue;
+    }
+
+    normalized.push(tool);
+  }
+
+  if (trimmedCount > 0 || droppedCount > 0) {
+    logger.warn(
+      { model, inputCount: tools.length, keptCount: normalized.length, droppedCount, trimmedCount },
+      "Anthropic: removed tools with invalid names before upstream call",
+    );
+  }
+
+  if (
+    droppedCount === 0 &&
+    trimmedCount === 0 &&
+    normalized.length === tools.length &&
+    normalized.every((tool, index) => tool === tools[index])
+  ) {
+    return tools;
+  }
+
+  return normalized;
 }
 
 function isClaudeOpus47(model: unknown): boolean {
@@ -818,6 +874,16 @@ export function sanitizeAnthropicBody(body: JsonObject): JsonObject {
       "Anthropic: removed top_p — cannot specify both temperature and top_p; keeping temperature",
     );
     result = rest;
+  }
+
+  if (Array.isArray(result.tools)) {
+    const nextTools = normalizeAnthropicTools(result.tools, result.model);
+    if (nextTools !== result.tools) {
+      result = {
+        ...result,
+        tools: nextTools,
+      };
+    }
   }
 
   if (Array.isArray(result.tools) && result.tools.length === 0) {
