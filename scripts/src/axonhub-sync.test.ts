@@ -808,6 +808,129 @@ test("syncAxonHubChannel updates the existing anthropic channel for the current 
   });
 });
 
+test("syncAxonHubChannel updates the existing project channel when create returns a duplicate channel-name error", async () => {
+  const calls: Array<{ input: FetchInput; init?: RequestInit }> = [];
+  const fetchMock: typeof fetch = async (input, init) => {
+    calls.push({ input, init });
+
+    const body = JSON.parse(String(init?.body ?? "{}")) as {
+      query?: string;
+      variables?: {
+        id?: string;
+      };
+    };
+
+    if (body.query?.includes("query SyncAxonHubChannelLookup")) {
+      return jsonResponse({
+        data: {
+          queryChannels: {
+            edges: [
+              ...managedProviderChannels("anthropic", 9).map((node) => ({ node })),
+              {
+                node: managedChannel({
+                  id: "gid://axonhub/Channel/70",
+                  type: "openrouter",
+                  baseURL: "https://proxy.example/api/openrouter",
+                  status: "archived",
+                }),
+              },
+              ...managedProviderChannels("openrouter", 10, { startIndex: 101 }).map((node) => ({ node })),
+              ...managedProviderChannels("gemini", 10, { startIndex: 201 }).map((node) => ({ node })),
+              ...managedProviderChannels("openai", 10, { startIndex: 301 }).map((node) => ({ node })),
+              ...managedProviderChannels("codex", 10, { startIndex: 401 }).map((node) => ({ node })),
+            ],
+          },
+        },
+      });
+    }
+
+    if (body.query?.includes("mutation CreateChannel")) {
+      return jsonResponse({
+        errors: [
+          {
+            message: "channel name 'proxy' already exists",
+          },
+        ],
+      });
+    }
+
+    if (body.query?.includes("mutation UpdateChannel")) {
+      return jsonResponse({
+        data: {
+          updateChannel: {
+            id: body.variables?.id,
+            name: "proxy",
+            type: "anthropic",
+            baseURL: "https://proxy.example/api/anthropic",
+            status: "enabled",
+          },
+        },
+      });
+    }
+
+    throw new Error(`Unexpected GraphQL document: ${body.query}`);
+  };
+
+  const result = await syncAxonHubChannel({
+    projectOrigin: "https://proxy.example",
+    proxyKey: "sk-proxy-test",
+    adminToken: "plain-token",
+    fetchImpl: fetchMock,
+  });
+
+  assert.equal(result.mode, "updated");
+  assert.equal(result.provider, "anthropic");
+  assert.equal(result.channel.id, "gid://axonhub/Channel/70");
+  assert.equal(calls.length, 3);
+
+  const createBody = JSON.parse(String(calls[1]?.init?.body ?? "{}")) as {
+    variables?: {
+      input?: unknown;
+    };
+  };
+  const updateBody = JSON.parse(String(calls[2]?.init?.body ?? "{}")) as {
+    variables?: {
+      id?: string;
+      input?: unknown;
+    };
+  };
+
+  assert.deepEqual(createBody.variables?.input, {
+    type: "anthropic",
+    name: "proxy",
+    baseURL: "https://proxy.example/api/anthropic",
+    credentials: {
+      apiKey: "sk-proxy-test",
+    },
+    supportedModels: AXONHUB_SUPPORTED_MODELS,
+    defaultTestModel: AXONHUB_DEFAULT_TEST_MODEL,
+    manualModels: AXONHUB_SUPPORTED_MODELS,
+    autoSyncSupportedModels: false,
+    autoSyncModelPattern: "",
+    settings: EXPECTED_AXONHUB_CHANNEL_SETTINGS,
+    tags: [],
+    remark: "Managed by Asset-Attachments",
+  });
+  assert.equal(updateBody.variables?.id, "gid://axonhub/Channel/70");
+  assert.deepEqual(updateBody.variables?.input, {
+    type: "anthropic",
+    name: "proxy",
+    baseURL: "https://proxy.example/api/anthropic",
+    status: "enabled",
+    credentials: {
+      apiKey: "sk-proxy-test",
+    },
+    supportedModels: AXONHUB_SUPPORTED_MODELS,
+    defaultTestModel: AXONHUB_DEFAULT_TEST_MODEL,
+    manualModels: AXONHUB_SUPPORTED_MODELS,
+    autoSyncSupportedModels: false,
+    autoSyncModelPattern: "",
+    settings: EXPECTED_AXONHUB_CHANNEL_SETTINGS,
+    tags: [],
+    remark: "Managed by Asset-Attachments",
+  });
+});
+
 test("syncAxonHubChannel updates the existing anthropic channel when AxonHub returns title-cased provider and status values", async () => {
   const calls: Array<{ input: FetchInput; init?: RequestInit }> = [];
   const fetchMock: typeof fetch = async (input, init) => {

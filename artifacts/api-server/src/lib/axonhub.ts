@@ -466,6 +466,41 @@ function buildAxonHubUpdateChannelInput(
   };
 }
 
+function isDuplicateChannelNameError(error: unknown): error is AxonHubSyncError {
+  return error instanceof AxonHubSyncError
+    && /channel name ['"].+['"] already exists/i.test(error.message);
+}
+
+function findConflictingProjectChannel(
+  channels: ReadonlyArray<GraphQlChannelNode | null | undefined>,
+  projectOrigin: string,
+  channelName: string,
+): GraphQlChannelNode | undefined {
+  const normalizedProjectOrigin = normalizeOrigin(projectOrigin);
+  const projectBasePrefix = `${normalizedProjectOrigin}/api/`;
+  const projectMatch = channels.find((channel): channel is GraphQlChannelNode => {
+    return !!channel
+      && channel.name === channelName
+      && channel.baseURL.startsWith(projectBasePrefix);
+  });
+
+  if (projectMatch) {
+    return projectMatch;
+  }
+
+  const managedNameMatches = channels.filter((channel): channel is GraphQlChannelNode => {
+    return !!channel
+      && channel.name === channelName
+      && channel.remark === AXONHUB_REMARK;
+  });
+
+  if (managedNameMatches.length === 1) {
+    return managedNameMatches[0];
+  }
+
+  return undefined;
+}
+
 async function postGraphQl<TData>(
   query: string,
   variables: Record<string, unknown>,
@@ -553,6 +588,7 @@ export async function syncAxonHubChannel({
     projectOrigin,
     proxyKey,
   });
+  const updateInput = buildAxonHubUpdateChannelInput(input);
 
   const existingChannel = channels
     .find((channel): channel is GraphQlChannelNode => {
@@ -562,8 +598,6 @@ export async function syncAxonHubChannel({
     });
 
   if (existingChannel) {
-    const updateInput = buildAxonHubUpdateChannelInput(input);
-
     const updated = await postGraphQl<UpdateChannelResponse>(
       UPDATE_CHANNEL_MUTATION,
       {
@@ -585,22 +619,58 @@ export async function syncAxonHubChannel({
     };
   }
 
-  const created = await postGraphQl<CreateChannelResponse>(
-    CREATE_CHANNEL_MUTATION,
-    {
-      input,
-    },
-    adminToken,
-    fetchImpl,
-  );
+  try {
+    const created = await postGraphQl<CreateChannelResponse>(
+      CREATE_CHANNEL_MUTATION,
+      {
+        input,
+      },
+      adminToken,
+      fetchImpl,
+    );
 
-  if (!created.createChannel) {
-    throw new AxonHubSyncError("AxonHub did not return the created channel", 502);
+    if (!created.createChannel) {
+      throw new AxonHubSyncError("AxonHub did not return the created channel", 502);
+    }
+
+    return {
+      mode: "created",
+      provider,
+      channel: created.createChannel,
+    };
+  } catch (error) {
+    if (!isDuplicateChannelNameError(error)) {
+      throw error;
+    }
+
+    const conflictingChannel = findConflictingProjectChannel(
+      channels,
+      projectOrigin,
+      input.name,
+    );
+
+    if (!conflictingChannel) {
+      throw error;
+    }
+
+    const updated = await postGraphQl<UpdateChannelResponse>(
+      UPDATE_CHANNEL_MUTATION,
+      {
+        id: conflictingChannel.id,
+        input: updateInput,
+      },
+      adminToken,
+      fetchImpl,
+    );
+
+    if (!updated.updateChannel) {
+      throw new AxonHubSyncError("AxonHub did not return the updated channel", 502);
+    }
+
+    return {
+      mode: "updated",
+      provider,
+      channel: updated.updateChannel,
+    };
   }
-
-  return {
-    mode: "created",
-    provider,
-    channel: created.createChannel,
-  };
 }
