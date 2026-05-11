@@ -15,16 +15,45 @@ function makeChannel(id: number, overrides: Record<string, unknown> = {}) {
   };
 }
 
-test("syncAxonHubChannel paginates past the first 100 channels before choosing provider", async () => {
-  const lookupPageOne = Array.from({ length: 100 }, (_, index) => ({
-    node: makeChannel(index + 1),
-  }));
-
+test("syncAxonHubChannel fetches the full channel list without pagination before choosing provider", async () => {
   const projectOrigin = "https://asset-attachments--nicole19720518.replit.app";
   const geminiBaseUrl = `${projectOrigin}/api/gemini`;
-  const lookupPageTwo = [
-    ...Array.from({ length: 16 }, (_, index) => ({
+  const lookupEdges = [
+    ...Array.from({ length: 10 }, (_, index) => ({
       node: makeChannel(200 + index, {
+        type: "anthropic",
+        remark: "Managed by Asset-Attachments",
+        status: "enabled",
+      }),
+    })),
+    ...Array.from({ length: 10 }, (_, index) => ({
+      node: makeChannel(300 + index, {
+        type: "openrouter",
+        baseURL: `https://openrouter-${300 + index}.replit.app/api/openrouter`,
+        remark: "Managed by Asset-Attachments",
+        status: "enabled",
+      }),
+    })),
+    ...Array.from({ length: 8 }, (_, index) => ({
+      node: makeChannel(400 + index, {
+        type: "gemini",
+        baseURL: `https://gemini-${400 + index}.replit.app/api/gemini`,
+        remark: "Managed by Asset-Attachments",
+        status: "enabled",
+      }),
+    })),
+    ...Array.from({ length: 10 }, (_, index) => ({
+      node: makeChannel(500 + index, {
+        type: "openai",
+        baseURL: `https://openai-${500 + index}.replit.app/api/openai`,
+        remark: "Managed by Asset-Attachments",
+        status: "enabled",
+      }),
+    })),
+    ...Array.from({ length: 10 }, (_, index) => ({
+      node: makeChannel(600 + index, {
+        type: "codex",
+        baseURL: `https://codex-${600 + index}.replit.app/api/openai`,
         remark: "Managed by Asset-Attachments",
         status: "enabled",
       }),
@@ -53,29 +82,13 @@ test("syncAxonHubChannel paginates past the first 100 channels before choosing p
     requests.push(payload);
 
     if (payload.query.includes("query SyncAxonHubChannelLookup")) {
-      const after = ((payload.variables.input as Record<string, unknown> | undefined)?.after as string | undefined) ?? null;
-
-      const data = after
-        ? {
-            queryChannels: {
-              edges: lookupPageTwo,
-              pageInfo: {
-                hasNextPage: false,
-                endCursor: null,
-              },
-            },
-          }
-        : {
-            queryChannels: {
-              edges: lookupPageOne,
-              pageInfo: {
-                hasNextPage: true,
-                endCursor: "cursor-1",
-              },
-            },
-          };
-
-      return new Response(JSON.stringify({ data }), {
+      return new Response(JSON.stringify({
+        data: {
+          queryChannels: {
+            edges: lookupEdges,
+          },
+        },
+      }), {
         status: 200,
         headers: {
           "Content-Type": "application/json",
@@ -131,12 +144,8 @@ test("syncAxonHubChannel paginates past the first 100 channels before choosing p
 
   const lookupRequests = requests.filter((request) => request.query.includes("query SyncAxonHubChannelLookup"));
 
-  assert.equal(lookupRequests.length, 2);
-  assert.equal(lookupRequests.every((request) => request.query.includes("pageInfo")), true);
-  assert.deepEqual(lookupRequests.map((request) => request.variables.input), [
-    { first: 100 },
-    { first: 100, after: "cursor-1" },
-  ]);
+  assert.equal(lookupRequests.length, 1);
+  assert.deepEqual(lookupRequests[0]?.variables.input, {});
   assert.equal(result.provider, "gemini");
   assert.equal(result.mode, "updated");
   assert.equal(result.channel.baseURL, geminiBaseUrl);

@@ -97,8 +97,6 @@ const AXONHUB_PROVIDER_ORDER: readonly AxonHubProvider[] = [
   "openai",
   "codex",
 ];
-const AXONHUB_LOOKUP_PAGE_SIZE = 100;
-
 const LOOKUP_CHANNELS_QUERY = `
   query SyncAxonHubChannelLookup($input: QueryChannelInput!) {
     queryChannels(input: $input) {
@@ -111,10 +109,6 @@ const LOOKUP_CHANNELS_QUERY = `
           remark
           status
         }
-      }
-      pageInfo {
-        hasNextPage
-        endCursor
       }
     }
   }
@@ -156,10 +150,6 @@ interface SyncLookupResponse {
     edges?: Array<{
       node?: GraphQlChannelNode | null;
     }>;
-    pageInfo?: {
-      hasNextPage?: boolean | null;
-      endCursor?: string | null;
-    };
   };
 }
 
@@ -558,29 +548,15 @@ export async function syncAxonHubChannel({
   adminToken,
   fetchImpl = fetch,
 }: SyncAxonHubChannelOptions): Promise<SyncAxonHubChannelResult> {
-  const channels: Array<GraphQlChannelNode | null | undefined> = [];
-  let after: string | undefined;
-  let hasNextPage = true;
-
-  while (hasNextPage) {
-    const lookup = await postGraphQl<SyncLookupResponse>(
-      LOOKUP_CHANNELS_QUERY,
-      {
-        input: {
-          first: AXONHUB_LOOKUP_PAGE_SIZE,
-          ...(after ? { after } : {}),
-        },
-      },
-      adminToken,
-      fetchImpl,
-    );
-
-    channels.push(...(lookup.queryChannels?.edges?.map((edge) => edge.node) ?? []));
-
-    const pageInfo = lookup.queryChannels?.pageInfo;
-    after = pageInfo?.endCursor || undefined;
-    hasNextPage = pageInfo?.hasNextPage === true && !!after;
-  }
+  const lookup = await postGraphQl<SyncLookupResponse>(
+    LOOKUP_CHANNELS_QUERY,
+    {
+      input: {},
+    },
+    adminToken,
+    fetchImpl,
+  );
+  const channels = lookup.queryChannels?.edges?.map((edge) => edge.node) ?? [];
 
   const provider = pickAxonHubChannelProvider(channels);
   const input = buildAxonHubChannelInput({
