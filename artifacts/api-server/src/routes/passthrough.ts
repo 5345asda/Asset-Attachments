@@ -180,6 +180,7 @@ async function passthrough(
     contentType,
     isStream,
     reader,
+    firstReadPromise,
     firstChunk,
     streamDone,
   } = preparedUpstream;
@@ -222,6 +223,7 @@ async function passthrough(
     await pipeAnthropicStreamWithUsageAdjust(reader, response, {
       structuredOutputShim,
       keepaliveIntervalMs: streamConfig.streamKeepaliveIntervalMs,
+      firstReadPromise,
       firstChunk,
       streamDone,
     });

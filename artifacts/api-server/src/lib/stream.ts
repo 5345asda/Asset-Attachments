@@ -7,9 +7,12 @@ import {
 } from "./anthropic-structured-output";
 import { logger } from "./logger";
 
+type StreamReadResult = Awaited<ReturnType<ReadableStreamDefaultReader<Uint8Array>["read"]>>;
+
 type StreamPipeOptions = {
   keepaliveIntervalMs?: number;
   firstChunk?: Uint8Array;
+  firstReadPromise?: Promise<StreamReadResult>;
   streamDone?: boolean;
 };
 
@@ -46,11 +49,20 @@ export async function pipeReaderToResponse(
   const keepalive = startKeepAlive(options?.keepaliveIntervalMs, () => writeKeepAlive(res));
 
   try {
-    if (options?.firstChunk && !res.destroyed) {
-      res.write(options.firstChunk);
+    let initialRead: StreamReadResult | undefined;
+
+    if (options?.firstReadPromise) {
+      initialRead = await options.firstReadPromise;
     }
 
-    if (!options?.streamDone) {
+    if (options?.firstChunk && !res.destroyed) {
+      res.write(options.firstChunk);
+    } else if (initialRead && !initialRead.done && initialRead.value && !res.destroyed) {
+      res.write(initialRead.value);
+    }
+
+    const streamDone = options?.streamDone ?? initialRead?.done ?? false;
+    if (!streamDone) {
       for (;;) {
         if (res.destroyed) {
           reader.cancel().catch(() => {});
@@ -194,11 +206,20 @@ export async function pipeAnthropicStreamWithUsageAdjust(
   );
 
   try {
-    if (options?.firstChunk) {
-      pushChunk(options.firstChunk);
+    let initialRead: StreamReadResult | undefined;
+
+    if (options?.firstReadPromise) {
+      initialRead = await options.firstReadPromise;
     }
 
-    if (!options?.streamDone) {
+    if (options?.firstChunk) {
+      pushChunk(options.firstChunk);
+    } else if (initialRead && !initialRead.done && initialRead.value) {
+      pushChunk(initialRead.value);
+    }
+
+    const streamDone = options?.streamDone ?? initialRead?.done ?? false;
+    if (!streamDone) {
       for (;;) {
         if (res.destroyed) {
           reader.cancel().catch(() => {});

@@ -87,6 +87,81 @@ test("pipeReaderToResponse emits keepalive pings before the first upstream strea
   assert.ok(raw.indexOf(": ping\n\n") < raw.indexOf("data: hello\n\n"));
 });
 
+test("openai passthrough writes stream keepalive while waiting for the first upstream body chunk", async (t) => {
+  const previousEnv = {
+    PROXY_API_KEY: process.env.PROXY_API_KEY,
+    AI_INTEGRATIONS_OPENAI_BASE_URL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+    AI_INTEGRATIONS_OPENAI_API_KEY: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+    OPENAI_BASE_URL: process.env.OPENAI_BASE_URL,
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+    PROXY_STREAM_KEEPALIVE_SECONDS: process.env.PROXY_STREAM_KEEPALIVE_SECONDS,
+  };
+
+  process.env.PROXY_API_KEY = "sk-proxy-test";
+  process.env.AI_INTEGRATIONS_OPENAI_BASE_URL = "https://openai.integration.test/v1";
+  process.env.AI_INTEGRATIONS_OPENAI_API_KEY = "openai-integration-test-key";
+  delete process.env.OPENAI_BASE_URL;
+  delete process.env.OPENAI_API_KEY;
+  process.env.PROXY_STREAM_KEEPALIVE_SECONDS = "0.005";
+
+  const originalFetch = globalThis.fetch;
+
+  globalThis.fetch = (async () => {
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        setTimeout(() => {
+          controller.enqueue(
+            new TextEncoder().encode(
+              "data: {\"choices\":[{\"delta\":{\"content\":\"hello\"}}]}\n\n",
+            ),
+          );
+          controller.close();
+        }, 30);
+      },
+    });
+
+    return new Response(body, {
+      status: 200,
+      headers: { "content-type": "text/event-stream" },
+    });
+  }) as typeof fetch;
+
+  const server = await startAppServer();
+
+  t.after(async () => {
+    globalThis.fetch = originalFetch;
+    await server.close();
+
+    for (const [key, value] of Object.entries(previousEnv)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  });
+
+  const response = await originalFetch(`http://127.0.0.1:${server.port}/api/openai/v1/chat/completions`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: "Bearer sk-proxy-test",
+    },
+    body: JSON.stringify({
+      model: "gpt-5",
+      stream: true,
+      messages: [{ role: "user", content: "hello" }],
+    }),
+  });
+
+  const raw = await response.text();
+
+  assert.equal(response.status, 200);
+  assert.match(raw, /: ping\n\n/);
+  assert.match(raw, /data: \{"choices":\[\{"delta":\{"content":"hello"\}\}\]\}\n\n/);
+  assert.ok(raw.indexOf(": ping\n\n") < raw.indexOf("data: {"));
+});
+
 test("openai passthrough retries stream bootstrap failures before surfacing an error", async (t) => {
   const previousEnv = {
     PROXY_API_KEY: process.env.PROXY_API_KEY,

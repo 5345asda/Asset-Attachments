@@ -4,11 +4,14 @@ export type ProxyStreamConfig = {
   streamBootstrapRetries: number;
 };
 
+type StreamReadResult = Awaited<ReturnType<ReadableStreamDefaultReader<Uint8Array>["read"]>>;
+
 export type PreparedProxyUpstream = {
   upstream: globalThis.Response;
   contentType: string;
   isStream: boolean;
   reader?: ReadableStreamDefaultReader<Uint8Array>;
+  firstReadPromise?: Promise<StreamReadResult>;
   firstChunk?: Uint8Array;
   streamDone?: boolean;
 };
@@ -104,15 +107,13 @@ export async function prepareProxyUpstream(params: {
     }
 
     const reader = upstream.body.getReader() as ReadableStreamDefaultReader<Uint8Array>;
-    const firstRead = await reader.read();
 
     return {
       upstream,
       contentType,
       isStream: true,
       reader,
-      firstChunk: firstRead.done ? undefined : firstRead.value,
-      streamDone: firstRead.done,
+      firstReadPromise: reader.read(),
     };
   }, {
     retries: params.wantsStream ? params.bootstrapRetries : 0,
