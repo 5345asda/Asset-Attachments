@@ -7,35 +7,72 @@ import {
 } from "./anthropic-structured-output";
 import { logger } from "./logger";
 
+type StreamPipeOptions = {
+  keepaliveIntervalMs?: number;
+  firstChunk?: Uint8Array;
+  streamDone?: boolean;
+};
+
 function writeKeepAlive(res: Response): void {
   if (!res.destroyed) {
     res.write(": ping\n\n");
   }
 }
 
+function writeWhitespaceKeepAlive(res: Response): void {
+  if (!res.destroyed) {
+    res.write("\n");
+  }
+}
+
+function startKeepAlive(
+  intervalMs: number | undefined,
+  callback: () => void,
+): NodeJS.Timeout | undefined {
+  if (!intervalMs || intervalMs <= 0) {
+    return undefined;
+  }
+
+  const keepalive = setInterval(callback, intervalMs);
+  keepalive.unref?.();
+  return keepalive;
+}
+
 export async function pipeReaderToResponse(
   reader: ReadableStreamDefaultReader<Uint8Array>,
   res: Response,
+  options?: StreamPipeOptions,
 ): Promise<void> {
+  const keepalive = startKeepAlive(options?.keepaliveIntervalMs, () => writeKeepAlive(res));
+
   try {
-    for (;;) {
-      if (res.destroyed) {
-        reader.cancel().catch(() => {});
-        break;
-      }
+    if (options?.firstChunk && !res.destroyed) {
+      res.write(options.firstChunk);
+    }
 
-      const { done, value } = await reader.read();
-      if (done) {
-        break;
-      }
+    if (!options?.streamDone) {
+      for (;;) {
+        if (res.destroyed) {
+          reader.cancel().catch(() => {});
+          break;
+        }
 
-      res.write(value);
+        const { done, value } = await reader.read();
+        if (done) {
+          break;
+        }
+
+        res.write(value);
+      }
     }
 
     if (!res.destroyed) {
       res.end();
     }
   } finally {
+    if (keepalive) {
+      clearInterval(keepalive);
+    }
     reader.releaseLock?.();
   }
 }
@@ -43,7 +80,7 @@ export async function pipeReaderToResponse(
 export async function pipeAnthropicStreamWithUsageAdjust(
   reader: ReadableStreamDefaultReader<Uint8Array>,
   res: Response,
-  options?: {
+  options?: StreamPipeOptions & {
     structuredOutputShim?: AnthropicStructuredOutputShim;
   },
 ): Promise<void> {
@@ -141,26 +178,39 @@ export async function pipeAnthropicStreamWithUsageAdjust(
     res.write(line + "\n");
   };
 
-  const keepalive = setInterval(() => writeKeepAlive(res), 15000);
+  const pushChunk = (chunk: Uint8Array) => {
+    buf += dec.decode(chunk, { stream: true });
+    const lines = buf.split("\n");
+    buf = lines.pop() ?? "";
+
+    for (const line of lines) {
+      writeLine(line);
+    }
+  };
+
+  const keepalive = startKeepAlive(
+    options?.keepaliveIntervalMs ?? 15000,
+    () => writeKeepAlive(res),
+  );
 
   try {
-    for (;;) {
-      if (res.destroyed) {
-        reader.cancel().catch(() => {});
-        break;
-      }
+    if (options?.firstChunk) {
+      pushChunk(options.firstChunk);
+    }
 
-      const { done, value } = await reader.read();
-      if (done) {
-        break;
-      }
+    if (!options?.streamDone) {
+      for (;;) {
+        if (res.destroyed) {
+          reader.cancel().catch(() => {});
+          break;
+        }
 
-      buf += dec.decode(value, { stream: true });
-      const lines = buf.split("\n");
-      buf = lines.pop() ?? "";
+        const { done, value } = await reader.read();
+        if (done) {
+          break;
+        }
 
-      for (const line of lines) {
-        writeLine(line);
+        pushChunk(value);
       }
     }
 
@@ -172,6 +222,35 @@ export async function pipeAnthropicStreamWithUsageAdjust(
       res.end();
     }
   } finally {
-    clearInterval(keepalive);
+    if (keepalive) {
+      clearInterval(keepalive);
+    }
+    reader.releaseLock?.();
+  }
+}
+
+export async function readUpstreamArrayBufferWithKeepAlive(
+  upstream: globalThis.Response,
+  res: Response,
+  options?: {
+    keepaliveIntervalMs?: number;
+  },
+): Promise<ArrayBuffer> {
+  if (!options?.keepaliveIntervalMs || options.keepaliveIntervalMs <= 0) {
+    return await upstream.arrayBuffer();
+  }
+
+  writeWhitespaceKeepAlive(res);
+  const keepalive = startKeepAlive(
+    options.keepaliveIntervalMs,
+    () => writeWhitespaceKeepAlive(res),
+  );
+
+  try {
+    return await upstream.arrayBuffer();
+  } finally {
+    if (keepalive) {
+      clearInterval(keepalive);
+    }
   }
 }

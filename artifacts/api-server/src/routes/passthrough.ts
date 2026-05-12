@@ -10,10 +10,12 @@ import {
   type AnthropicStructuredOutputShim,
 } from "../lib/anthropic-structured-output";
 import { normalizeAnthropicResponseMessage } from "../lib/anthropic-message-id";
+import { getProxyStreamConfig, prepareProxyUpstream } from "../lib/proxy-stream";
 import { getRequestLogger } from "../lib/request-context";
 import { normalizeUpstreamStatus, sanitizeUpstreamError } from "../lib/upstream-error";
 import {
   pipeAnthropicStreamWithUsageAdjust,
+  readUpstreamArrayBufferWithKeepAlive,
 } from "../lib/stream";
 import { applyBillingAnthropic } from "../lib/billing";
 import { getAnthropicProviderConfig } from "../lib/anthropic-provider";
@@ -131,6 +133,7 @@ async function passthrough(
 
   const target = buildTargetUrl(anthropic.baseUrl, request);
   const headers = buildAnthropicHeaders(request, anthropic.apiKey, body);
+  const streamConfig = getProxyStreamConfig();
 
   const { model, temperature, top_p, max_tokens, stream, tools } = body ?? {};
   requestLogger.info(
@@ -149,15 +152,37 @@ async function passthrough(
     "Passthrough request",
   );
 
-  const upstream = await fetch(target, {
-    method: request.method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
+  const preparedUpstream = await prepareProxyUpstream({
+    execute: async () => await fetch(target, {
+      method: request.method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    }),
+    wantsStream: stream === true,
+    bootstrapRetries: streamConfig.streamBootstrapRetries,
+    onRetry: (attempt, error) => {
+      requestLogger.warn(
+        {
+          target,
+          method: request.method,
+          model,
+          attempt,
+          retries: streamConfig.streamBootstrapRetries,
+          error: error instanceof Error ? error.message : String(error),
+        },
+        "Retrying Anthropic stream bootstrap after upstream failure",
+      );
+    },
   });
 
-  const contentType = upstream.headers.get("content-type") || "application/json";
-  const isStream =
-    contentType.includes("text/event-stream") || contentType.includes("application/stream");
+  const {
+    upstream,
+    contentType,
+    isStream,
+    reader,
+    firstChunk,
+    streamDone,
+  } = preparedUpstream;
 
   response.status(normalizeUpstreamStatus(upstream.status));
   response.setHeader("Content-Type", contentType);
@@ -190,13 +215,23 @@ async function passthrough(
     response.setHeader("Cache-Control", "no-cache");
     response.setHeader("Connection", "keep-alive");
 
-    const reader = upstream.body.getReader() as ReadableStreamDefaultReader<Uint8Array>;
-    await pipeAnthropicStreamWithUsageAdjust(reader, response, { structuredOutputShim });
+    if (!reader) {
+      throw new Error("Prepared Anthropic stream is missing a reader.");
+    }
+
+    await pipeAnthropicStreamWithUsageAdjust(reader, response, {
+      structuredOutputShim,
+      keepaliveIntervalMs: streamConfig.streamKeepaliveIntervalMs,
+      firstChunk,
+      streamDone,
+    });
     return;
   }
 
   {
-    const arrayBuffer = await upstream.arrayBuffer();
+    const arrayBuffer = await readUpstreamArrayBufferWithKeepAlive(upstream, response, {
+      keepaliveIntervalMs: streamConfig.nonStreamKeepaliveIntervalMs,
+    });
     try {
       const data = JSON.parse(Buffer.from(arrayBuffer).toString());
       if (data?.usage) {

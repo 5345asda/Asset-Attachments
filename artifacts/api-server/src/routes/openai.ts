@@ -8,8 +8,9 @@ import {
   OPENAI_SUPPORTED_MODELS,
 } from "../lib/openai-models";
 import { getOpenAIProviderConfig } from "../lib/openai-provider";
+import { getProxyStreamConfig, prepareProxyUpstream } from "../lib/proxy-stream";
 import { getRequestLogger } from "../lib/request-context";
-import { pipeReaderToResponse } from "../lib/stream";
+import { pipeReaderToResponse, readUpstreamArrayBufferWithKeepAlive } from "../lib/stream";
 import { normalizeUpstreamStatus, sanitizeUpstreamError } from "../lib/upstream-error";
 
 const router = Router();
@@ -237,27 +238,51 @@ async function passthrough(
   assertSupportedOpenAIModel(request, body);
   const target = buildTargetUrl(openai.baseUrl, request);
   const headers = buildOpenAIHeaders(openai.apiKey, request);
+  const streamConfig = getProxyStreamConfig();
+  const wantsStream = body?.stream === true;
 
   requestLogger.info(
     {
       method: request.method,
       target,
       model: body?.model,
-      stream: !!body?.stream,
+      stream: wantsStream,
       providerSource: openai.source,
     },
     "OpenAI passthrough request",
   );
 
-  const upstream = await fetch(target, {
-    method: request.method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
+  const preparedUpstream = await prepareProxyUpstream({
+    execute: async () => await fetch(target, {
+      method: request.method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    }),
+    wantsStream,
+    bootstrapRetries: streamConfig.streamBootstrapRetries,
+    onRetry: (attempt, error) => {
+      requestLogger.warn(
+        {
+          target,
+          method: request.method,
+          model: body?.model,
+          attempt,
+          retries: streamConfig.streamBootstrapRetries,
+          error: error instanceof Error ? error.message : String(error),
+        },
+        "Retrying OpenAI stream bootstrap after upstream failure",
+      );
+    },
   });
 
-  const contentType = upstream.headers.get("content-type") || "application/json";
-  const isStream =
-    contentType.includes("text/event-stream") || contentType.includes("application/stream");
+  const {
+    upstream,
+    contentType,
+    isStream,
+    reader,
+    firstChunk,
+    streamDone,
+  } = preparedUpstream;
 
   response.status(normalizeUpstreamStatus(upstream.status));
   response.setHeader("Content-Type", contentType);
@@ -288,13 +313,22 @@ async function passthrough(
     response.setHeader("Cache-Control", "no-cache");
     response.setHeader("Connection", "keep-alive");
 
-    const reader = upstream.body.getReader() as ReadableStreamDefaultReader<Uint8Array>;
-    await pipeReaderToResponse(reader, response);
+    if (!reader) {
+      throw new Error("Prepared OpenAI stream is missing a reader.");
+    }
+
+    await pipeReaderToResponse(reader, response, {
+      keepaliveIntervalMs: streamConfig.streamKeepaliveIntervalMs,
+      firstChunk,
+      streamDone,
+    });
     return;
   }
 
   {
-    const arrayBuffer = await upstream.arrayBuffer();
+    const arrayBuffer = await readUpstreamArrayBufferWithKeepAlive(upstream, response, {
+      keepaliveIntervalMs: streamConfig.nonStreamKeepaliveIntervalMs,
+    });
     try {
       const data = JSON.parse(Buffer.from(arrayBuffer).toString()) as Record<string, unknown>;
       response.end(JSON.stringify(maybeAdjustUsage(request, data)));

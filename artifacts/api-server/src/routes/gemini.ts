@@ -1,8 +1,9 @@
 import { Router, type Request, type Response } from "express";
 import { ApiError } from "../lib/api-error";
 import { getGeminiProviderConfig } from "../lib/gemini-provider";
+import { getProxyStreamConfig, prepareProxyUpstream } from "../lib/proxy-stream";
 import { getRequestLogger } from "../lib/request-context";
-import { pipeReaderToResponse } from "../lib/stream";
+import { pipeReaderToResponse, readUpstreamArrayBufferWithKeepAlive } from "../lib/stream";
 import { normalizeUpstreamStatus, sanitizeUpstreamError } from "../lib/upstream-error";
 
 const router = Router();
@@ -97,26 +98,49 @@ async function passthrough(
   const body = normalizeGeminiRequestBody(readRequestBody(request));
   const target = buildTargetUrl(gemini.baseUrl, request);
   const headers = buildGeminiHeaders(request, gemini.apiKey);
+  const streamConfig = getProxyStreamConfig();
+  const wantsStream = request.path.includes(":streamGenerateContent");
 
   requestLogger.info(
     {
       method: request.method,
       target,
-      stream: request.path.includes(":streamGenerateContent"),
+      stream: wantsStream,
       providerSource: gemini.source,
     },
     "Gemini passthrough request",
   );
 
-  const upstream = await fetch(target, {
-    method: request.method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
+  const preparedUpstream = await prepareProxyUpstream({
+    execute: async () => await fetch(target, {
+      method: request.method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    }),
+    wantsStream,
+    bootstrapRetries: streamConfig.streamBootstrapRetries,
+    onRetry: (attempt, error) => {
+      requestLogger.warn(
+        {
+          target,
+          method: request.method,
+          attempt,
+          retries: streamConfig.streamBootstrapRetries,
+          error: error instanceof Error ? error.message : String(error),
+        },
+        "Retrying Gemini stream bootstrap after upstream failure",
+      );
+    },
   });
 
-  const contentType = upstream.headers.get("content-type") || "application/json";
-  const isStream =
-    contentType.includes("text/event-stream") || contentType.includes("application/stream");
+  const {
+    upstream,
+    contentType,
+    isStream,
+    reader,
+    firstChunk,
+    streamDone,
+  } = preparedUpstream;
 
   response.status(normalizeUpstreamStatus(upstream.status));
   response.setHeader("Content-Type", contentType);
@@ -146,12 +170,21 @@ async function passthrough(
     response.setHeader("Cache-Control", "no-cache");
     response.setHeader("Connection", "keep-alive");
 
-    const reader = upstream.body.getReader() as ReadableStreamDefaultReader<Uint8Array>;
-    await pipeReaderToResponse(reader, response);
+    if (!reader) {
+      throw new Error("Prepared Gemini stream is missing a reader.");
+    }
+
+    await pipeReaderToResponse(reader, response, {
+      keepaliveIntervalMs: streamConfig.streamKeepaliveIntervalMs,
+      firstChunk,
+      streamDone,
+    });
     return;
   }
 
-  response.end(Buffer.from(await upstream.arrayBuffer()));
+  response.end(Buffer.from(await readUpstreamArrayBufferWithKeepAlive(upstream, response, {
+    keepaliveIntervalMs: streamConfig.nonStreamKeepaliveIntervalMs,
+  })));
 }
 
 router.use("/", async (request, response) => {

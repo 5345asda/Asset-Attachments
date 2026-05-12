@@ -5,6 +5,7 @@ import { getAnthropicProviderConfig } from "../lib/anthropic-provider";
 import { getGeminiProviderConfig } from "../lib/gemini-provider";
 import { getOpenRouterProviderConfig } from "../lib/openrouter-provider";
 import { getOpenAIProviderConfig } from "../lib/openai-provider";
+import { getProxyStreamConfig } from "../lib/proxy-stream";
 
 const router: IRouter = Router();
 
@@ -18,11 +19,17 @@ router.get("/proxy-info", (_req, res) => {
   const gemini = getGeminiProviderConfig();
   const openrouter = getOpenRouterProviderConfig();
   const openai = getOpenAIProviderConfig();
+  const streamConfig = getProxyStreamConfig();
 
   res.json({
     proxyKey: PROXY_API_KEY,
     ready: anthropic.configured || gemini.configured || openrouter.configured || openai.configured,
     providers: ["anthropic", "gemini", "openrouter", "openai"],
+    transport: {
+      streamKeepaliveIntervalMs: streamConfig.streamKeepaliveIntervalMs,
+      nonStreamKeepaliveIntervalMs: streamConfig.nonStreamKeepaliveIntervalMs,
+      streamBootstrapRetries: streamConfig.streamBootstrapRetries,
+    },
     integrations: {
       anthropic: {
         configured: anthropic.configured,
