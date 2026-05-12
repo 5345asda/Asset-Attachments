@@ -150,6 +150,28 @@ test("sanitizeAnthropicBody removes invalid non-numeric temperature for standard
   assert.equal("temperature" in result, false);
 });
 
+test("sanitizeAnthropicBody removes unsupported context_management field", () => {
+  const result = sanitizeAnthropicBody({
+    model: "claude-sonnet-4-6",
+    context_management: {
+      edits: [
+        {
+          keep: "all",
+          type: "clear_thinking_20251015",
+        },
+      ],
+    },
+    messages: [
+      {
+        role: "user",
+        content: [{ type: "text", text: "hello" }],
+      },
+    ],
+  });
+
+  assert.equal("context_management" in result, false);
+});
+
 test("sanitizeAnthropicBody raises max_tokens above thinking budget when the request is otherwise invalid", () => {
   const result = sanitizeAnthropicBody({
     model: "claude-opus-4-6",

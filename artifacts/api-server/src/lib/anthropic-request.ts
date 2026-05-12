@@ -97,6 +97,19 @@ function normalizeAnthropicTools(tools: unknown, model: unknown): unknown {
   return normalized;
 }
 
+function stripUnsupportedTopLevelFields(body: JsonObject): JsonObject {
+  if (!("context_management" in body)) {
+    return body;
+  }
+
+  const { context_management, ...rest } = body;
+  logger.warn(
+    { context_management },
+    "Anthropic: removed unsupported context_management field",
+  );
+  return rest;
+}
+
 function isClaudeOpus47(model: unknown): boolean {
   return model === CLAUDE_OPUS_4_7;
 }
@@ -834,7 +847,8 @@ function buildSystemFingerprint(body: JsonObject): { sysHash: string; sysLen: nu
 }
 
 export function sanitizeAnthropicBody(body: JsonObject): JsonObject {
-  let result = dropUnexpectedToolResults(body);
+  let result = stripUnsupportedTopLevelFields(body);
+  result = dropUnexpectedToolResults(result);
   result = stripUnsignedThinkingBlocks(result);
   result = migrateDeprecatedOutputFormat(result);
   result = migrateClaudeOpus47Thinking(result);
