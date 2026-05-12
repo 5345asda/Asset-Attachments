@@ -58,7 +58,7 @@ export function getProxyStreamConfig(): ProxyStreamConfig {
       parseSeconds(process.env.PROXY_STREAM_KEEPALIVE_SECONDS, 15) * 1000,
     ),
     nonStreamKeepaliveIntervalMs: Math.round(
-      parseSeconds(process.env.PROXY_NON_STREAM_KEEPALIVE_INTERVAL_SECONDS, 0) * 1000,
+      parseSeconds(process.env.PROXY_NON_STREAM_KEEPALIVE_INTERVAL_SECONDS, 15) * 1000,
     ),
     streamBootstrapRetries: parseRetries(process.env.PROXY_STREAM_BOOTSTRAP_RETRIES, 0),
   };
