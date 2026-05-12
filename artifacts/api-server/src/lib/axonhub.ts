@@ -322,7 +322,7 @@ export function buildAxonHubChannelInput({
     autoSyncSupportedModels: false,
     autoSyncModelPattern: "",
     settings: {
-      passThroughBody: provider === "openrouter",
+      passThroughBody: provider === "anthropic" || provider === "openrouter",
     },
     tags: [],
     remark: AXONHUB_REMARK,

@@ -134,6 +134,10 @@ const EXPECTED_AXONHUB_CHANNEL_SETTINGS = {
   passThroughBody: false,
 } as const;
 
+const EXPECTED_AXONHUB_ANTHROPIC_CHANNEL_SETTINGS = {
+  passThroughBody: true,
+} as const;
+
 const EXPECTED_AXONHUB_OPENROUTER_CHANNEL_SETTINGS = {
   passThroughBody: true,
 } as const;
@@ -216,7 +220,7 @@ test("buildAxonHubChannelInput uses the fixed anthropic channel format", () => {
     manualModels: AXONHUB_SUPPORTED_MODELS,
     autoSyncSupportedModels: false,
     autoSyncModelPattern: "",
-    settings: EXPECTED_AXONHUB_CHANNEL_SETTINGS,
+    settings: EXPECTED_AXONHUB_ANTHROPIC_CHANNEL_SETTINGS,
     tags: [],
     remark: "Managed by Asset-Attachments",
   });
@@ -711,7 +715,7 @@ test("syncAxonHubChannel creates a new anthropic channel when anthropic is below
     manualModels: AXONHUB_SUPPORTED_MODELS,
     autoSyncSupportedModels: false,
     autoSyncModelPattern: "",
-    settings: EXPECTED_AXONHUB_CHANNEL_SETTINGS,
+    settings: EXPECTED_AXONHUB_ANTHROPIC_CHANNEL_SETTINGS,
     tags: [],
     remark: "Managed by Asset-Attachments",
   });
@@ -803,7 +807,7 @@ test("syncAxonHubChannel updates the existing anthropic channel for the current 
     manualModels: AXONHUB_SUPPORTED_MODELS,
     autoSyncSupportedModels: false,
     autoSyncModelPattern: "",
-    settings: EXPECTED_AXONHUB_CHANNEL_SETTINGS,
+    settings: EXPECTED_AXONHUB_ANTHROPIC_CHANNEL_SETTINGS,
     tags: [],
     remark: "Managed by Asset-Attachments",
   });
@@ -908,7 +912,7 @@ test("syncAxonHubChannel updates the existing project channel when create return
     manualModels: AXONHUB_SUPPORTED_MODELS,
     autoSyncSupportedModels: false,
     autoSyncModelPattern: "",
-    settings: EXPECTED_AXONHUB_CHANNEL_SETTINGS,
+    settings: EXPECTED_AXONHUB_ANTHROPIC_CHANNEL_SETTINGS,
     tags: [],
     remark: "Managed by Asset-Attachments",
   });
@@ -926,7 +930,7 @@ test("syncAxonHubChannel updates the existing project channel when create return
     manualModels: AXONHUB_SUPPORTED_MODELS,
     autoSyncSupportedModels: false,
     autoSyncModelPattern: "",
-    settings: EXPECTED_AXONHUB_CHANNEL_SETTINGS,
+    settings: EXPECTED_AXONHUB_ANTHROPIC_CHANNEL_SETTINGS,
     tags: [],
     remark: "Managed by Asset-Attachments",
   });
@@ -1038,7 +1042,7 @@ test("syncAxonHubChannel updates the existing anthropic channel when AxonHub ret
     manualModels: AXONHUB_SUPPORTED_MODELS,
     autoSyncSupportedModels: false,
     autoSyncModelPattern: "",
-    settings: EXPECTED_AXONHUB_CHANNEL_SETTINGS,
+    settings: EXPECTED_AXONHUB_ANTHROPIC_CHANNEL_SETTINGS,
     tags: [],
     remark: "Managed by Asset-Attachments",
   });
