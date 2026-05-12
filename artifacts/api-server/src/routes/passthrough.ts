@@ -199,7 +199,7 @@ async function passthrough(
         model,
         temperature,
         top_p,
-        upstreamError,
+        upstreamError: sanitizedUpstreamError,
       },
       `Upstream ${upstream.status} error`,
     );

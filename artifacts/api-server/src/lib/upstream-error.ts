@@ -4,12 +4,25 @@ const UPSTREAM_ERROR_REPLACEMENTS: Array<{
 }> = [
   {
     pattern:
+      /FREE_TIER_BUDGET_EXCEEDED\s*-\s*Free tier monthly spend limit exceeded\. Please upgrade to a paid plan to continue using this service\./gi,
+    replacement: "Provider account unavailable.",
+  },
+  {
+    pattern: /FREE_TIER_BUDGET_EXCEEDED\s*-\s*Free tier monthly spend limit exceeded/gi,
+    replacement: "Provider account unavailable",
+  },
+  {
+    pattern:
       /Free tier monthly spend limit exceeded\. Please upgrade to a paid plan to continue using this service\./gi,
     replacement: "Provider account unavailable.",
   },
   {
     pattern: /Free tier monthly spend limit exceeded/gi,
     replacement: "Provider account unavailable",
+  },
+  {
+    pattern: /FREE_TIER_BUDGET_EXCEEDED/gi,
+    replacement: "provider_account_unavailable",
   },
 ];
 

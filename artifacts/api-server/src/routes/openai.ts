@@ -297,7 +297,7 @@ async function passthrough(
         target,
         method: request.method,
         model: body?.model,
-        upstreamError,
+        upstreamError: sanitizedUpstreamError,
       },
       `OpenAI upstream ${upstream.status} error`,
     );

@@ -106,7 +106,7 @@ export async function handleOpenRouterModelList(
         status: upstream.status,
         target,
         method: request.method,
-        upstreamError,
+        upstreamError: sanitizedUpstreamError,
       },
       `OpenRouter upstream ${upstream.status} error`,
     );
@@ -206,7 +206,7 @@ async function passthrough(
         target,
         method: request.method,
         model: body?.model,
-        upstreamError,
+        upstreamError: sanitizedUpstreamError,
       },
       `OpenRouter upstream ${upstream.status} error`,
     );

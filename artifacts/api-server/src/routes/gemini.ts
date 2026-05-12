@@ -154,7 +154,7 @@ async function passthrough(
         status: upstream.status,
         target,
         method: request.method,
-        upstreamError,
+        upstreamError: sanitizedUpstreamError,
       },
       `Gemini upstream ${upstream.status} error`,
     );

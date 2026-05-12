@@ -723,7 +723,7 @@ test("openrouter passthrough returns 503 when OpenRouter provider is not configu
   assert.ok(response.headers["x-request-id"]);
 });
 
-test("openrouter passthrough redacts upstream spend-limit errors", async (t) => {
+test("openrouter passthrough redacts upstream spend-limit codes and messages", async (t) => {
   const previousEnv = {
     PROXY_API_KEY: process.env.PROXY_API_KEY,
     AI_INTEGRATIONS_OPENROUTER_BASE_URL: process.env.AI_INTEGRATIONS_OPENROUTER_BASE_URL,
@@ -741,7 +741,7 @@ test("openrouter passthrough redacts upstream spend-limit errors", async (t) => 
   const originalFetch = globalThis.fetch;
 
   globalThis.fetch = (async () => new Response(
-    "Request failed: Forbidden, error: Free tier monthly spend limit exceeded. Please upgrade to a paid plan to continue using this service., type: api_error",
+    "Request failed: Forbidden, error: FREE_TIER_BUDGET_EXCEEDED - Free tier monthly spend limit exceeded. Please upgrade to a paid plan to continue using this service., type: api_error",
     {
       status: 403,
       headers: { "content-type": "text/plain; charset=utf-8" },
@@ -782,8 +782,29 @@ test("openrouter passthrough redacts upstream spend-limit errors", async (t) => 
     body,
     "Request failed: Forbidden, error: Provider account unavailable., type: api_error",
   );
+  assert.doesNotMatch(body, /FREE_TIER_BUDGET_EXCEEDED/i);
   assert.doesNotMatch(body, /Free tier monthly spend limit exceeded/i);
   assert.ok(response.headers.get("x-request-id"));
+});
+
+test("sanitizeUpstreamError redacts FREE_TIER_BUDGET_EXCEEDED fields inside upstream objects", async () => {
+  const { sanitizeUpstreamError } = await import("../../artifacts/api-server/src/lib/upstream-error.ts");
+
+  assert.deepEqual(
+    sanitizeUpstreamError({
+      error: {
+        code: "FREE_TIER_BUDGET_EXCEEDED",
+        message:
+          "FREE_TIER_BUDGET_EXCEEDED - Free tier monthly spend limit exceeded. Please upgrade to a paid plan to continue using this service.",
+      },
+    }),
+    {
+      error: {
+        code: "provider_account_unavailable",
+        message: "Provider account unavailable.",
+      },
+    },
+  );
 });
 
 test("openrouter model list maps upstream 404 to 401", async (t) => {
