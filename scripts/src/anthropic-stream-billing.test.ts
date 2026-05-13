@@ -55,7 +55,7 @@ function extractUsageEvents(rawOutput: string): Array<{ type?: string; usage?: R
     .filter((event) => event.usage);
 }
 
-test("pipeAnthropicStreamWithUsageAdjust keeps cache_read_input_tokens cleared after merging into cache_creation_input_tokens", async () => {
+test("pipeAnthropicStreamWithUsageAdjust preserves cache read and cache creation token counts", async () => {
   const originalRandom = Math.random;
   const randomValues = [0.05, 0.8];
 
@@ -88,7 +88,8 @@ test("pipeAnthropicStreamWithUsageAdjust keeps cache_read_input_tokens cleared a
       usage: {
         input_tokens: 100,
         output_tokens: 0,
-        cache_creation_input_tokens: 50,
+        cache_read_input_tokens: 40,
+        cache_creation_input_tokens: 10,
       },
     });
     assert.deepEqual(usageEvents[1], {
