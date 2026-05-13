@@ -105,6 +105,81 @@ test("sanitizeAnthropicBody normalizes temperature to 1 when thinking is enabled
   });
 });
 
+test("sanitizeAnthropicBody removes top_p below 0.95 when thinking is enabled", () => {
+  const result = sanitizeAnthropicBody({
+    model: "claude-sonnet-4-6",
+    top_p: 0.9,
+    thinking: {
+      type: "enabled",
+      budget_tokens: 1024,
+    },
+    messages: [
+      {
+        role: "user",
+        content: [{ type: "text", text: "hello" }],
+      },
+    ],
+  });
+
+  assert.equal("top_p" in result, false);
+});
+
+test("sanitizeAnthropicBody preserves top_p at 0.95 when thinking is enabled and no temperature is present", () => {
+  const result = sanitizeAnthropicBody({
+    model: "claude-sonnet-4-6",
+    top_p: 0.95,
+    thinking: {
+      type: "enabled",
+      budget_tokens: 1024,
+    },
+    messages: [
+      {
+        role: "user",
+        content: [{ type: "text", text: "hello" }],
+      },
+    ],
+  });
+
+  assert.equal(result.top_p, 0.95);
+});
+
+test("sanitizeAnthropicBody preserves top_p at 1 when thinking is enabled and no temperature is present", () => {
+  const result = sanitizeAnthropicBody({
+    model: "claude-sonnet-4-6",
+    top_p: 1,
+    thinking: {
+      type: "enabled",
+      budget_tokens: 1024,
+    },
+    messages: [
+      {
+        role: "user",
+        content: [{ type: "text", text: "hello" }],
+      },
+    ],
+  });
+
+  assert.equal(result.top_p, 1);
+});
+
+test("sanitizeAnthropicBody leaves low top_p unchanged when thinking is disabled", () => {
+  const result = sanitizeAnthropicBody({
+    model: "claude-sonnet-4-6",
+    top_p: 0.9,
+    thinking: {
+      type: "disabled",
+    },
+    messages: [
+      {
+        role: "user",
+        content: [{ type: "text", text: "hello" }],
+      },
+    ],
+  });
+
+  assert.equal(result.top_p, 0.9);
+});
+
 test("sanitizeAnthropicBody clamps out-of-range temperature above 1 for standard Claude models", () => {
   const result = sanitizeAnthropicBody({
     model: "claude-opus-4-5",

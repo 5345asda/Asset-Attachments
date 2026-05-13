@@ -792,6 +792,28 @@ function hasEnabledThinking(body: JsonObject): boolean {
   return true;
 }
 
+function normalizeThinkingTopP(body: JsonObject): JsonObject {
+  if (!hasEnabledThinking(body) || body.top_p === undefined) {
+    return body;
+  }
+
+  if (
+    typeof body.top_p === "number" &&
+    Number.isFinite(body.top_p) &&
+    body.top_p >= 0.95 &&
+    body.top_p <= 1
+  ) {
+    return body;
+  }
+
+  const { top_p, ...rest } = body;
+  logger.warn(
+    { model: body.model, top_p },
+    "Anthropic: removed invalid top_p because thinking is enabled",
+  );
+  return rest;
+}
+
 function normalizeThinkingMaxTokens(body: JsonObject): JsonObject {
   if (!hasEnabledThinking(body) || !isRecord(body.thinking)) {
     return body;
@@ -855,6 +877,7 @@ export function sanitizeAnthropicBody(body: JsonObject): JsonObject {
   result = stripAllCacheControlScopes(result);
   result = normalizeTemperatureRange(result);
   result = stripUnsupportedSamplingParameters(result);
+  result = normalizeThinkingTopP(result);
   result = normalizeThinkingMaxTokens(result);
 
   if (
