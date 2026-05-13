@@ -138,6 +138,17 @@ const UPDATE_CHANNEL_MUTATION = `
   }
 `;
 
+const UPDATE_CHANNEL_STATUS_MUTATION = `
+  mutation UpdateChannelStatus($id: ID!, $status: ChannelStatus!) {
+    updateChannelStatus(id: $id, status: $status) {
+      id
+      name
+      baseURL
+      status
+    }
+  }
+`;
+
 interface GraphQlChannelNode {
   id: string;
   name: string;
@@ -161,6 +172,10 @@ interface CreateChannelResponse {
 
 interface UpdateChannelResponse {
   updateChannel?: GraphQlChannelNode;
+}
+
+interface UpdateChannelStatusResponse {
+  updateChannelStatus?: GraphQlChannelNode;
 }
 
 interface BuildAxonHubChannelInputOptions {
@@ -222,6 +237,10 @@ function normalizeAxonHubChannelStatus(status?: string | null): "enabled" | "arc
   }
 
   return null;
+}
+
+function isEnabledAxonHubChannelStatus(status?: string | null): boolean {
+  return status?.trim().toLowerCase() === "enabled";
 }
 
 interface AxonHubCreateChannelInput {
@@ -544,6 +563,32 @@ async function postGraphQl<TData>(
   return payload.data;
 }
 
+async function ensureUpdatedAxonHubChannelEnabled(
+  channel: GraphQlChannelNode,
+  adminToken: string,
+  fetchImpl: typeof fetch,
+): Promise<GraphQlChannelNode> {
+  if (isEnabledAxonHubChannelStatus(channel.status)) {
+    return channel;
+  }
+
+  const enabled = await postGraphQl<UpdateChannelStatusResponse>(
+    UPDATE_CHANNEL_STATUS_MUTATION,
+    {
+      id: channel.id,
+      status: "enabled",
+    },
+    adminToken,
+    fetchImpl,
+  );
+
+  if (!enabled.updateChannelStatus) {
+    throw new AxonHubSyncError("AxonHub did not return the enabled channel", 502);
+  }
+
+  return enabled.updateChannelStatus;
+}
+
 export async function syncAxonHubChannel({
   projectOrigin,
   proxyKey,
@@ -590,10 +635,16 @@ export async function syncAxonHubChannel({
       throw new AxonHubSyncError("AxonHub did not return the updated channel", 502);
     }
 
+    const enabledChannel = await ensureUpdatedAxonHubChannelEnabled(
+      updated.updateChannel,
+      adminToken,
+      fetchImpl,
+    );
+
     return {
       mode: "updated",
       provider,
-      channel: updated.updateChannel,
+      channel: enabledChannel,
     };
   }
 
@@ -645,10 +696,16 @@ export async function syncAxonHubChannel({
       throw new AxonHubSyncError("AxonHub did not return the updated channel", 502);
     }
 
+    const enabledChannel = await ensureUpdatedAxonHubChannelEnabled(
+      updated.updateChannel,
+      adminToken,
+      fetchImpl,
+    );
+
     return {
       mode: "updated",
       provider,
-      channel: updated.updateChannel,
+      channel: enabledChannel,
     };
   }
 }
