@@ -74,6 +74,7 @@ const EXPECTED_AXONHUB_CODEX_MODELS = [
 
 const EXPECTED_AXONHUB_OPENROUTER_MODELS = [
   "anthropic/claude-opus-4.7",
+  "anthropic/claude-opus-4.7-fast",
   "anthropic/claude-opus-4.6-fast",
   "anthropic/claude-sonnet-4.6",
   "anthropic/claude-opus-4.6",
