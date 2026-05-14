@@ -1,6 +1,5 @@
 import { Router, type IRouter } from "express";
 import { HealthCheckResponse } from "@workspace/api-zod";
-import { PROXY_API_KEY } from "../lib/proxy-key";
 import { getAnthropicProviderConfig } from "../lib/anthropic-provider";
 import { getGeminiProviderConfig } from "../lib/gemini-provider";
 import { getOpenRouterProviderConfig } from "../lib/openrouter-provider";
@@ -22,7 +21,6 @@ router.get("/proxy-info", (_req, res) => {
   const streamConfig = getProxyStreamConfig();
 
   res.json({
-    proxyKey: PROXY_API_KEY,
     ready: anthropic.configured || gemini.configured || openrouter.configured || openai.configured,
     providers: ["anthropic", "gemini", "openrouter", "openai"],
     transport: {

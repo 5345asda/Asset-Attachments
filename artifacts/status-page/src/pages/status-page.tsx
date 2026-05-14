@@ -99,10 +99,8 @@ function CodeBlock({ code, language = "bash", id }: { code: string; language?: s
 
 export default function StatusPage() {
   const apiOriginOverride = import.meta.env.VITE_API_ORIGIN;
-  const [showKey, setShowKey] = useState(false);
   const [showAxonHubToken, setShowAxonHubToken] = useState(false);
   const [baseUrl, setBaseUrl] = useState("");
-  const [proxyKey, setProxyKey] = useState("");
   const [axonhubToken, setAxonhubToken] = useState("");
   const [syncingAxonHub, setSyncingAxonHub] = useState(false);
   const [axonhubSyncError, setAxonhubSyncError] = useState("");
@@ -125,6 +123,7 @@ export default function StatusPage() {
   const [geminiConfigured, setGeminiConfigured] = useState<boolean | null>(null);
   const [geminiBaseUrl, setGeminiBaseUrl] = useState("");
   const axonhubOrigin = getAxonHubOrigin();
+  const proxyKeyPlaceholder = "YOUR_PROXY_API_KEY";
 
   useEffect(() => {
     const runtimeConfig = {
@@ -140,7 +139,6 @@ export default function StatusPage() {
     fetch(getProxyInfoUrl(runtimeConfig))
       .then((r) => r.json())
       .then((d) => {
-        setProxyKey(d.proxyKey || "");
         setAnthropicConfigured(d.integrations?.anthropic?.configured === true);
         setGeminiConfigured(d.integrations?.gemini?.configured === true);
       })
@@ -166,11 +164,10 @@ export default function StatusPage() {
     geminiConfigured,
   });
 
-  const maskedKey = showKey ? proxyKey : (proxyKey ? proxyKey.slice(0, 10) + "••••••••••••••••••••" : "loading...");
-  const canSyncAxonHub = !!axonhubToken.trim() && !!proxyKey && !!baseUrl;
+  const canSyncAxonHub = !!axonhubToken.trim() && !!baseUrl;
 
   const curlExample = `curl ${baseUrl}/v1/messages \\
-  -H "x-api-key: ${proxyKey}" \\
+  -H "x-api-key: ${proxyKeyPlaceholder}" \\
   -H "anthropic-version: 2023-06-01" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -180,7 +177,7 @@ export default function StatusPage() {
   }'`;
 
   const toolCallExample = `curl ${baseUrl}/v1/messages \\
-  -H "x-api-key: ${proxyKey}" \\
+  -H "x-api-key: ${proxyKeyPlaceholder}" \\
   -H "anthropic-version: 2023-06-01" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -202,7 +199,7 @@ export default function StatusPage() {
   }'`;
 
   const geminiCurlExample = `curl ${geminiBaseUrl}/v1beta/models/gemini-2.5-flash:generateContent \\
-  -H "x-api-key: ${proxyKey}" \\
+  -H "x-api-key: ${proxyKeyPlaceholder}" \\
   -H "Content-Type: application/json" \\
   -d '{
     "contents": [{
@@ -214,7 +211,7 @@ export default function StatusPage() {
   const fetchExample = `const response = await fetch("${baseUrl}/v1/messages", {
   method: "POST",
   headers: {
-    "x-api-key": "${proxyKey}",
+    "x-api-key": "${proxyKeyPlaceholder}",
     "anthropic-version": "2023-06-01",
     "content-type": "application/json",
   },
@@ -231,7 +228,7 @@ console.log(data);`;
   const geminiFetchExample = `const response = await fetch("${geminiBaseUrl}/v1beta/models/gemini-2.5-flash:generateContent", {
   method: "POST",
   headers: {
-    "x-api-key": "${proxyKey}",
+    "x-api-key": "${proxyKeyPlaceholder}",
     "content-type": "application/json",
   },
   body: JSON.stringify({
@@ -407,27 +404,21 @@ console.log(data);`;
             </p>
           </div>
 
-          {/* API Key */}
           <div className="rounded-xl border border-card-border bg-card p-5">
             <div className="flex items-center gap-2 mb-3">
               <Key className="w-4 h-4 text-primary" />
-              <span className="text-sm font-semibold text-foreground">API Key</span>
+              <span className="text-sm font-semibold text-foreground">Auth Header</span>
             </div>
             <div className="flex items-center gap-2">
               <code className="flex-1 text-xs font-mono text-purple-400 bg-black/30 rounded-lg px-3 py-2 border border-white/8 truncate">
-                {maskedKey}
+                {proxyKeyPlaceholder}
               </code>
-              <button
-                onClick={() => setShowKey(!showKey)}
-                className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-white/10 transition-all"
-                title={showKey ? "Hide key" : "Show key"}
-              >
-                {showKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-              </button>
-              <CopyButton text={proxyKey} id="api-key" />
+              <CopyButton text={proxyKeyPlaceholder} id="api-key-placeholder" />
             </div>
             <p className="text-xs text-muted-foreground mt-2">
-              Send as <code className="text-xs bg-white/5 px-1 rounded">x-api-key</code> or <code className="text-xs bg-white/5 px-1 rounded">Authorization: Bearer</code>
+              Public status output no longer reveals the live proxy key. Use the server-side configured value with
+              <code className="text-xs bg-white/5 px-1 rounded ml-1">x-api-key</code> or
+              <code className="text-xs bg-white/5 px-1 rounded ml-1">Authorization: Bearer</code>.
             </p>
           </div>
         </div>
@@ -476,7 +467,7 @@ console.log(data);`;
                   </button>
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
-                  只手填 AxonHub token。Dynamic archived-share routing：系统会统计由当前仓库托管的 channel，先保证各 provider 至少保留 10 个 enabled channel；达到这个下限后，再比较每个 provider 的 archived 占比和当前 enabled 占比，优先补给 archived 占比更高、但 enabled 占比偏低的 provider。archived 越多代表历史使用越多，所以后续新增 channel 会更容易继续补到这个 provider；如果暂时还没有 archived 信号，就先补当前 enabled 数更少的 provider。
+                  只手填 AxonHub token。这里会使用服务端已配置的 proxy key 进行同步，页面不会再回显该 key。Dynamic archived-share routing：系统会统计由当前仓库托管的 channel，先保证各 provider 至少保留 10 个 enabled channel；达到这个下限后，再比较每个 provider 的 archived 占比和当前 enabled 占比，优先补给 archived 占比更高、但 enabled 占比偏低的 provider。archived 越多代表历史使用越多，所以后续新增 channel 会更容易继续补到这个 provider；如果暂时还没有 archived 信号，就先补当前 enabled 数更少的 provider。
                 </p>
               </div>
 

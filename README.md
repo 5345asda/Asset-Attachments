@@ -32,17 +32,16 @@
 
 ## Proxy Key
 
-- 默认鉴权 key 现在是固定值，不会因为重启、重新部署或容器切换而变化：
-  `sk-proxy-6f2d0c9a47b13e8d5f71a2c46be93d07f8c1a54e692db3fc`
+- 默认鉴权 key 目前仍保持固定，不会因为重启、重新部署或容器切换而变化
 - 如需覆盖，直接设置环境变量 `PROXY_API_KEY`
-- `GET /api/proxy-info` 会返回当前实际生效的 proxy key
+- `GET /api/proxy-info` 只返回 provider 状态和传输参数，不再公开返回 live proxy key
 
 ## API 概览
 
 | 路径 | 认证 | 说明 |
 |------|------|------|
 | `GET /api/healthz` | 否 | 健康检查 |
-| `GET /api/proxy-info` | 否 | 返回当前 Proxy Key 和 provider 信息 |
+| `GET /api/proxy-info` | 否 | 返回 provider 信息和传输参数 |
 | `GET /api/anthropic/v1/models` | 否 | 返回 Claude 模型列表 |
 | `POST /api/anthropic/v1/messages` | 是 | Anthropic 原生 messages 接口 |
 | `GET /api/gemini/v1beta/models` | 否 | 返回 Gemini 模型列表 |

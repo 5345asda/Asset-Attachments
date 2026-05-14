@@ -411,6 +411,38 @@ test("status page warns that Gemini does not support OpenAI chat completions", a
   assert.match(page, /generateContent/);
 });
 
+test("status page does not fetch or display a live proxy key from the public proxy-info payload", async () => {
+  const page = await readFile(
+    path.join(repoRoot, "artifacts", "status-page", "src", "pages", "status-page.tsx"),
+    "utf8",
+  );
+
+  assert.doesNotMatch(page, /setProxyKey\(d\.proxyKey \|\| ""\)/);
+  assert.doesNotMatch(page, /<span className="text-sm font-semibold text-foreground">API Key<\/span>/);
+});
+
+test("proxy-info route does not expose the live proxy key in its public JSON payload", async () => {
+  const route = await readFile(
+    path.join(repoRoot, "artifacts", "api-server", "src", "routes", "health.ts"),
+    "utf8",
+  );
+
+  assert.doesNotMatch(route, /proxyKey:\s*PROXY_API_KEY/);
+});
+
+test("public docs and runtime packaging do not publish a concrete proxy key value", async () => {
+  const files = [
+    path.join(repoRoot, "README.md"),
+    path.join(repoRoot, "scripts", "build-replit-runtime.mjs"),
+  ];
+
+  for (const file of files) {
+    const content = await readFile(file, "utf8");
+    assert.doesNotMatch(content, /sk-proxy-[a-f0-9]{48,}/i, `${file} should not publish a real proxy key`);
+    assert.doesNotMatch(content, /返回当前实际生效的 proxy key/, `${file} should not claim proxy-info returns the key`);
+  }
+});
+
 test("replit-facing docs describe Anthropic and Gemini as Replit integrations", async () => {
   const files = [
     path.join(repoRoot, "README.md"),

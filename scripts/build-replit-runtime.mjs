@@ -57,7 +57,7 @@ Deploy:
 
 - Build command: \`pnpm run build:deploy\`
 - Run command: \`pnpm start\`
-- Default Proxy Key: \`sk-proxy-6f2d0c9a47b13e8d5f71a2c46be93d07f8c1a54e692db3fc\`
+- Public \`/api/proxy-info\` no longer returns the live proxy key
 - To override, set \`PROXY_API_KEY\`
 - Anthropic: enable Replit integration
 - Gemini: enable Replit integration
