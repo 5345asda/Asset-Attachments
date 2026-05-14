@@ -148,6 +148,14 @@ function toTitleCase(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
+function expectedAxonHubBaseUrl(
+  projectOrigin: string,
+  provider: "anthropic" | "gemini" | "openai" | "openrouter" | "codex",
+): string {
+  const basePathProvider = provider === "codex" ? "openai" : provider;
+  return `http://proxyapi:3000?targeturl=${projectOrigin}/api/${basePathProvider}`;
+}
+
 function managedChannel({
   id,
   type,
@@ -213,7 +221,7 @@ test("buildAxonHubChannelInput uses the fixed anthropic channel format", () => {
   assert.deepEqual(input, {
     type: "anthropic",
     name: "proxy",
-    baseURL: "https://proxy.example:8443/api/anthropic",
+    baseURL: expectedAxonHubBaseUrl("https://proxy.example:8443", "anthropic"),
     credentials: {
       apiKey: "sk-proxy-test",
     },
@@ -238,7 +246,7 @@ test("buildAxonHubChannelInput uses the fixed gemini channel format", () => {
   assert.deepEqual(input, {
     type: "gemini",
     name: "proxy",
-    baseURL: "https://proxy.example:8443/api/gemini",
+    baseURL: expectedAxonHubBaseUrl("https://proxy.example:8443", "gemini"),
     credentials: {
       apiKey: "sk-proxy-test",
     },
@@ -263,7 +271,7 @@ test("buildAxonHubChannelInput uses the fixed openai channel format", () => {
   assert.deepEqual(input, {
     type: "openai",
     name: "proxy",
-    baseURL: "https://proxy.example:8443/api/openai",
+    baseURL: expectedAxonHubBaseUrl("https://proxy.example:8443", "openai"),
     credentials: {
       apiKey: "sk-proxy-test",
     },
@@ -288,7 +296,7 @@ test("buildAxonHubChannelInput uses the fixed codex channel format", () => {
   assert.deepEqual(input, {
     type: "codex",
     name: "proxy",
-    baseURL: "https://proxy.example:8443/api/openai",
+    baseURL: expectedAxonHubBaseUrl("https://proxy.example:8443", "codex"),
     credentials: {
       apiKey: "sk-proxy-test",
     },
@@ -313,7 +321,7 @@ test("buildAxonHubChannelInput uses the fixed openrouter channel format with bod
   assert.deepEqual(input, {
     type: "openrouter",
     name: "proxy",
-    baseURL: "https://proxy.example:8443/api/openrouter",
+    baseURL: expectedAxonHubBaseUrl("https://proxy.example:8443", "openrouter"),
     credentials: {
       apiKey: "sk-proxy-test",
     },
@@ -515,7 +523,7 @@ test("syncAxonHubChannel creates a new openai channel when openai is below the m
             id: "gid://axonhub/Channel/199",
             name: "proxy",
             type: "openai",
-            baseURL: "https://proxy.example/api/openai",
+            baseURL: expectedAxonHubBaseUrl("https://proxy.example", "openai"),
             status: "enabled",
           },
         },
@@ -546,7 +554,7 @@ test("syncAxonHubChannel creates a new openai channel when openai is below the m
   assert.deepEqual(createBody.variables?.input, {
     type: "openai",
     name: "proxy",
-    baseURL: "https://proxy.example/api/openai",
+    baseURL: expectedAxonHubBaseUrl("https://proxy.example", "openai"),
     credentials: {
       apiKey: "sk-proxy-test",
     },
@@ -593,7 +601,7 @@ test("syncAxonHubChannel creates a new codex channel when codex is below the min
             id: "gid://axonhub/Channel/299",
             name: "proxy",
             type: "codex",
-            baseURL: "https://proxy.example/api/openai",
+            baseURL: expectedAxonHubBaseUrl("https://proxy.example", "codex"),
             status: "enabled",
           },
         },
@@ -624,7 +632,7 @@ test("syncAxonHubChannel creates a new codex channel when codex is below the min
   assert.deepEqual(createBody.variables?.input, {
     type: "codex",
     name: "proxy",
-    baseURL: "https://proxy.example/api/openai",
+    baseURL: expectedAxonHubBaseUrl("https://proxy.example", "codex"),
     credentials: {
       apiKey: "sk-proxy-test",
     },
@@ -671,7 +679,7 @@ test("syncAxonHubChannel creates a new anthropic channel when anthropic is below
             id: "gid://axonhub/Channel/99",
             name: "proxy",
             type: "anthropic",
-            baseURL: "https://proxy.example/api/anthropic",
+            baseURL: expectedAxonHubBaseUrl("https://proxy.example", "anthropic"),
             status: "enabled",
           },
         },
@@ -708,7 +716,7 @@ test("syncAxonHubChannel creates a new anthropic channel when anthropic is below
   assert.deepEqual(createBody.variables?.input, {
     type: "anthropic",
     name: "proxy",
-    baseURL: "https://proxy.example/api/anthropic",
+    baseURL: expectedAxonHubBaseUrl("https://proxy.example", "anthropic"),
     credentials: {
       apiKey: "sk-proxy-test",
     },
@@ -745,7 +753,7 @@ test("syncAxonHubChannel updates the existing anthropic channel for the current 
                 node: managedChannel({
                   id: "gid://axonhub/Channel/70",
                   type: "anthropic",
-                  baseURL: "https://proxy.example/api/anthropic",
+                  baseURL: expectedAxonHubBaseUrl("https://proxy.example", "anthropic"),
                   status: "enabled",
                 }),
               },
@@ -766,7 +774,7 @@ test("syncAxonHubChannel updates the existing anthropic channel for the current 
             id: body.variables?.id,
             name: "proxy",
             type: "anthropic",
-            baseURL: "https://proxy.example/api/anthropic",
+            baseURL: expectedAxonHubBaseUrl("https://proxy.example", "anthropic"),
             status: "enabled",
           },
         },
@@ -799,7 +807,7 @@ test("syncAxonHubChannel updates the existing anthropic channel for the current 
   assert.deepEqual(updateBody.variables?.input, {
     type: "anthropic",
     name: "proxy",
-    baseURL: "https://proxy.example/api/anthropic",
+    baseURL: expectedAxonHubBaseUrl("https://proxy.example", "anthropic"),
     status: "enabled",
     credentials: {
       apiKey: "sk-proxy-test",
@@ -838,7 +846,7 @@ test("syncAxonHubChannel enables an existing channel when update leaves it archi
                 node: managedChannel({
                   id: "gid://axonhub/Channel/70",
                   type: "anthropic",
-                  baseURL: "https://proxy.example/api/anthropic",
+                  baseURL: expectedAxonHubBaseUrl("https://proxy.example", "anthropic"),
                   status: "archived",
                 }),
               },
@@ -862,7 +870,7 @@ test("syncAxonHubChannel enables an existing channel when update leaves it archi
             id: body.variables?.id,
             name: "proxy",
             type: "anthropic",
-            baseURL: "https://proxy.example/api/anthropic",
+            baseURL: expectedAxonHubBaseUrl("https://proxy.example", "anthropic"),
             status: "enabled",
           },
         },
@@ -876,7 +884,7 @@ test("syncAxonHubChannel enables an existing channel when update leaves it archi
             id: body.variables?.id,
             name: "proxy",
             type: "anthropic",
-            baseURL: "https://proxy.example/api/anthropic",
+            baseURL: expectedAxonHubBaseUrl("https://proxy.example", "anthropic"),
             status: "archived",
           },
         },
@@ -970,7 +978,7 @@ test("syncAxonHubChannel updates the existing project channel when create return
             id: body.variables?.id,
             name: "proxy",
             type: "anthropic",
-            baseURL: "https://proxy.example/api/anthropic",
+            baseURL: expectedAxonHubBaseUrl("https://proxy.example", "anthropic"),
             status: "enabled",
           },
         },
@@ -1007,7 +1015,7 @@ test("syncAxonHubChannel updates the existing project channel when create return
   assert.deepEqual(createBody.variables?.input, {
     type: "anthropic",
     name: "proxy",
-    baseURL: "https://proxy.example/api/anthropic",
+    baseURL: expectedAxonHubBaseUrl("https://proxy.example", "anthropic"),
     credentials: {
       apiKey: "sk-proxy-test",
     },
@@ -1024,7 +1032,7 @@ test("syncAxonHubChannel updates the existing project channel when create return
   assert.deepEqual(updateBody.variables?.input, {
     type: "anthropic",
     name: "proxy",
-    baseURL: "https://proxy.example/api/anthropic",
+    baseURL: expectedAxonHubBaseUrl("https://proxy.example", "anthropic"),
     status: "enabled",
     credentials: {
       apiKey: "sk-proxy-test",
@@ -1066,7 +1074,7 @@ test("syncAxonHubChannel updates the existing anthropic channel when AxonHub ret
                 node: managedChannel({
                   id: "gid://axonhub/Channel/70",
                   type: "Anthropic",
-                  baseURL: "https://proxy.example/api/anthropic",
+                  baseURL: expectedAxonHubBaseUrl("https://proxy.example", "anthropic"),
                   status: "Enabled",
                 }),
               },
@@ -1103,7 +1111,7 @@ test("syncAxonHubChannel updates the existing anthropic channel when AxonHub ret
             id: body.variables?.id,
             name: "proxy",
             type: "Anthropic",
-            baseURL: "https://proxy.example/api/anthropic",
+            baseURL: expectedAxonHubBaseUrl("https://proxy.example", "anthropic"),
             status: "Enabled",
           },
         },
@@ -1136,7 +1144,7 @@ test("syncAxonHubChannel updates the existing anthropic channel when AxonHub ret
   assert.deepEqual(updateBody.variables?.input, {
     type: "anthropic",
     name: "proxy",
-    baseURL: "https://proxy.example/api/anthropic",
+    baseURL: expectedAxonHubBaseUrl("https://proxy.example", "anthropic"),
     status: "enabled",
     credentials: {
       apiKey: "sk-proxy-test",
@@ -1207,7 +1215,7 @@ test("syncAxonHubChannel creates a new gemini channel when gemini has the strong
             id: "gid://axonhub/Channel/109",
             name: "proxy",
             type: "gemini",
-            baseURL: "https://proxy.example/api/gemini",
+            baseURL: expectedAxonHubBaseUrl("https://proxy.example", "gemini"),
             status: "enabled",
           },
         },
@@ -1236,7 +1244,7 @@ test("syncAxonHubChannel creates a new gemini channel when gemini has the strong
   assert.deepEqual(createBody.variables?.input, {
     type: "gemini",
     name: "proxy",
-    baseURL: "https://proxy.example/api/gemini",
+    baseURL: expectedAxonHubBaseUrl("https://proxy.example", "gemini"),
     credentials: {
       apiKey: "sk-proxy-test",
     },
@@ -1286,7 +1294,7 @@ test("syncAxonHubChannel creates a new openrouter channel when openrouter is bel
             id: "gid://axonhub/Channel/209",
             name: "proxy",
             type: "openrouter",
-            baseURL: "https://proxy.example/api/openrouter",
+            baseURL: expectedAxonHubBaseUrl("https://proxy.example", "openrouter"),
             status: "enabled",
           },
         },
@@ -1315,7 +1323,7 @@ test("syncAxonHubChannel creates a new openrouter channel when openrouter is bel
   assert.deepEqual(createBody.variables?.input, {
     type: "openrouter",
     name: "proxy",
-    baseURL: "https://proxy.example/api/openrouter",
+    baseURL: expectedAxonHubBaseUrl("https://proxy.example", "openrouter"),
     credentials: {
       apiKey: "sk-proxy-test",
     },

@@ -6,6 +6,7 @@ import {
 } from "./openai-models";
 
 export const AXONHUB_ORIGIN = "https://axonhub.qwqtao.com";
+export const AXONHUB_PROXY_API_URL = "http://proxyapi:3000";
 export const AXONHUB_DEFAULT_TEST_MODEL = "claude-opus-4-5";
 export const AXONHUB_SUPPORTED_MODELS = [
   "claude-opus-4-7",
@@ -281,6 +282,52 @@ function normalizeOrigin(origin: string): string {
   return origin.trim().replace(/\/+$/, "");
 }
 
+function buildProjectProviderBaseUrl(
+  projectOrigin: string,
+  provider: AxonHubProvider,
+): string {
+  const normalizedOrigin = normalizeOrigin(projectOrigin);
+  const basePathProvider = provider === "codex" ? "openai" : provider;
+  return `${normalizedOrigin}/api/${basePathProvider}`;
+}
+
+function buildAxonHubProxyBaseUrl(
+  projectOrigin: string,
+  provider: AxonHubProvider,
+): string {
+  return `${AXONHUB_PROXY_API_URL}?targeturl=${buildProjectProviderBaseUrl(projectOrigin, provider)}`;
+}
+
+function readProxyTargetUrl(baseURL: string): string | null {
+  try {
+    return new URL(baseURL).searchParams.get("targeturl")?.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+function matchesProjectProviderBaseUrl(
+  baseURL: string,
+  projectOrigin: string,
+  provider: AxonHubProvider,
+): boolean {
+  const expectedProjectBaseUrl = buildProjectProviderBaseUrl(projectOrigin, provider);
+  return baseURL.trim() === expectedProjectBaseUrl
+    || readProxyTargetUrl(baseURL) === expectedProjectBaseUrl;
+}
+
+function isProjectChannelBaseUrl(baseURL: string, projectOrigin: string): boolean {
+  const normalizedProjectOrigin = normalizeOrigin(projectOrigin);
+  const projectBasePrefix = `${normalizedProjectOrigin}/api/`;
+
+  if (baseURL.trim().startsWith(projectBasePrefix)) {
+    return true;
+  }
+
+  const targetUrl = readProxyTargetUrl(baseURL);
+  return Boolean(targetUrl?.startsWith(projectBasePrefix));
+}
+
 function deriveChannelName(projectOrigin: string): string {
   const { hostname } = new URL(normalizeOrigin(projectOrigin));
   const firstLabel = hostname.split(".")[0]?.trim();
@@ -309,7 +356,6 @@ export function buildAxonHubChannelInput({
   projectOrigin,
   proxyKey,
 }: BuildAxonHubChannelInputOptions): AxonHubCreateChannelInput {
-  const normalizedOrigin = normalizeOrigin(projectOrigin);
   const supportedModels = provider === "gemini"
     ? [...AXONHUB_GEMINI_SUPPORTED_MODELS]
     : provider === "openai"
@@ -328,12 +374,11 @@ export function buildAxonHubChannelInput({
       : provider === "openrouter"
         ? AXONHUB_OPENROUTER_DEFAULT_TEST_MODEL
         : AXONHUB_DEFAULT_TEST_MODEL;
-  const basePathProvider = provider === "codex" ? "openai" : provider;
 
   return {
     type: provider,
-    name: deriveChannelName(normalizedOrigin),
-    baseURL: `${normalizedOrigin}/api/${basePathProvider}`,
+    name: deriveChannelName(projectOrigin),
+    baseURL: buildAxonHubProxyBaseUrl(projectOrigin, provider),
     credentials: {
       apiKey: proxyKey,
     },
@@ -488,12 +533,10 @@ function findConflictingProjectChannel(
   projectOrigin: string,
   channelName: string,
 ): GraphQlChannelNode | undefined {
-  const normalizedProjectOrigin = normalizeOrigin(projectOrigin);
-  const projectBasePrefix = `${normalizedProjectOrigin}/api/`;
   const projectMatch = channels.find((channel): channel is GraphQlChannelNode => {
     return !!channel
       && channel.name === channelName
-      && channel.baseURL.startsWith(projectBasePrefix);
+      && isProjectChannelBaseUrl(channel.baseURL, projectOrigin);
   });
 
   if (projectMatch) {
@@ -618,7 +661,7 @@ export async function syncAxonHubChannel({
     .find((channel): channel is GraphQlChannelNode => {
       return !!channel
         && normalizeAxonHubProviderType(channel.type) === provider
-        && channel.baseURL === input.baseURL;
+        && matchesProjectProviderBaseUrl(channel.baseURL, projectOrigin, provider);
     });
 
   if (existingChannel) {

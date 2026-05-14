@@ -3,6 +3,14 @@ import assert from "node:assert/strict";
 
 import { syncAxonHubChannel } from "../src/lib/axonhub.ts";
 
+function expectedAxonHubBaseUrl(
+  projectOrigin: string,
+  provider: "anthropic" | "gemini" | "openai" | "openrouter" | "codex",
+): string {
+  const basePathProvider = provider === "codex" ? "openai" : provider;
+  return `http://proxyapi:3000?targeturl=${projectOrigin}/api/${basePathProvider}`;
+}
+
 function makeChannel(id: number, overrides: Record<string, unknown> = {}) {
   return {
     id: `gid://axonhub/Channel/${id}`,
@@ -17,7 +25,11 @@ function makeChannel(id: number, overrides: Record<string, unknown> = {}) {
 
 test("syncAxonHubChannel fetches the full channel list without pagination before choosing provider", async () => {
   const projectOrigin = "https://asset-attachments--nicole19720518.replit.app";
-  const geminiBaseUrl = `${projectOrigin}/api/gemini`;
+  const geminiBaseUrl = expectedAxonHubBaseUrl(projectOrigin, "gemini");
+  const requests: Array<{
+    query: string;
+    variables: Record<string, unknown>;
+  }> = [];
   const lookupEdges = [
     ...Array.from({ length: 10 }, (_, index) => ({
       node: makeChannel(200 + index, {
@@ -68,11 +80,6 @@ test("syncAxonHubChannel fetches the full channel list without pagination before
       }),
     },
   ];
-
-  const requests: Array<{
-    query: string;
-    variables: Record<string, unknown>;
-  }> = [];
 
   const fetchImpl: typeof fetch = async (_input, init) => {
     const payload = JSON.parse(String(init?.body)) as {
@@ -143,9 +150,47 @@ test("syncAxonHubChannel fetches the full channel list without pagination before
   });
 
   const lookupRequests = requests.filter((request) => request.query.includes("query SyncAxonHubChannelLookup"));
+  const updateRequests = requests.filter((request) => request.query.includes("mutation UpdateChannel"));
 
   assert.equal(lookupRequests.length, 1);
+  assert.equal(updateRequests.length, 1);
   assert.deepEqual(lookupRequests[0]?.variables.input, {});
+  assert.deepEqual(updateRequests[0]?.variables, {
+    id: "gid://axonhub/Channel/500",
+    input: {
+      type: "gemini",
+      name: "asset-attachments--nicole19720518",
+      baseURL: geminiBaseUrl,
+      status: "enabled",
+      credentials: {
+        apiKey: "sk-proxy-test",
+      },
+      supportedModels: [
+        "gemini-3.1-pro-preview",
+        "gemini-3-flash-preview",
+        "gemini-3-pro-image-preview",
+        "gemini-2.5-pro",
+        "gemini-2.5-flash",
+        "gemini-2.5-flash-image",
+      ],
+      defaultTestModel: "gemini-2.5-flash",
+      manualModels: [
+        "gemini-3.1-pro-preview",
+        "gemini-3-flash-preview",
+        "gemini-3-pro-image-preview",
+        "gemini-2.5-pro",
+        "gemini-2.5-flash",
+        "gemini-2.5-flash-image",
+      ],
+      autoSyncSupportedModels: false,
+      autoSyncModelPattern: "",
+      settings: {
+        passThroughBody: false,
+      },
+      tags: [],
+      remark: "Managed by Asset-Attachments",
+    },
+  });
   assert.equal(result.provider, "gemini");
   assert.equal(result.mode, "updated");
   assert.equal(result.channel.baseURL, geminiBaseUrl);
