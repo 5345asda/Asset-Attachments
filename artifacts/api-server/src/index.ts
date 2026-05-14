@@ -2,7 +2,9 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { getAnthropicProviderConfig } from "./lib/anthropic-provider";
 import { getGeminiProviderConfig } from "./lib/gemini-provider";
+import { getInternalRunsConfig } from "./lib/internal-run-config";
 import { getOpenRouterProviderConfig } from "./lib/openrouter-provider";
+import { getRedisConfig } from "./lib/redis-config";
 
 const rawPort = process.env["PORT"];
 
@@ -26,18 +28,28 @@ app.listen(port, (err) => {
 
   const anthropic = getAnthropicProviderConfig();
   const gemini = getGeminiProviderConfig();
+  const internalRuns = getInternalRunsConfig();
   const openrouter = getOpenRouterProviderConfig();
+  const redis = getRedisConfig();
   logger.info(
     {
+      internalRuns: {
+        enabled: internalRuns.internalRunsEnabled,
+        tokenConfigured: internalRuns.tokenConfigured,
+        redisConfigured: internalRuns.redis.configured,
+        workerConcurrency: internalRuns.workerConcurrency,
+      },
       providers: {
         anthropic: anthropic.configured,
         gemini: gemini.configured,
         openrouter: openrouter.configured,
+        redis: redis.configured,
       },
       providerSources: {
         anthropic: anthropic.source,
         gemini: gemini.source,
         openrouter: openrouter.source,
+        redis: redis.source,
       },
     },
     "Provider integration status",

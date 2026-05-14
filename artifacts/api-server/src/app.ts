@@ -4,6 +4,7 @@ import pinoHttp from "pino-http";
 import { join } from "node:path";
 import { existsSync } from "node:fs";
 import router from "./routes";
+import internalRunsRouter from "./routes/internal-runs";
 import { logger } from "./lib/logger";
 import { ApiError, handleRouteError } from "./lib/api-error";
 import { createHttpLoggerOptions } from "./lib/request-context";
@@ -15,6 +16,7 @@ app.use(cors());
 app.use(express.json({ limit: "1gb" }));
 app.use(express.urlencoded({ extended: true, limit: "1gb" }));
 
+app.use("/internal", internalRunsRouter);
 app.use("/api", router);
 
 const staticDir = process.env["STATIC_DIR"];
