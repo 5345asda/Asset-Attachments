@@ -1,12 +1,7 @@
 import { Router, type IRouter } from "express";
-import { getAnthropicProviderConfig } from "../lib/anthropic-provider";
 import { ApiError } from "../lib/api-error";
-import { getGeminiProviderConfig } from "../lib/gemini-provider";
 import { requireInternalRunsAuth } from "../lib/internal-auth";
-import { getInternalRunsConfig } from "../lib/internal-run-config";
-import { getOpenAIProviderConfig } from "../lib/openai-provider";
-import { getOpenRouterProviderConfig } from "../lib/openrouter-provider";
-import { getRunRegistry } from "../lib/run-registry";
+import { getInternalRunsService } from "../lib/internal-runs-service";
 import { parseInternalRunEnvelope } from "../lib/run-schema";
 
 const router: IRouter = Router();
@@ -19,43 +14,11 @@ function readRouteParam(value: string | string[] | undefined): string {
   return value?.trim() || "";
 }
 
-router.get("/healthz", (_req, res) => {
-  const config = getInternalRunsConfig();
-  const registry = getRunRegistry();
-  const anthropic = getAnthropicProviderConfig();
-  const gemini = getGeminiProviderConfig();
-  const openrouter = getOpenRouterProviderConfig();
-  const openai = getOpenAIProviderConfig();
-
-  res.json({
-    status: "ok",
-    mode: "private_executor",
-    internalRunsEnabled: config.internalRunsEnabled,
-    redis: {
-      configured: config.redis.configured,
-    },
-    workers: {
-      concurrency: config.workerConcurrency,
-      activeRuns: registry.activeRunCount(),
-    },
-    providers: {
-      anthropic: {
-        configured: anthropic.configured,
-      },
-      gemini: {
-        configured: gemini.configured,
-      },
-      openrouter: {
-        configured: openrouter.configured,
-      },
-      openai: {
-        configured: openai.configured,
-      },
-    },
-  });
+router.get("/healthz", async (_req, res) => {
+  res.json(await getInternalRunsService().getHealth());
 });
 
-router.post("/runs", requireInternalRunsAuth, (req, res, next) => {
+router.post("/runs", requireInternalRunsAuth, async (req, res, next) => {
   const envelope = parseInternalRunEnvelope(req.body);
   if (!envelope) {
     next(new ApiError({
@@ -67,15 +30,14 @@ router.post("/runs", requireInternalRunsAuth, (req, res, next) => {
     return;
   }
 
-  getRunRegistry().accept(envelope);
-  res.status(202).json({
-    ok: true,
-    runId: envelope.runId,
-    status: "accepted",
-  });
+  try {
+    res.status(202).json(await getInternalRunsService().submitRun(envelope));
+  } catch (error) {
+    next(error);
+  }
 });
 
-router.post("/runs/:id/cancel", requireInternalRunsAuth, (req, res, next) => {
+router.post("/runs/:id/cancel", requireInternalRunsAuth, async (req, res, next) => {
   const runId = readRouteParam(req.params.id);
   if (!runId) {
     next(new ApiError({
@@ -87,22 +49,25 @@ router.post("/runs/:id/cancel", requireInternalRunsAuth, (req, res, next) => {
     return;
   }
 
-  const record = getRunRegistry().requestCancel(runId, typeof req.body?.reason === "string" ? req.body.reason : undefined);
-  if (!record) {
-    next(new ApiError({
-      status: 404,
-      message: "Internal run not found",
-      code: "internal_run_not_found",
-      logLevel: "warn",
-    }));
-    return;
-  }
+  try {
+    const result = await getInternalRunsService().requestCancel(
+      runId,
+      typeof req.body?.reason === "string" ? req.body.reason : undefined,
+    );
+    if (!result) {
+      next(new ApiError({
+        status: 404,
+        message: "Internal run not found",
+        code: "internal_run_not_found",
+        logLevel: "warn",
+      }));
+      return;
+    }
 
-  res.json({
-    ok: true,
-    runId: record.runId,
-    cancelRequested: true,
-  });
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
 });
 
 export default router;

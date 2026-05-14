@@ -1,6 +1,24 @@
+export const INTERNAL_RUN_PROVIDERS = [
+  "anthropic",
+  "gemini",
+  "openai",
+  "openrouter",
+] as const;
+
+export type InternalRunProvider = (typeof INTERNAL_RUN_PROVIDERS)[number];
+
+export type InternalRunStatus =
+  | "accepted"
+  | "running"
+  | "streaming"
+  | "completed"
+  | "failed"
+  | "cancel_requested"
+  | "cancelled";
+
 export type InternalRunEnvelope = {
   runId: string;
-  provider: string;
+  provider: InternalRunProvider;
   routePath: string;
   method: string;
   headers: Record<string, string>;
@@ -9,8 +27,13 @@ export type InternalRunEnvelope = {
   createdAt: string;
 };
 
-export type InternalRunRecord = InternalRunEnvelope & {
-  status: "accepted" | "cancel_requested";
+export type InternalRunMeta = InternalRunEnvelope & {
+  status: InternalRunStatus;
+  updatedAt: string;
+  startedAt?: string;
+  completedAt?: string;
   cancelRequestedAt?: string;
   cancelReason?: string;
+  errorCode?: string;
+  errorMessage?: string;
 };

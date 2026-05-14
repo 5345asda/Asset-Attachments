@@ -32,8 +32,8 @@
 
 ## Proxy Key
 
-- 默认鉴权 key 目前仍保持固定，不会因为重启、重新部署或容器切换而变化
-- 如需覆盖，直接设置环境变量 `PROXY_API_KEY`
+- 公开 `/api/*` 代理现在必须显式设置环境变量 `PROXY_API_KEY`
+- 不再保留仓库内硬编码默认 key
 - `GET /api/proxy-info` 只返回 provider 状态和传输参数，不再公开返回 live proxy key
 
 ## Internal Redis
@@ -46,11 +46,13 @@
 
 ## Internal Runs
 
-- 内部执行器入口预留为 `GET /internal/healthz`、`POST /internal/runs`、`POST /internal/runs/:id/cancel`
+- 内部执行器已经实现为 `GET /internal/healthz`、`POST /internal/runs`、`POST /internal/runs/:id/cancel`
 - 内部鉴权 token 从环境变量 `INTERNAL_RUNS_TOKEN` 读取
 - 内部执行器 Redis 配置从环境变量 `RUN_REDIS_URL`、`RUN_REDIS_USERNAME`、`RUN_REDIS_PASSWORD` 读取
 - 其他可选调优项也都走环境变量：`RUN_REDIS_KEY_PREFIX`、`RUN_REDIS_CONNECT_TIMEOUT_MS`、`RUN_REDIS_TLS_CA_PEM_B64`、`RUN_WORKER_CONCURRENCY`、`RUN_EVENTS_BATCH_MS`、`RUN_EVENTS_BATCH_BYTES`、`RUN_HEARTBEAT_INTERVAL_MS`、`RUN_CANCEL_POLL_MS`、`RUN_RESULT_TTL_SECONDS`
 - `/internal/healthz` 只暴露配置状态和 worker 概况，不返回 token、Redis URL 或密码
+- 内部 run 现在会把状态、流式事件、终态结果、错误和取消标记持久化到 Redis
+- 详细接口文档见 [docs/internal-runs-api.md](./docs/internal-runs-api.md)
 
 ## API 概览
 

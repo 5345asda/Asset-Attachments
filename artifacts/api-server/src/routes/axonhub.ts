@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { ApiError } from "../lib/api-error";
 import { AXONHUB_ORIGIN, AxonHubSyncError, syncAxonHubChannel } from "../lib/axonhub";
-import { PROXY_API_KEY } from "../lib/proxy-key";
+import { getProxyApiKeyConfig } from "../lib/proxy-key";
 
 const router: IRouter = Router();
 
@@ -42,7 +42,8 @@ router.post("/axonhub/channel-sync", async (req, res, next) => {
     return;
   }
 
-  if (!PROXY_API_KEY) {
+  const proxyKey = getProxyApiKeyConfig();
+  if (!proxyKey.configured) {
     next(new ApiError({
       status: 503,
       message: "Proxy API key not configured",
@@ -55,7 +56,7 @@ router.post("/axonhub/channel-sync", async (req, res, next) => {
   try {
     const result = await syncAxonHubChannel({
       projectOrigin,
-      proxyKey: PROXY_API_KEY,
+      proxyKey: proxyKey.value,
       adminToken: token,
     });
 

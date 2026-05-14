@@ -6,15 +6,34 @@ import {
   type AnthropicStructuredOutputShim,
 } from "./anthropic-structured-output";
 import { logger } from "./logger";
+import type { ProviderPipeOptions, ProviderResponseSink } from "./providers/types";
 
 type StreamReadResult = Awaited<ReturnType<ReadableStreamDefaultReader<Uint8Array>["read"]>>;
 
 type StreamPipeOptions = {
-  keepaliveIntervalMs?: number;
   firstChunk?: Uint8Array;
   firstReadPromise?: Promise<StreamReadResult>;
   streamDone?: boolean;
 };
+
+function isClosed(sink: ProviderResponseSink): boolean {
+  return sink.isClosed?.() ?? false;
+}
+
+async function writeToSink(
+  sink: ProviderResponseSink,
+  chunk: Uint8Array | string,
+): Promise<void> {
+  if (!isClosed(sink)) {
+    await sink.write(chunk);
+  }
+}
+
+async function endSink(sink: ProviderResponseSink): Promise<void> {
+  if (!isClosed(sink)) {
+    await sink.end();
+  }
+}
 
 function writeKeepAlive(res: Response): void {
   if (!res.destroyed) {
@@ -41,12 +60,30 @@ function startKeepAlive(
   return keepalive;
 }
 
-export async function pipeReaderToResponse(
+function toResponseSink(res: Response): ProviderResponseSink {
+  return {
+    write: async (chunk) => {
+      if (!res.destroyed) {
+        res.write(chunk);
+      }
+    },
+    end: async () => {
+      if (!res.destroyed) {
+        res.end();
+      }
+    },
+    isClosed: () => res.destroyed,
+  };
+}
+
+export async function pipeReaderToSink(
   reader: ReadableStreamDefaultReader<Uint8Array>,
-  res: Response,
-  options?: StreamPipeOptions,
+  sink: ProviderResponseSink,
+  options?: StreamPipeOptions & ProviderPipeOptions,
 ): Promise<void> {
-  const keepalive = startKeepAlive(options?.keepaliveIntervalMs, () => writeKeepAlive(res));
+  const keepalive = startKeepAlive(options?.keepaliveIntervalMs, () => {
+    void writeToSink(sink, options?.keepaliveChunk ?? ": ping\n\n");
+  });
 
   try {
     let initialRead: StreamReadResult | undefined;
@@ -55,16 +92,16 @@ export async function pipeReaderToResponse(
       initialRead = await options.firstReadPromise;
     }
 
-    if (options?.firstChunk && !res.destroyed) {
-      res.write(options.firstChunk);
-    } else if (initialRead && !initialRead.done && initialRead.value && !res.destroyed) {
-      res.write(initialRead.value);
+    if (options?.firstChunk) {
+      await writeToSink(sink, options.firstChunk);
+    } else if (initialRead && !initialRead.done && initialRead.value) {
+      await writeToSink(sink, initialRead.value);
     }
 
     const streamDone = options?.streamDone ?? initialRead?.done ?? false;
     if (!streamDone) {
       for (;;) {
-        if (res.destroyed) {
+        if (isClosed(sink)) {
           reader.cancel().catch(() => {});
           break;
         }
@@ -74,13 +111,11 @@ export async function pipeReaderToResponse(
           break;
         }
 
-        res.write(value);
+        await writeToSink(sink, value);
       }
     }
 
-    if (!res.destroyed) {
-      res.end();
-    }
+    await endSink(sink);
   } finally {
     if (keepalive) {
       clearInterval(keepalive);
@@ -89,31 +124,44 @@ export async function pipeReaderToResponse(
   }
 }
 
-export async function pipeAnthropicStreamWithUsageAdjust(
+export async function pipeReaderToResponse(
   reader: ReadableStreamDefaultReader<Uint8Array>,
   res: Response,
   options?: StreamPipeOptions & {
+    keepaliveIntervalMs?: number;
+  },
+): Promise<void> {
+  await pipeReaderToSink(reader, toResponseSink(res), {
+    ...options,
+    keepaliveChunk: ": ping\n\n",
+  });
+}
+
+export async function pipeAnthropicStreamWithUsageAdjustToSink(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  sink: ProviderResponseSink,
+  options?: StreamPipeOptions & ProviderPipeOptions & {
     structuredOutputShim?: AnthropicStructuredOutputShim;
   },
 ): Promise<void> {
-  const dec = new TextDecoder();
-  let buf = "";
+  const decoder = new TextDecoder();
+  let buffer = "";
   const transformEvent = createAnthropicStructuredOutputEventTransformer(options?.structuredOutputShim);
 
-  const writeLine = (line: string) => {
+  const writeLine = async (line: string): Promise<void> => {
     if (!line.startsWith("data: ")) {
-      res.write(line + "\n");
+      await writeToSink(sink, `${line}\n`);
       return;
     }
 
     const raw = line.slice(6).trim();
     if (!raw || raw === "[DONE]") {
-      res.write(line + "\n");
+      await writeToSink(sink, `${line}\n`);
       return;
     }
 
     try {
-      const event: any = JSON.parse(raw);
+      const event = JSON.parse(raw) as Record<string, any>;
 
       if (event.type === "message_start" && event.message?.usage) {
         const rawUsage = event.message.usage;
@@ -139,13 +187,14 @@ export async function pipeAnthropicStreamWithUsageAdjust(
           },
           "Anthropic adjusted usage (after billing, sent to client)",
         );
-      }
-      else if (
-        event.type === "message_delta" &&
-        event.usage &&
-        (event.usage.cache_read_input_tokens ||
-          event.usage.input_tokens ||
-          event.usage.cache_creation_input_tokens)
+      } else if (
+        event.type === "message_delta"
+        && event.usage
+        && (
+          event.usage.cache_read_input_tokens
+          || event.usage.input_tokens
+          || event.usage.cache_creation_input_tokens
+        )
       ) {
         logger.info(
           {
@@ -170,28 +219,33 @@ export async function pipeAnthropicStreamWithUsageAdjust(
         );
       }
 
-      res.write(`data: ${JSON.stringify(normalizeAnthropicStreamEvent(transformEvent(event)))}\n`);
+      await writeToSink(
+        sink,
+        `data: ${JSON.stringify(normalizeAnthropicStreamEvent(transformEvent(event)))}\n`,
+      );
       return;
     } catch {
       // Ignore malformed SSE data and forward it as-is.
     }
 
-    res.write(line + "\n");
+    await writeToSink(sink, `${line}\n`);
   };
 
-  const pushChunk = (chunk: Uint8Array) => {
-    buf += dec.decode(chunk, { stream: true });
-    const lines = buf.split("\n");
-    buf = lines.pop() ?? "";
+  const pushChunk = async (chunk: Uint8Array): Promise<void> => {
+    buffer += decoder.decode(chunk, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
 
     for (const line of lines) {
-      writeLine(line);
+      await writeLine(line);
     }
   };
 
   const keepalive = startKeepAlive(
-    options?.keepaliveIntervalMs ?? 15000,
-    () => writeKeepAlive(res),
+    options?.keepaliveIntervalMs,
+    () => {
+      void writeToSink(sink, options?.keepaliveChunk ?? ": ping\n\n");
+    },
   );
 
   try {
@@ -202,15 +256,15 @@ export async function pipeAnthropicStreamWithUsageAdjust(
     }
 
     if (options?.firstChunk) {
-      pushChunk(options.firstChunk);
+      await pushChunk(options.firstChunk);
     } else if (initialRead && !initialRead.done && initialRead.value) {
-      pushChunk(initialRead.value);
+      await pushChunk(initialRead.value);
     }
 
     const streamDone = options?.streamDone ?? initialRead?.done ?? false;
     if (!streamDone) {
       for (;;) {
-        if (res.destroyed) {
+        if (isClosed(sink)) {
           reader.cancel().catch(() => {});
           break;
         }
@@ -220,23 +274,35 @@ export async function pipeAnthropicStreamWithUsageAdjust(
           break;
         }
 
-        pushChunk(value);
+        await pushChunk(value);
       }
     }
 
-    if (buf && !res.destroyed) {
-      res.write(buf);
+    if (buffer) {
+      await writeToSink(sink, buffer);
     }
 
-    if (!res.destroyed) {
-      res.end();
-    }
+    await endSink(sink);
   } finally {
     if (keepalive) {
       clearInterval(keepalive);
     }
     reader.releaseLock?.();
   }
+}
+
+export async function pipeAnthropicStreamWithUsageAdjust(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  res: Response,
+  options?: StreamPipeOptions & {
+    keepaliveIntervalMs?: number;
+    structuredOutputShim?: AnthropicStructuredOutputShim;
+  },
+): Promise<void> {
+  await pipeAnthropicStreamWithUsageAdjustToSink(reader, toResponseSink(res), {
+    ...options,
+    keepaliveChunk: ": ping\n\n",
+  });
 }
 
 export async function readUpstreamArrayBufferWithKeepAlive(
@@ -264,3 +330,5 @@ export async function readUpstreamArrayBufferWithKeepAlive(
     }
   }
 }
+
+export { writeKeepAlive };

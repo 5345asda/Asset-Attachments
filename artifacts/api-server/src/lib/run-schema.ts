@@ -1,4 +1,8 @@
-import type { InternalRunEnvelope } from "./run-types";
+import {
+  INTERNAL_RUN_PROVIDERS,
+  type InternalRunEnvelope,
+  type InternalRunProvider,
+} from "./run-types";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -14,6 +18,10 @@ function isStringRecord(value: unknown): value is Record<string, string> {
 
 function readString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function isInternalRunProvider(value: string): value is InternalRunProvider {
+  return INTERNAL_RUN_PROVIDERS.includes(value as InternalRunProvider);
 }
 
 export function parseInternalRunEnvelope(value: unknown): InternalRunEnvelope | null {
@@ -32,7 +40,7 @@ export function parseInternalRunEnvelope(value: unknown): InternalRunEnvelope | 
     return null;
   }
 
-  if (!routePath.startsWith("/")) {
+  if (!isInternalRunProvider(provider) || !routePath.startsWith("/")) {
     return null;
   }
 

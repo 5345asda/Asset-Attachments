@@ -5,7 +5,7 @@ import passthroughRouter from "./passthrough";
 import geminiRouter from "./gemini";
 import openrouterRouter, { handleOpenRouterModelList } from "./openrouter";
 import openaiRouter, { handleOpenAIModelList } from "./openai";
-import { PROXY_API_KEY } from "../lib/proxy-key";
+import { getProxyApiKeyConfig } from "../lib/proxy-key";
 import { ApiError } from "../lib/api-error";
 import { getRequestLogger } from "../lib/request-context";
 import { anthropicModelList, anthropicModels } from "../lib/anthropic-request";
@@ -36,8 +36,9 @@ function isGeminiProxyRequest(req: Request): boolean {
 
 function proxyAuth(req: Request, res: Response, next: NextFunction) {
   const requestLogger = getRequestLogger(req);
+  const proxyKey = getProxyApiKeyConfig();
 
-  if (!PROXY_API_KEY) {
+  if (!proxyKey.configured) {
     next(new ApiError({
       status: 503,
       message: "Proxy API key not configured",
@@ -52,12 +53,12 @@ function proxyAuth(req: Request, res: Response, next: NextFunction) {
   const xApiKey = req.headers["x-api-key"];
   const xGoogApiKey = req.headers["x-goog-api-key"];
   const geminiRoute = isGeminiProxyRequest(req);
-  const bearerOk = typeof auth === "string" && auth === `Bearer ${PROXY_API_KEY}`;
-  const xApiKeyOk = typeof xApiKey === "string" && xApiKey === PROXY_API_KEY;
+  const bearerOk = typeof auth === "string" && auth === `Bearer ${proxyKey.value}`;
+  const xApiKeyOk = typeof xApiKey === "string" && xApiKey === proxyKey.value;
   const xGoogApiKeyOk =
     geminiRoute
     && typeof xGoogApiKey === "string"
-    && xGoogApiKey === PROXY_API_KEY;
+    && xGoogApiKey === proxyKey.value;
 
   if (!bearerOk && !xApiKeyOk && !xGoogApiKeyOk) {
     const reason = !auth && !xApiKey && !xGoogApiKey

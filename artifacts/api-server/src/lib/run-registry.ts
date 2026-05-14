@@ -1,41 +1,48 @@
-import type { InternalRunEnvelope, InternalRunRecord } from "./run-types";
+type ActiveRunHandle = {
+  runId: string;
+  abortController: AbortController;
+  cancelReason?: string;
+};
 
 class RunRegistry {
-  private readonly runs = new Map<string, InternalRunRecord>();
+  private readonly activeRuns = new Map<string, ActiveRunHandle>();
 
-  accept(envelope: InternalRunEnvelope): InternalRunRecord {
-    const record: InternalRunRecord = {
-      ...envelope,
-      status: "accepted",
-    };
-
-    this.runs.set(envelope.runId, record);
-    return record;
+  start(runId: string, abortController: AbortController): void {
+    this.activeRuns.set(runId, {
+      runId,
+      abortController,
+    });
   }
 
-  requestCancel(runId: string, reason?: string): InternalRunRecord | null {
-    const existing = this.runs.get(runId);
-    if (!existing) {
-      return null;
+  finish(runId: string): void {
+    this.activeRuns.delete(runId);
+  }
+
+  requestCancel(runId: string, reason?: string): boolean {
+    const activeRun = this.activeRuns.get(runId);
+    if (!activeRun) {
+      return false;
     }
 
-    const nextRecord: InternalRunRecord = {
-      ...existing,
-      status: "cancel_requested",
-      cancelRequestedAt: new Date().toISOString(),
-      cancelReason: reason?.trim() || undefined,
-    };
+    activeRun.cancelReason = reason?.trim() || undefined;
+    activeRun.abortController.abort(activeRun.cancelReason ?? "cancel_requested");
+    return true;
+  }
 
-    this.runs.set(runId, nextRecord);
-    return nextRecord;
+  has(runId: string): boolean {
+    return this.activeRuns.has(runId);
   }
 
   activeRunCount(): number {
-    return [...this.runs.values()].filter((record) => record.status === "accepted").length;
+    return this.activeRuns.size;
   }
 }
 
-const runRegistry = new RunRegistry();
+export function createRunRegistry(): RunRegistry {
+  return new RunRegistry();
+}
+
+const runRegistry = createRunRegistry();
 
 export function getRunRegistry(): RunRegistry {
   return runRegistry;

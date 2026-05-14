@@ -1,255 +1,27 @@
 import { Router, type Request, type Response } from "express";
-import { ApiError } from "../lib/api-error";
-import {
-  anthropicModelList,
-  sanitizeAnthropicBody,
-} from "../lib/anthropic-request";
-import {
-  prepareAnthropicStructuredOutputRequest,
-  restoreAnthropicStructuredOutputResponse,
-  type AnthropicStructuredOutputShim,
-} from "../lib/anthropic-structured-output";
-import { normalizeAnthropicResponseMessage } from "../lib/anthropic-message-id";
-import { getProxyStreamConfig, prepareProxyUpstream } from "../lib/proxy-stream";
-import { getRequestLogger } from "../lib/request-context";
-import { normalizeUpstreamStatus, sanitizeUpstreamError } from "../lib/upstream-error";
-import {
-  pipeAnthropicStreamWithUsageAdjust,
-  readUpstreamArrayBufferWithKeepAlive,
-} from "../lib/stream";
-import { applyBillingAnthropic } from "../lib/billing";
+import { anthropicModelList } from "../lib/anthropic-request";
 import { getAnthropicProviderConfig } from "../lib/anthropic-provider";
+import { getProxyStreamConfig } from "../lib/proxy-stream";
+import { getRequestLogger } from "../lib/request-context";
+import { executeAnthropicRequest } from "../lib/providers/anthropic-execution";
+import {
+  sendExecutionResult,
+  toProviderExecutionRequest,
+} from "../lib/providers/http";
 
 const router = Router();
-const PROMPT_CACHING_BETA = "prompt-caching-2024-07-31";
-const TASK_BUDGETS_BETA = "task-budgets-2026-03-13";
-const OBSOLETE_BETAS = new Set([
-  "effort-2025-11-24",
-  "fine-grained-tool-streaming-2025-05-14",
-  "web-search-2025-03-05",
-]);
-const OPUS_47_OBSOLETE_BETAS = new Set(["interleaved-thinking-2025-05-14"]);
-
-function buildTargetUrl(baseUrl: string, request: Request): string {
-  const cleanBaseUrl = baseUrl.replace(/\/$/, "");
-  const upstreamPath = request.path.replace(/^\/v1\//, "").replace(/^\//, "");
-  const query = request.url.includes("?") ? request.url.slice(request.url.indexOf("?")) : "";
-  return `${cleanBaseUrl}/${upstreamPath}${query}`;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
-}
-
-function needsTaskBudgetBeta(body: Record<string, unknown> | undefined): boolean {
-  return isRecord(body?.output_config) && isRecord(body.output_config.task_budget);
-}
-
-function buildAnthropicHeaders(
-  request: Request,
-  apiKey: string,
-  body?: Record<string, unknown>,
-): Record<string, string> {
-  const headers: Record<string, string> = {
-    "x-api-key": apiKey,
-    "anthropic-version": typeof request.headers["anthropic-version"] === "string"
-      ? request.headers["anthropic-version"] as string
-      : "2023-06-01",
-  };
-
-  if (request.headers["content-type"]) {
-    headers["Content-Type"] = request.headers["content-type"] as string;
-  }
-
-  const clientBeta = request.headers["anthropic-beta"] as string | undefined;
-  const isClaudeOpus47 = body?.model === "claude-opus-4-7";
-  const requiredBetas = [PROMPT_CACHING_BETA];
-  if (needsTaskBudgetBeta(body)) {
-    requiredBetas.push(TASK_BUDGETS_BETA);
-  }
-  const mergedBetas = Array.from(new Set([
-    ...(clientBeta
-      ? clientBeta
-        .split(",")
-        .map((value) => value.trim())
-        .filter(Boolean)
-        .filter((value) => !OBSOLETE_BETAS.has(value))
-        .filter((value) => !isClaudeOpus47 || !OPUS_47_OBSOLETE_BETAS.has(value))
-      : []),
-    ...requiredBetas,
-  ]));
-  headers["anthropic-beta"] = mergedBetas.join(",");
-
-  return headers;
-}
-
-function readRequestBody(request: Request): Record<string, unknown> | undefined {
-  if (request.method === "GET" || request.method === "HEAD") {
-    return undefined;
-  }
-
-  if (!request.body || Object.keys(request.body).length === 0) {
-    return undefined;
-  }
-
-  return request.body as Record<string, unknown>;
-}
-
-async function readUpstreamError(upstream: globalThis.Response): Promise<unknown> {
-  const raw = await upstream.text().catch(() => "");
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return raw || upstream.statusText;
-  }
-}
 
 async function passthrough(
   request: Request,
   response: Response,
 ): Promise<void> {
-  const requestLogger = getRequestLogger(request);
-  const anthropic = getAnthropicProviderConfig();
-
-  if (!anthropic.configured) {
-    throw new ApiError({
-      status: 503,
-      message: "Anthropic provider not configured",
-      type: "service_unavailable",
-      code: "provider_integration_not_configured",
-      details: { provider: "anthropic" },
-      logLevel: "warn",
-    });
-  }
-
-  let body = readRequestBody(request);
-  let structuredOutputShim: AnthropicStructuredOutputShim | undefined;
-  if (body) {
-    body = sanitizeAnthropicBody(body);
-    const preparedStructuredOutput = prepareAnthropicStructuredOutputRequest(body);
-    body = preparedStructuredOutput.body;
-    structuredOutputShim = preparedStructuredOutput.shim;
-  }
-
-  const target = buildTargetUrl(anthropic.baseUrl, request);
-  const headers = buildAnthropicHeaders(request, anthropic.apiKey, body);
-  const streamConfig = getProxyStreamConfig();
-
-  const { model, temperature, top_p, max_tokens, stream, tools } = body ?? {};
-  requestLogger.info(
-    {
-      method: request.method,
-      target,
-      model,
-      temperature,
-      top_p,
-      max_tokens,
-      stream: !!stream,
-      providerSource: anthropic.source,
-      structuredOutputShim: !!structuredOutputShim,
-      tools: Array.isArray(tools) ? tools.length : undefined,
-    },
-    "Passthrough request",
-  );
-
-  const preparedUpstream = await prepareProxyUpstream({
-    execute: async () => await fetch(target, {
-      method: request.method,
-      headers,
-      body: body ? JSON.stringify(body) : undefined,
-    }),
-    wantsStream: stream === true,
-    bootstrapRetries: streamConfig.streamBootstrapRetries,
-    onRetry: (attempt, error) => {
-      requestLogger.warn(
-        {
-          target,
-          method: request.method,
-          model,
-          attempt,
-          retries: streamConfig.streamBootstrapRetries,
-          error: error instanceof Error ? error.message : String(error),
-        },
-        "Retrying Anthropic stream bootstrap after upstream failure",
-      );
-    },
+  const result = await executeAnthropicRequest({
+    request: toProviderExecutionRequest(request),
+    provider: getAnthropicProviderConfig(),
+    logger: getRequestLogger(request),
   });
 
-  const {
-    upstream,
-    contentType,
-    isStream,
-    reader,
-    firstReadPromise,
-    firstChunk,
-    streamDone,
-  } = preparedUpstream;
-
-  response.status(normalizeUpstreamStatus(upstream.status));
-  response.setHeader("Content-Type", contentType);
-
-  if (!upstream.ok) {
-    const upstreamError = await readUpstreamError(upstream);
-    const sanitizedUpstreamError = sanitizeUpstreamError(upstreamError);
-    requestLogger.warn(
-      {
-        status: upstream.status,
-        target,
-        method: request.method,
-        model,
-        temperature,
-        top_p,
-        upstreamError: sanitizedUpstreamError,
-      },
-      `Upstream ${upstream.status} error`,
-    );
-
-    response.end(
-      typeof sanitizedUpstreamError === "string"
-        ? sanitizedUpstreamError
-        : JSON.stringify(sanitizedUpstreamError),
-    );
-    return;
-  }
-
-  if (isStream && upstream.body) {
-    response.setHeader("Cache-Control", "no-cache");
-    response.setHeader("Connection", "keep-alive");
-
-    if (!reader) {
-      throw new Error("Prepared Anthropic stream is missing a reader.");
-    }
-
-    await pipeAnthropicStreamWithUsageAdjust(reader, response, {
-      structuredOutputShim,
-      keepaliveIntervalMs: streamConfig.streamKeepaliveIntervalMs,
-      firstReadPromise,
-      firstChunk,
-      streamDone,
-    });
-    return;
-  }
-
-  {
-    const arrayBuffer = await readUpstreamArrayBufferWithKeepAlive(upstream, response, {
-      keepaliveIntervalMs: streamConfig.nonStreamKeepaliveIntervalMs,
-    });
-    try {
-      const data = JSON.parse(Buffer.from(arrayBuffer).toString());
-      if (data?.usage) {
-        data.usage = applyBillingAnthropic(data.usage);
-      }
-      response.end(
-        JSON.stringify(
-          normalizeAnthropicResponseMessage(
-            restoreAnthropicStructuredOutputResponse(data, structuredOutputShim),
-          ),
-        ),
-      );
-    } catch {
-      response.end(Buffer.from(arrayBuffer));
-    }
-  }
+  await sendExecutionResult(response, result, getProxyStreamConfig());
 }
 
 router.get("/v1/models", (_req, res) => res.json(anthropicModelList));

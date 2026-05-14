@@ -1,5 +1,31 @@
-export const DEFAULT_PROXY_API_KEY = "sk-proxy-6f2d0c9a47b13e8d5f71a2c46be93d07f8c1a54e692db3fc";
+export type ProxyApiKeyConfig = {
+  configured: boolean;
+  value: string;
+  source: "env" | "none";
+};
 
-// Keep the runtime key stable by default so restarts and container swaps do not rotate clients.
-export const PROXY_API_KEY: string =
-  process.env["PROXY_API_KEY"]?.trim() || DEFAULT_PROXY_API_KEY;
+function readEnv(name: string): string {
+  return process.env[name]?.trim() || "";
+}
+
+export function getProxyApiKeyConfig(): ProxyApiKeyConfig {
+  const value = readEnv("PROXY_API_KEY");
+
+  if (!value) {
+    return {
+      configured: false,
+      value: "",
+      source: "none",
+    };
+  }
+
+  return {
+    configured: true,
+    value,
+    source: "env",
+  };
+}
+
+export function getProxyApiKey(): string {
+  return getProxyApiKeyConfig().value;
+}
