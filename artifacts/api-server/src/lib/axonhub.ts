@@ -79,6 +79,7 @@ export const AXONHUB_OPENROUTER_SUPPORTED_MODELS = [
   "x-ai/grok-4.20",
   "deepseek/deepseek-v4-pro",
   "deepseek/deepseek-v4-flash",
+  "deepseek/deepseek-v4-flash:free",
   "deepseek/deepseek-v3.2",
   "deepseek/deepseek-v3.2-exp",
   "deepseek/deepseek-r1",
