@@ -96,6 +96,8 @@ Example response:
 }
 ```
 
+If Redis env is configured but the socket cannot currently connect, this route still returns `200` with `redis.connected: false` so probes can distinguish "misconfigured or down backend" from "route missing or hung".
+
 ### `POST /internal/runs`
 
 Accepts a background run and returns immediately with `202 Accepted`.
@@ -147,6 +149,7 @@ Failure modes:
 - `409 internal_run_already_exists`
 - `503 internal_runs_not_configured`
 - `503 internal_runs_redis_not_configured`
+- `503 internal_runs_redis_unavailable`
 
 ### `POST /internal/runs/:id/cancel`
 
@@ -175,6 +178,7 @@ Failure modes:
 - `401 unauthorized_internal_runs`
 - `404 internal_run_not_found`
 - `503 internal_runs_not_configured`
+- `503 internal_runs_redis_unavailable`
 
 ## Run Status Lifecycle
 

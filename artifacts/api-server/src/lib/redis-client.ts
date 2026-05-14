@@ -22,8 +22,10 @@ export async function getRedisRunStoreClient(): Promise<RedisRunStoreClient> {
           connectTimeout: config.redis.connectTimeoutMs,
           tls: config.redis.url.startsWith("rediss://") || Boolean(tlsCaPem),
           ca: tlsCaPem ? [tlsCaPem] : undefined,
+          reconnectStrategy: false,
         },
       });
+      let connectPromise: Promise<void> | null = null;
 
       client.on("error", (error) => {
         logger.warn(
@@ -34,24 +36,53 @@ export async function getRedisRunStoreClient(): Promise<RedisRunStoreClient> {
         );
       });
 
-      await client.connect();
+      async function ensureReady(): Promise<void> {
+        if (client.isReady) {
+          return;
+        }
+
+        if (!connectPromise) {
+          connectPromise = client.connect()
+            .then(() => undefined)
+            .finally(() => {
+              connectPromise = null;
+            });
+        }
+
+        await connectPromise;
+      }
+
+      async function run<T>(operation: () => Promise<T>): Promise<T> {
+        await ensureReady();
+        return await operation();
+      }
+
+      await ensureReady();
 
       const storeClient: RedisRunStoreClient = {
-        connect: async () => {
-          await client.connect();
-        },
+        connect: async () => await ensureReady(),
         disconnect: async () => {
-          await client.disconnect();
+          if (connectPromise) {
+            try {
+              await connectPromise;
+            } catch {
+              // Ignore a failed in-flight connect; caller asked to disconnect.
+            }
+          }
+
+          if (client.isOpen) {
+            await client.disconnect();
+          }
         },
-        ping: async () => await client.ping(),
-        hSet: async (key, value) => await client.hSet(key, value),
-        hGetAll: async (key) => await client.hGetAll(key),
-        rPush: async (key, value) => await client.rPush(key, value),
-        set: async (key, value) => (await client.set(key, value)) ?? "OK",
-        get: async (key) => await client.get(key),
-        del: async (...keys) => await client.del(keys),
-        expire: async (key, ttlSeconds) => Number(await client.expire(key, ttlSeconds)),
-        exists: async (key) => await client.exists(key),
+        ping: async () => await run(async () => await client.ping()),
+        hSet: async (key, value) => await run(async () => await client.hSet(key, value)),
+        hGetAll: async (key) => await run(async () => await client.hGetAll(key)),
+        rPush: async (key, value) => await run(async () => await client.rPush(key, value)),
+        set: async (key, value) => await run(async () => (await client.set(key, value)) ?? "OK"),
+        get: async (key) => await run(async () => await client.get(key)),
+        del: async (...keys) => await run(async () => await client.del(keys)),
+        expire: async (key, ttlSeconds) => await run(async () => Number(await client.expire(key, ttlSeconds))),
+        exists: async (key) => await run(async () => await client.exists(key)),
       };
 
       return storeClient;

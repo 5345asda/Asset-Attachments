@@ -1,4 +1,4 @@
-import { ApiError } from "./api-error";
+import { ApiError, isApiError } from "./api-error";
 import { getAnthropicProviderConfig } from "./anthropic-provider";
 import { getGeminiProviderConfig } from "./gemini-provider";
 import { getInternalRunsConfig } from "./internal-run-config";
@@ -55,7 +55,33 @@ async function getStore(): Promise<RedisRunStore> {
     return await storePromise;
   } catch (error) {
     storePromise = null;
-    throw error;
+    throw toRedisUnavailableError(error);
+  }
+}
+
+function toRedisUnavailableError(error: unknown): ApiError {
+  if (isApiError(error)) {
+    return error;
+  }
+
+  return new ApiError({
+    status: 503,
+    message: "Internal runs Redis unavailable",
+    type: "service_unavailable",
+    code: "internal_runs_redis_unavailable",
+    details: {
+      reason: error instanceof Error ? error.message : String(error),
+    },
+    logLevel: "error",
+    cause: error,
+  });
+}
+
+async function withRedisAvailability<T>(operation: () => Promise<T>): Promise<T> {
+  try {
+    return await operation();
+  } catch (error) {
+    throw toRedisUnavailableError(error);
   }
 }
 
@@ -250,21 +276,23 @@ export function getInternalRunsService() {
     }> {
       assertInternalRunsEnabled();
       const store = await getStore();
-      const existing = await store.getRunMeta(envelope.runId);
-      if (existing) {
-        throw new ApiError({
-          status: 409,
-          message: "Internal run already exists",
-          type: "invalid_request_error",
-          code: "internal_run_already_exists",
-          details: {
-            runId: envelope.runId,
-          },
-          logLevel: "warn",
-        });
-      }
+      await withRedisAvailability(async () => {
+        const existing = await store.getRunMeta(envelope.runId);
+        if (existing) {
+          throw new ApiError({
+            status: 409,
+            message: "Internal run already exists",
+            type: "invalid_request_error",
+            code: "internal_run_already_exists",
+            details: {
+              runId: envelope.runId,
+            },
+            logLevel: "warn",
+          });
+        }
 
-      await store.acceptRun(envelope);
+        await store.acceptRun(envelope);
+      });
       pendingRuns.push(envelope);
       void drainQueue();
 
@@ -282,7 +310,7 @@ export function getInternalRunsService() {
     } | null> {
       assertInternalRunsEnabled();
       const store = await getStore();
-      const found = await store.requestCancel(runId, reason);
+      const found = await withRedisAvailability(async () => await store.requestCancel(runId, reason));
       if (!found) {
         return null;
       }

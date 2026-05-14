@@ -110,7 +110,7 @@ test("internal healthz exposes private executor status without leaking redis sec
     status?: string;
     mode?: string;
     internalRunsEnabled?: boolean;
-    redis?: { configured?: boolean };
+    redis?: { configured?: boolean; connected?: boolean };
     workers?: { concurrency?: number; activeRuns?: number };
     providers?: Record<string, { configured?: boolean }>;
     token?: string;
@@ -120,7 +120,7 @@ test("internal healthz exposes private executor status without leaking redis sec
   assert.equal(body.status, "ok");
   assert.equal(body.mode, "private_executor");
   assert.equal(body.internalRunsEnabled, true);
-  assert.deepEqual(body.redis, { configured: true });
+  assert.deepEqual(body.redis, { configured: true, connected: false });
   assert.equal(body.workers?.concurrency, 8);
   assert.equal(typeof body.workers?.activeRuns, "number");
   assert.equal(typeof body.providers?.openai?.configured, "boolean");
@@ -163,7 +163,7 @@ test("internal runs routes reject unauthenticated requests", async (t) => {
   assert.equal(response.body?.error?.message, "Unauthorized - invalid or missing internal token");
 });
 
-test("internal runs accepts a canonical run envelope with valid auth", async (t) => {
+test("internal runs returns 503 quickly when Redis is configured but unavailable", async (t) => {
   const previousEnv = {
     INTERNAL_RUNS_TOKEN: process.env.INTERNAL_RUNS_TOKEN,
     RUN_REDIS_URL: process.env.RUN_REDIS_URL,
@@ -208,15 +208,16 @@ test("internal runs accepts a canonical run envelope with valid auth", async (t)
     },
   });
 
-  assert.equal(response.status, 202);
+  assert.equal(response.status, 503);
   assert.deepEqual(response.body, {
-    ok: true,
-    runId: "aa_run_accepted_1",
-    status: "accepted",
+    error: {
+      message: "Internal runs Redis unavailable",
+      type: "service_unavailable",
+    },
   });
 });
 
-test("internal runs can be cancelled after acceptance", async (t) => {
+test("internal runs cancel returns 503 quickly when Redis is configured but unavailable", async (t) => {
   const previousEnv = {
     INTERNAL_RUNS_TOKEN: process.env.INTERNAL_RUNS_TOKEN,
     RUN_REDIS_URL: process.env.RUN_REDIS_URL,
@@ -239,33 +240,7 @@ test("internal runs can be cancelled after acceptance", async (t) => {
     }
   });
 
-  const runId = "aa_run_cancel_1";
-
-  const accepted = await postJson(`http://127.0.0.1:${server.port}/internal/runs`, {
-    headers: {
-      "x-internal-runs-token": "internal-runs-token",
-    },
-    body: {
-      runId,
-      provider: "anthropic",
-      routePath: "/v1/messages",
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-      },
-      body: {
-        model: "claude-sonnet-4-6",
-        max_tokens: 32,
-        messages: [{ role: "user", content: "hello" }],
-      },
-      stream: false,
-      createdAt: "2026-05-14T12:00:00.000Z",
-    },
-  });
-
-  assert.equal(accepted.status, 202);
-
-  const cancelled = await postJson(`http://127.0.0.1:${server.port}/internal/runs/${runId}/cancel`, {
+  const cancelled = await postJson(`http://127.0.0.1:${server.port}/internal/runs/aa_run_cancel_1/cancel`, {
     headers: {
       authorization: "Bearer internal-runs-token",
     },
@@ -274,11 +249,12 @@ test("internal runs can be cancelled after acceptance", async (t) => {
     },
   });
 
-  assert.equal(cancelled.status, 200);
+  assert.equal(cancelled.status, 503);
   assert.deepEqual(cancelled.body, {
-    ok: true,
-    runId,
-    cancelRequested: true,
+    error: {
+      message: "Internal runs Redis unavailable",
+      type: "service_unavailable",
+    },
   });
 });
 

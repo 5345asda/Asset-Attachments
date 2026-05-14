@@ -51,6 +51,8 @@
 - 内部执行器 Redis 配置从环境变量 `RUN_REDIS_URL`、`RUN_REDIS_USERNAME`、`RUN_REDIS_PASSWORD` 读取
 - 其他可选调优项也都走环境变量：`RUN_REDIS_KEY_PREFIX`、`RUN_REDIS_CONNECT_TIMEOUT_MS`、`RUN_REDIS_TLS_CA_PEM_B64`、`RUN_WORKER_CONCURRENCY`、`RUN_EVENTS_BATCH_MS`、`RUN_EVENTS_BATCH_BYTES`、`RUN_HEARTBEAT_INTERVAL_MS`、`RUN_CANCEL_POLL_MS`、`RUN_RESULT_TTL_SECONDS`
 - `/internal/healthz` 只暴露配置状态和 worker 概况，不返回 token、Redis URL 或密码
+- `RUN_REDIS_*` 已配置但 Redis 当前不可达时，`/internal/healthz` 会返回 `redis.connected: false`
+- 同样在 Redis 当前不可达时，`POST /internal/runs` 和 `POST /internal/runs/:id/cancel` 会快速返回 `503 internal_runs_redis_unavailable`
 - 内部 run 现在会把状态、流式事件、终态结果、错误和取消标记持久化到 Redis
 - 详细接口文档见 [docs/internal-runs-api.md](./docs/internal-runs-api.md)
 
