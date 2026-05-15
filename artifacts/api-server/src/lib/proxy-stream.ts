@@ -6,6 +6,13 @@ export type ProxyStreamConfig = {
 
 type StreamReadResult = Awaited<ReturnType<ReadableStreamDefaultReader<Uint8Array>["read"]>>;
 
+class EmptyUpstreamStreamBootstrapError extends Error {
+  constructor() {
+    super("Upstream stream ended before the first chunk.");
+    this.name = "EmptyUpstreamStreamBootstrapError";
+  }
+}
+
 export type PreparedProxyUpstream = {
   upstream: globalThis.Response;
   contentType: string;
@@ -105,13 +112,40 @@ export async function prepareProxyUpstream(params: {
     }
 
     const reader = upstream.body.getReader() as ReadableStreamDefaultReader<Uint8Array>;
+    let firstReadResult: StreamReadResult | undefined;
+    let firstReadError: unknown;
+    const firstReadPromise = reader.read().then(
+      (result) => {
+        firstReadResult = result;
+        return result;
+      },
+      (error) => {
+        firstReadError = error;
+        throw error;
+      },
+    );
+
+    // Allow an already-closed upstream stream to settle without delaying
+    // keepalive writes for healthy streams that simply have not produced their
+    // first chunk yet.
+    await Promise.resolve();
+
+    if (firstReadError !== undefined) {
+      reader.releaseLock?.();
+      throw firstReadError;
+    }
+
+    if (firstReadResult?.done) {
+      reader.releaseLock?.();
+      throw new EmptyUpstreamStreamBootstrapError();
+    }
 
     return {
       upstream,
       contentType,
       isStream: true,
       reader,
-      firstReadPromise: reader.read(),
+      firstReadPromise,
     };
   }, {
     retries: params.wantsStream ? params.bootstrapRetries : 0,

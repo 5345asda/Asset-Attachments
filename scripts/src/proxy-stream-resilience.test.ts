@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { getProxyStreamConfig } from "../../artifacts/api-server/src/lib/proxy-stream.ts";
 import { pipeReaderToResponse } from "../../artifacts/api-server/src/lib/stream.ts";
 
 function createResponseCollector() {
@@ -236,6 +237,89 @@ test("openai passthrough retries stream bootstrap failures before surfacing an e
   );
 });
 
+test("openai passthrough retries when the upstream stream closes before the first chunk", async (t) => {
+  const previousEnv = {
+    PROXY_API_KEY: process.env.PROXY_API_KEY,
+    AI_INTEGRATIONS_OPENAI_BASE_URL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+    AI_INTEGRATIONS_OPENAI_API_KEY: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+    OPENAI_BASE_URL: process.env.OPENAI_BASE_URL,
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+    PROXY_STREAM_BOOTSTRAP_RETRIES: process.env.PROXY_STREAM_BOOTSTRAP_RETRIES,
+    PROXY_STREAM_KEEPALIVE_SECONDS: process.env.PROXY_STREAM_KEEPALIVE_SECONDS,
+  };
+
+  process.env.PROXY_API_KEY = "sk-proxy-test";
+  process.env.AI_INTEGRATIONS_OPENAI_BASE_URL = "https://openai.integration.test/v1";
+  process.env.AI_INTEGRATIONS_OPENAI_API_KEY = "openai-integration-test-key";
+  delete process.env.OPENAI_BASE_URL;
+  delete process.env.OPENAI_API_KEY;
+  process.env.PROXY_STREAM_BOOTSTRAP_RETRIES = "1";
+  process.env.PROXY_STREAM_KEEPALIVE_SECONDS = "0";
+
+  const originalFetch = globalThis.fetch;
+  let fetchCalls = 0;
+
+  globalThis.fetch = (async () => {
+    fetchCalls += 1;
+
+    if (fetchCalls === 1) {
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.close();
+        },
+      });
+
+      return new Response(body, {
+        status: 200,
+        headers: { "content-type": "text/event-stream" },
+      });
+    }
+
+    return new Response(
+      "data: {\"choices\":[{\"delta\":{\"content\":\"hello after empty bootstrap\"}}]}\n\n",
+      {
+        status: 200,
+        headers: { "content-type": "text/event-stream" },
+      },
+    );
+  }) as typeof fetch;
+
+  const server = await startAppServer();
+
+  t.after(async () => {
+    globalThis.fetch = originalFetch;
+    await server.close();
+
+    for (const [key, value] of Object.entries(previousEnv)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  });
+
+  const response = await originalFetch(`http://127.0.0.1:${server.port}/api/openai/v1/chat/completions`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: "Bearer sk-proxy-test",
+    },
+    body: JSON.stringify({
+      model: "gpt-5",
+      stream: true,
+      messages: [{ role: "user", content: "hello" }],
+    }),
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(fetchCalls, 2);
+  assert.equal(
+    await response.text(),
+    "data: {\"choices\":[{\"delta\":{\"content\":\"hello after empty bootstrap\"}}]}\n\n",
+  );
+});
+
 test("openai passthrough writes non-stream keepalive whitespace while waiting for upstream JSON", async (t) => {
   const previousEnv = {
     PROXY_API_KEY: process.env.PROXY_API_KEY,
@@ -320,86 +404,21 @@ test("openai passthrough writes non-stream keepalive whitespace while waiting fo
   assert.equal(JSON.parse(raw).id, "chatcmpl-openai");
 });
 
-test("openai passthrough enables non-stream keepalive by default while waiting for upstream JSON", async (t) => {
-  const previousEnv = {
-    PROXY_API_KEY: process.env.PROXY_API_KEY,
-    AI_INTEGRATIONS_OPENAI_BASE_URL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-    AI_INTEGRATIONS_OPENAI_API_KEY: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-    OPENAI_BASE_URL: process.env.OPENAI_BASE_URL,
-    OPENAI_API_KEY: process.env.OPENAI_API_KEY,
-    PROXY_NON_STREAM_KEEPALIVE_INTERVAL_SECONDS: process.env.PROXY_NON_STREAM_KEEPALIVE_INTERVAL_SECONDS,
-  };
+test("proxy stream config enables non-stream keepalive by default", () => {
+  const previousValue = process.env.PROXY_NON_STREAM_KEEPALIVE_INTERVAL_SECONDS;
 
-  process.env.PROXY_API_KEY = "sk-proxy-test";
-  process.env.AI_INTEGRATIONS_OPENAI_BASE_URL = "https://openai.integration.test/v1";
-  process.env.AI_INTEGRATIONS_OPENAI_API_KEY = "openai-integration-test-key";
-  delete process.env.OPENAI_BASE_URL;
-  delete process.env.OPENAI_API_KEY;
-  delete process.env.PROXY_NON_STREAM_KEEPALIVE_INTERVAL_SECONDS;
+  try {
+    delete process.env.PROXY_NON_STREAM_KEEPALIVE_INTERVAL_SECONDS;
 
-  const originalFetch = globalThis.fetch;
-
-  globalThis.fetch = (async () => {
-    const body = new ReadableStream<Uint8Array>({
-      start(controller) {
-        setTimeout(() => {
-          controller.enqueue(
-            new TextEncoder().encode(JSON.stringify({
-              id: "chatcmpl-openai-default-keepalive",
-              object: "chat.completion",
-              choices: [
-                {
-                  index: 0,
-                  message: {
-                    role: "assistant",
-                    content: "hello from openai default keepalive",
-                  },
-                  finish_reason: "stop",
-                },
-              ],
-            })),
-          );
-          controller.close();
-        }, 30);
-      },
-    });
-
-    return new Response(body, {
-      status: 200,
-      headers: { "content-type": "application/json" },
-    });
-  }) as typeof fetch;
-
-  const server = await startAppServer();
-
-  t.after(async () => {
-    globalThis.fetch = originalFetch;
-    await server.close();
-
-    for (const [key, value] of Object.entries(previousEnv)) {
-      if (value === undefined) {
-        delete process.env[key];
-      } else {
-        process.env[key] = value;
-      }
+    assert.equal(
+      getProxyStreamConfig().nonStreamKeepaliveIntervalMs,
+      15_000,
+    );
+  } finally {
+    if (previousValue === undefined) {
+      delete process.env.PROXY_NON_STREAM_KEEPALIVE_INTERVAL_SECONDS;
+    } else {
+      process.env.PROXY_NON_STREAM_KEEPALIVE_INTERVAL_SECONDS = previousValue;
     }
-  });
-
-  const response = await originalFetch(`http://127.0.0.1:${server.port}/api/openai/v1/chat/completions`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      authorization: "Bearer sk-proxy-test",
-    },
-    body: JSON.stringify({
-      model: "gpt-5",
-      messages: [{ role: "user", content: "hello" }],
-    }),
-  });
-
-  const raw = await response.text();
-
-  assert.equal(response.status, 200);
-  assert.ok(raw.startsWith("\n"));
-  assert.equal(JSON.parse(raw).id, "chatcmpl-openai-default-keepalive");
+  }
 });
