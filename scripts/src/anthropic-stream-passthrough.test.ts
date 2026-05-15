@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { pipeAnthropicStreamWithUsageAdjust } from "../../artifacts/api-server/src/lib/stream.ts";
+import { pipeAnthropicStreamToResponse } from "../../artifacts/api-server/src/lib/stream.ts";
 
 function createReader(chunks: string[]) {
   let index = 0;
@@ -55,7 +55,7 @@ function extractUsageEvents(rawOutput: string): Array<{ type?: string; usage?: R
     .filter((event) => event.usage);
 }
 
-test("pipeAnthropicStreamWithUsageAdjust preserves cache read and cache creation token counts", async () => {
+test("pipeAnthropicStreamToResponse preserves upstream usage payloads verbatim", async () => {
   const originalRandom = Math.random;
   const randomValues = [0.05, 0.8];
 
@@ -64,21 +64,21 @@ test("pipeAnthropicStreamWithUsageAdjust preserves cache read and cache creation
   try {
     const reader = createReader([
       [
-        'data: {"type":"message_start","message":{"usage":{"input_tokens":100,"output_tokens":0,"cache_read_input_tokens":40,"cache_creation_input_tokens":10}}}',
+        'data: {"type":"message_start","message":{"usage":{"input_tokens":100,"output_tokens":0,"cache_read_input_tokens":40,"cache_creation_input_tokens":10,"service_tier_tokens":3}}}',
         "",
       ].join("\n"),
       [
-        'data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":20}}',
+        'data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":20,"service_tier_tokens":1}}',
         "",
       ].join("\n"),
       [
-        'data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":30}}',
+        'data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":30,"service_tier_tokens":2}}',
         "",
       ].join("\n"),
     ]);
     const response = createResponseCollector();
 
-    await pipeAnthropicStreamWithUsageAdjust(reader as any, response as any);
+    await pipeAnthropicStreamToResponse(reader as any, response as any);
 
     const usageEvents = extractUsageEvents(response.writes.join(""));
 
@@ -90,18 +90,21 @@ test("pipeAnthropicStreamWithUsageAdjust preserves cache read and cache creation
         output_tokens: 0,
         cache_read_input_tokens: 40,
         cache_creation_input_tokens: 10,
+        service_tier_tokens: 3,
       },
     });
     assert.deepEqual(usageEvents[1], {
       type: "message_delta",
       usage: {
         output_tokens: 20,
+        service_tier_tokens: 1,
       },
     });
     assert.deepEqual(usageEvents[2], {
       type: "message_delta",
       usage: {
         output_tokens: 30,
+        service_tier_tokens: 2,
       },
     });
   } finally {

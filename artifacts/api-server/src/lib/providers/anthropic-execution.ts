@@ -6,11 +6,10 @@ import {
 } from "../anthropic-structured-output";
 import { normalizeAnthropicResponseMessage } from "../anthropic-message-id";
 import { sanitizeAnthropicBody } from "../anthropic-request";
-import { applyBillingAnthropic } from "../billing";
 import type { AnthropicProviderConfig } from "../anthropic-provider";
 import { getProxyStreamConfig, prepareProxyUpstream } from "../proxy-stream";
 import { normalizeUpstreamStatus } from "../upstream-error";
-import { pipeAnthropicStreamWithUsageAdjustToSink } from "../stream";
+import { pipeAnthropicStreamToSink } from "../stream";
 import { createUpstreamErrorResult, readHeaderValue } from "./common";
 import {
   createBufferedExecutionResult,
@@ -188,7 +187,7 @@ export async function executeAnthropicRequest(params: {
       status: normalizeUpstreamStatus(upstream.status),
       contentType,
       pipeToSink: async (sink, options) => {
-        await pipeAnthropicStreamWithUsageAdjustToSink(reader, sink, {
+        await pipeAnthropicStreamToSink(reader, sink, {
           structuredOutputShim,
           firstReadPromise,
           keepaliveIntervalMs: options?.keepaliveIntervalMs,
@@ -205,9 +204,6 @@ export async function executeAnthropicRequest(params: {
       const arrayBuffer = await upstream.arrayBuffer();
       try {
         const data = JSON.parse(Buffer.from(arrayBuffer).toString("utf8")) as Record<string, any>;
-        if (data.usage) {
-          data.usage = applyBillingAnthropic(data.usage);
-        }
 
         return Buffer.from(
           JSON.stringify(

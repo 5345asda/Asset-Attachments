@@ -644,7 +644,6 @@ console.log(data);`;
             {[
               { icon: "*", label: "Native Anthropic request body", desc: "Use messages, max_tokens, tools, and tool_choice directly" },
               { icon: "*", label: "Prompt caching normalization", desc: "cache_control fields are cleaned up before the upstream call" },
-              { icon: "*", label: "Usage adjustment", desc: "Anthropic usage fields keep the existing billing normalization" },
               { icon: "*", label: "Streaming passthrough", desc: "text/event-stream responses are proxied directly" },
             ].map((f, i) => (
               <div key={i} className="flex items-start gap-3 p-3 rounded-lg bg-purple-500/5 border border-purple-500/15">

@@ -5,7 +5,7 @@ import type { OpenAIProviderConfig } from "../src/lib/openai-provider.ts";
 import { executeOpenAIRequest } from "../src/lib/providers/openai-execution.ts";
 import { createSilentLogger } from "./helpers.ts";
 
-test("executeOpenAIRequest normalizes chat completion tokens before forwarding and preserves adjusted usage", async () => {
+test("executeOpenAIRequest normalizes chat completion tokens before forwarding and preserves upstream usage verbatim", async () => {
   const requests: Array<{
     input: RequestInfo | URL;
     init?: RequestInit;
@@ -48,7 +48,8 @@ test("executeOpenAIRequest normalizes chat completion tokens before forwarding a
         usage: {
           prompt_tokens: 10,
           completion_tokens: 5,
-          total_tokens: 15,
+          total_tokens: 999,
+          reasoning_tokens: 7,
         },
         choices: [],
       }), {
@@ -75,6 +76,7 @@ test("executeOpenAIRequest normalizes chat completion tokens before forwarding a
   assert.deepEqual(payload.usage, {
     prompt_tokens: 10,
     completion_tokens: 5,
-    total_tokens: 15,
+    total_tokens: 999,
+    reasoning_tokens: 7,
   });
 });

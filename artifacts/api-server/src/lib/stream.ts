@@ -1,5 +1,4 @@
 import type { Response } from "express";
-import { applyBillingAnthropic } from "./billing";
 import { normalizeAnthropicStreamEvent } from "./anthropic-message-id";
 import {
   createAnthropicStructuredOutputEventTransformer,
@@ -121,7 +120,7 @@ export async function pipeReaderToResponse(
   });
 }
 
-export async function pipeAnthropicStreamWithUsageAdjustToSink(
+export async function pipeAnthropicStreamToSink(
   reader: ReadableStreamDefaultReader<Uint8Array>,
   sink: ProviderResponseSink,
   options?: StreamPipeOptions & ProviderPipeOptions & {
@@ -146,20 +145,6 @@ export async function pipeAnthropicStreamWithUsageAdjustToSink(
 
     try {
       const event = JSON.parse(raw) as Record<string, any>;
-
-      if (event.type === "message_start" && event.message?.usage) {
-        event.message.usage = applyBillingAnthropic(event.message.usage);
-      } else if (
-        event.type === "message_delta"
-        && event.usage
-        && (
-          event.usage.cache_read_input_tokens
-          || event.usage.input_tokens
-          || event.usage.cache_creation_input_tokens
-        )
-      ) {
-        event.usage = applyBillingAnthropic(event.usage);
-      }
 
       await writeToSink(
         sink,
@@ -231,7 +216,7 @@ export async function pipeAnthropicStreamWithUsageAdjustToSink(
   }
 }
 
-export async function pipeAnthropicStreamWithUsageAdjust(
+export async function pipeAnthropicStreamToResponse(
   reader: ReadableStreamDefaultReader<Uint8Array>,
   res: Response,
   options?: StreamPipeOptions & {
@@ -239,7 +224,7 @@ export async function pipeAnthropicStreamWithUsageAdjust(
     structuredOutputShim?: AnthropicStructuredOutputShim;
   },
 ): Promise<void> {
-  await pipeAnthropicStreamWithUsageAdjustToSink(reader, toResponseSink(res), {
+  await pipeAnthropicStreamToSink(reader, toResponseSink(res), {
     ...options,
     keepaliveChunk: ": ping\n\n",
   });

@@ -1,5 +1,4 @@
 import { ApiError } from "../api-error";
-import { applyBillingOai } from "../billing";
 import type { OpenRouterProviderConfig } from "../openrouter-provider";
 import { getProxyStreamConfig, prepareProxyUpstream } from "../proxy-stream";
 import { pipeReaderToSink } from "../stream";
@@ -165,17 +164,6 @@ export async function executeOpenRouterRequest(params: {
   return createBufferedExecutionResult({
     status: normalizeUpstreamStatus(upstream.status),
     contentType,
-    readBody: async () => {
-      const arrayBuffer = await upstream.arrayBuffer();
-      try {
-        const data = JSON.parse(Buffer.from(arrayBuffer).toString("utf8")) as Record<string, any>;
-        if (data.usage) {
-          data.usage = applyBillingOai(data.usage);
-        }
-        return Buffer.from(JSON.stringify(data), "utf8");
-      } catch {
-        return new Uint8Array(arrayBuffer);
-      }
-    },
+    readBody: async () => new Uint8Array(await upstream.arrayBuffer()),
   });
 }

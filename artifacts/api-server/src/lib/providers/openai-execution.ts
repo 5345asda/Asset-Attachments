@@ -1,5 +1,4 @@
 import { ApiError } from "../api-error";
-import { applyBillingOai } from "../billing";
 import {
   OPENAI_CHAT_COMPLETIONS_SUPPORTED_MODELS,
   OPENAI_IMAGE_GENERATION_SUPPORTED_MODELS,
@@ -166,29 +165,6 @@ function normalizeOpenAIRequestBody(
   return body;
 }
 
-function shouldAdjustOpenAIUsage(request: ProviderExecutionRequest): boolean {
-  return isOpenAIChatCompletionsRequest(request);
-}
-
-function maybeAdjustUsage(
-  request: ProviderExecutionRequest,
-  data: Record<string, unknown>,
-): Record<string, unknown> {
-  if (!shouldAdjustOpenAIUsage(request)) {
-    return data;
-  }
-
-  const usage = data.usage;
-  if (!usage || typeof usage !== "object" || Array.isArray(usage)) {
-    return data;
-  }
-
-  return {
-    ...data,
-    usage: applyBillingOai(usage as Record<string, number>),
-  };
-}
-
 export async function executeOpenAIRequest(params: {
   request: ProviderExecutionRequest;
   provider: OpenAIProviderConfig;
@@ -292,14 +268,6 @@ export async function executeOpenAIRequest(params: {
   return createBufferedExecutionResult({
     status: normalizeUpstreamStatus(upstream.status),
     contentType,
-    readBody: async () => {
-      const arrayBuffer = await upstream.arrayBuffer();
-      try {
-        const data = JSON.parse(Buffer.from(arrayBuffer).toString("utf8")) as Record<string, unknown>;
-        return Buffer.from(JSON.stringify(maybeAdjustUsage(params.request, data)), "utf8");
-      } catch {
-        return new Uint8Array(arrayBuffer);
-      }
-    },
+    readBody: async () => new Uint8Array(await upstream.arrayBuffer()),
   });
 }
