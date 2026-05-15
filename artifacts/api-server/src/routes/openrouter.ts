@@ -7,6 +7,7 @@ import {
   buildOpenRouterModelListUrl,
   executeOpenRouterRequest,
 } from "../lib/providers/openrouter-execution";
+import { readUpstreamError } from "../lib/providers/common";
 import {
   sendExecutionResult,
   toProviderExecutionRequest,
@@ -18,15 +19,6 @@ const router = Router();
 export const openRouterEmptyModelList = {
   data: [],
 };
-
-async function readUpstreamError(upstream: globalThis.Response): Promise<unknown> {
-  const raw = await upstream.text().catch(() => "");
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return raw || upstream.statusText;
-  }
-}
 
 export async function handleOpenRouterModelList(
   request: Request,

@@ -12,8 +12,6 @@ export type PreparedProxyUpstream = {
   isStream: boolean;
   reader?: ReadableStreamDefaultReader<Uint8Array>;
   firstReadPromise?: Promise<StreamReadResult>;
-  firstChunk?: Uint8Array;
-  streamDone?: boolean;
 };
 
 function parseSeconds(

@@ -11,9 +11,7 @@ import type { ProviderPipeOptions, ProviderResponseSink } from "./providers/type
 type StreamReadResult = Awaited<ReturnType<ReadableStreamDefaultReader<Uint8Array>["read"]>>;
 
 type StreamPipeOptions = {
-  firstChunk?: Uint8Array;
   firstReadPromise?: Promise<StreamReadResult>;
-  streamDone?: boolean;
 };
 
 function isClosed(sink: ProviderResponseSink): boolean {
@@ -32,18 +30,6 @@ async function writeToSink(
 async function endSink(sink: ProviderResponseSink): Promise<void> {
   if (!isClosed(sink)) {
     await sink.end();
-  }
-}
-
-function writeKeepAlive(res: Response): void {
-  if (!res.destroyed) {
-    res.write(": ping\n\n");
-  }
-}
-
-function writeWhitespaceKeepAlive(res: Response): void {
-  if (!res.destroyed) {
-    res.write("\n");
   }
 }
 
@@ -92,13 +78,11 @@ export async function pipeReaderToSink(
       initialRead = await options.firstReadPromise;
     }
 
-    if (options?.firstChunk) {
-      await writeToSink(sink, options.firstChunk);
-    } else if (initialRead && !initialRead.done && initialRead.value) {
+    if (initialRead && !initialRead.done && initialRead.value) {
       await writeToSink(sink, initialRead.value);
     }
 
-    const streamDone = options?.streamDone ?? initialRead?.done ?? false;
+    const streamDone = initialRead?.done ?? false;
     if (!streamDone) {
       for (;;) {
         if (isClosed(sink)) {
@@ -164,29 +148,7 @@ export async function pipeAnthropicStreamWithUsageAdjustToSink(
       const event = JSON.parse(raw) as Record<string, any>;
 
       if (event.type === "message_start" && event.message?.usage) {
-        const rawUsage = event.message.usage;
-        logger.info(
-          {
-            input_tokens: rawUsage.input_tokens,
-            cache_creation_input_tokens: rawUsage.cache_creation_input_tokens ?? 0,
-            cache_read_input_tokens: rawUsage.cache_read_input_tokens ?? 0,
-            event: "message_start",
-          },
-          "Anthropic raw usage (before billing adjustment)",
-        );
-
-        const adjustedUsage = applyBillingAnthropic(rawUsage);
-        event.message.usage = adjustedUsage;
-
-        logger.info(
-          {
-            input_tokens: adjustedUsage.input_tokens,
-            cache_creation_input_tokens: adjustedUsage.cache_creation_input_tokens ?? 0,
-            cache_read_input_tokens: adjustedUsage.cache_read_input_tokens ?? 0,
-            event: "message_start",
-          },
-          "Anthropic adjusted usage (after billing, sent to client)",
-        );
+        event.message.usage = applyBillingAnthropic(event.message.usage);
       } else if (
         event.type === "message_delta"
         && event.usage
@@ -196,27 +158,7 @@ export async function pipeAnthropicStreamWithUsageAdjustToSink(
           || event.usage.cache_creation_input_tokens
         )
       ) {
-        logger.info(
-          {
-            input_tokens: event.usage.input_tokens ?? 0,
-            cache_creation_input_tokens: event.usage.cache_creation_input_tokens ?? 0,
-            cache_read_input_tokens: event.usage.cache_read_input_tokens ?? 0,
-            event: "message_delta",
-          },
-          "Anthropic raw usage (before billing adjustment)",
-        );
-
         event.usage = applyBillingAnthropic(event.usage);
-
-        logger.info(
-          {
-            input_tokens: event.usage.input_tokens ?? 0,
-            cache_creation_input_tokens: event.usage.cache_creation_input_tokens ?? 0,
-            cache_read_input_tokens: event.usage.cache_read_input_tokens ?? 0,
-            event: "message_delta",
-          },
-          "Anthropic adjusted usage (after billing, sent to client)",
-        );
       }
 
       await writeToSink(
@@ -255,13 +197,11 @@ export async function pipeAnthropicStreamWithUsageAdjustToSink(
       initialRead = await options.firstReadPromise;
     }
 
-    if (options?.firstChunk) {
-      await pushChunk(options.firstChunk);
-    } else if (initialRead && !initialRead.done && initialRead.value) {
+    if (initialRead && !initialRead.done && initialRead.value) {
       await pushChunk(initialRead.value);
     }
 
-    const streamDone = options?.streamDone ?? initialRead?.done ?? false;
+    const streamDone = initialRead?.done ?? false;
     if (!streamDone) {
       for (;;) {
         if (isClosed(sink)) {
@@ -304,31 +244,3 @@ export async function pipeAnthropicStreamWithUsageAdjust(
     keepaliveChunk: ": ping\n\n",
   });
 }
-
-export async function readUpstreamArrayBufferWithKeepAlive(
-  upstream: globalThis.Response,
-  res: Response,
-  options?: {
-    keepaliveIntervalMs?: number;
-  },
-): Promise<ArrayBuffer> {
-  if (!options?.keepaliveIntervalMs || options.keepaliveIntervalMs <= 0) {
-    return await upstream.arrayBuffer();
-  }
-
-  writeWhitespaceKeepAlive(res);
-  const keepalive = startKeepAlive(
-    options.keepaliveIntervalMs,
-    () => writeWhitespaceKeepAlive(res),
-  );
-
-  try {
-    return await upstream.arrayBuffer();
-  } finally {
-    if (keepalive) {
-      clearInterval(keepalive);
-    }
-  }
-}
-
-export { writeKeepAlive };

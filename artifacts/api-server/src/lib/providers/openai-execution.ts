@@ -256,8 +256,6 @@ export async function executeOpenAIRequest(params: {
     isStream,
     reader,
     firstReadPromise,
-    firstChunk,
-    streamDone,
   } = preparedUpstream;
 
   if (!upstream.ok) {
@@ -284,8 +282,6 @@ export async function executeOpenAIRequest(params: {
       pipeToSink: async (sink, options) => {
         await pipeReaderToSink(reader, sink, {
           firstReadPromise,
-          firstChunk,
-          streamDone,
           keepaliveIntervalMs: options?.keepaliveIntervalMs,
           keepaliveChunk: options?.keepaliveChunk,
         });

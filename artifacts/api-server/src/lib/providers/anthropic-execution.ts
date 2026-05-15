@@ -162,8 +162,6 @@ export async function executeAnthropicRequest(params: {
     isStream,
     reader,
     firstReadPromise,
-    firstChunk,
-    streamDone,
   } = preparedUpstream;
 
   if (!upstream.ok) {
@@ -193,8 +191,6 @@ export async function executeAnthropicRequest(params: {
         await pipeAnthropicStreamWithUsageAdjustToSink(reader, sink, {
           structuredOutputShim,
           firstReadPromise,
-          firstChunk,
-          streamDone,
           keepaliveIntervalMs: options?.keepaliveIntervalMs,
           keepaliveChunk: options?.keepaliveChunk,
         });
