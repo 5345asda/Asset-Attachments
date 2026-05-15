@@ -27,13 +27,16 @@ function startKeepAlive(
   options: ProviderPipeOptions | undefined,
   sink: ProviderResponseSink,
 ): NodeJS.Timeout | undefined {
-  if (!options?.keepaliveIntervalMs || options.keepaliveIntervalMs <= 0) {
+  if (
+    !options?.keepaliveIntervalMs
+    || options.keepaliveIntervalMs <= 0
+    || !options.keepaliveChunk
+  ) {
     return undefined;
   }
 
-  const keepaliveChunk = options.keepaliveChunk ?? "\n";
   const timer = setInterval(() => {
-    void writeChunk(sink, keepaliveChunk);
+    void writeChunk(sink, options.keepaliveChunk!);
   }, options.keepaliveIntervalMs);
 
   timer.unref?.();

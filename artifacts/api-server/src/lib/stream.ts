@@ -66,9 +66,11 @@ export async function pipeReaderToSink(
   sink: ProviderResponseSink,
   options?: StreamPipeOptions & ProviderPipeOptions,
 ): Promise<void> {
-  const keepalive = startKeepAlive(options?.keepaliveIntervalMs, () => {
-    void writeToSink(sink, options?.keepaliveChunk ?? ": ping\n\n");
-  });
+  const keepalive = options?.keepaliveChunk
+    ? startKeepAlive(options.keepaliveIntervalMs, () => {
+      void writeToSink(sink, options.keepaliveChunk!);
+    })
+    : undefined;
 
   try {
     let initialRead: StreamReadResult | undefined;
@@ -169,9 +171,9 @@ export async function pipeAnthropicStreamToSink(
   };
 
   const keepalive = startKeepAlive(
-    options?.keepaliveIntervalMs,
+    options?.keepaliveChunk ? options.keepaliveIntervalMs : undefined,
     () => {
-      void writeToSink(sink, options?.keepaliveChunk ?? ": ping\n\n");
+      void writeToSink(sink, options!.keepaliveChunk!);
     },
   );
 

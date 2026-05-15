@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { getProxyStreamConfig } from "../../artifacts/api-server/src/lib/proxy-stream.ts";
-import { pipeReaderToResponse } from "../../artifacts/api-server/src/lib/stream.ts";
+import { sendExecutionResult } from "../../artifacts/api-server/src/lib/providers/http.ts";
+import { createBufferedExecutionResult } from "../../artifacts/api-server/src/lib/providers/results.ts";
+import { pipeReaderToResponse, pipeReaderToSink } from "../../artifacts/api-server/src/lib/stream.ts";
 
 function createResponseCollector() {
   const writes: string[] = [];
@@ -22,6 +24,24 @@ function createResponseCollector() {
 
       this.destroyed = true;
       return this;
+    },
+  };
+}
+
+function createSinkCollector() {
+  const writes: string[] = [];
+
+  return {
+    writes,
+    closed: false,
+    async write(chunk: string | Uint8Array) {
+      writes.push(typeof chunk === "string" ? chunk : new TextDecoder().decode(chunk));
+    },
+    async end() {
+      this.closed = true;
+    },
+    isClosed() {
+      return this.closed;
     },
   };
 }
@@ -86,6 +106,17 @@ test("pipeReaderToResponse emits keepalive pings before the first upstream strea
   assert.match(raw, /: ping\n\n/);
   assert.match(raw, /data: hello\n\n/);
   assert.ok(raw.indexOf(": ping\n\n") < raw.indexOf("data: hello\n\n"));
+});
+
+test("pipeReaderToSink does not invent a default keepalive chunk", async () => {
+  const reader = createDelayedReader([
+    "data: hello\n\n",
+  ], 30);
+  const sink = createSinkCollector();
+
+  await pipeReaderToSink(reader as any, sink as any, { keepaliveIntervalMs: 5 });
+
+  assert.equal(sink.writes.join(""), "data: hello\n\n");
 });
 
 test("openai passthrough writes stream keepalive while waiting for the first upstream body chunk", async (t) => {
@@ -404,7 +435,7 @@ test("openai passthrough writes non-stream keepalive whitespace while waiting fo
   assert.equal(JSON.parse(raw).id, "chatcmpl-openai");
 });
 
-test("proxy stream config enables non-stream keepalive by default", () => {
+test("proxy stream config keeps non-stream keepalive disabled by default", () => {
   const previousValue = process.env.PROXY_NON_STREAM_KEEPALIVE_INTERVAL_SECONDS;
 
   try {
@@ -412,7 +443,7 @@ test("proxy stream config enables non-stream keepalive by default", () => {
 
     assert.equal(
       getProxyStreamConfig().nonStreamKeepaliveIntervalMs,
-      15_000,
+      0,
     );
   } finally {
     if (previousValue === undefined) {
@@ -421,4 +452,86 @@ test("proxy stream config enables non-stream keepalive by default", () => {
       process.env.PROXY_NON_STREAM_KEEPALIVE_INTERVAL_SECONDS = previousValue;
     }
   }
+});
+
+test("proxy stream config keeps stream keepalive disabled by default", () => {
+  const previousValue = process.env.PROXY_STREAM_KEEPALIVE_SECONDS;
+
+  try {
+    delete process.env.PROXY_STREAM_KEEPALIVE_SECONDS;
+
+    assert.equal(
+      getProxyStreamConfig().streamKeepaliveIntervalMs,
+      0,
+    );
+  } finally {
+    if (previousValue === undefined) {
+      delete process.env.PROXY_STREAM_KEEPALIVE_SECONDS;
+    } else {
+      process.env.PROXY_STREAM_KEEPALIVE_SECONDS = previousValue;
+    }
+  }
+});
+
+test("sendExecutionResult does not flush headers before piping", async () => {
+  const response = {
+    destroyed: false,
+    writes: [] as string[],
+    statusCode: 200,
+    flushHeadersCalls: 0,
+    status(code: number) {
+      this.statusCode = code;
+      return this;
+    },
+    setHeader() {},
+    flushHeaders() {
+      this.flushHeadersCalls += 1;
+    },
+    write(chunk: string | Uint8Array) {
+      this.writes.push(typeof chunk === "string" ? chunk : new TextDecoder().decode(chunk));
+      return true;
+    },
+    end(chunk?: string | Uint8Array) {
+      if (chunk) {
+        this.write(chunk);
+      }
+
+      this.destroyed = true;
+      return this;
+    },
+  };
+
+  await sendExecutionResult(response as any, {
+    status: 200,
+    contentType: "application/json",
+    stream: false,
+    readBody: async () => new TextEncoder().encode("{\"ok\":true}"),
+    pipeToSink: async (sink) => {
+      await sink.write("{\"ok\":true}");
+      await sink.end();
+    },
+  }, {
+    streamKeepaliveIntervalMs: 0,
+    nonStreamKeepaliveIntervalMs: 0,
+    streamBootstrapRetries: 0,
+  });
+
+  assert.equal(response.flushHeadersCalls, 0);
+  assert.equal(response.writes.join(""), "{\"ok\":true}");
+});
+
+test("buffered execution results do not invent a default keepalive chunk", async () => {
+  const result = createBufferedExecutionResult({
+    status: 200,
+    contentType: "application/json",
+    readBody: async () => {
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      return new TextEncoder().encode("{\"ok\":true}");
+    },
+  });
+  const sink = createSinkCollector();
+
+  await result.pipeToSink(sink as any, { keepaliveIntervalMs: 5 });
+
+  assert.equal(sink.writes.join(""), "{\"ok\":true}");
 });

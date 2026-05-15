@@ -61,8 +61,6 @@ export async function sendExecutionResult(
     response.setHeader("Connection", "keep-alive");
   }
 
-  response.flushHeaders();
-
   await result.pipeToSink(toResponseSink(response), {
     keepaliveIntervalMs: result.stream
       ? streamConfig.streamKeepaliveIntervalMs
