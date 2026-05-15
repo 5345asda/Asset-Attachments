@@ -7,6 +7,7 @@ export type RedisRunStoreClient = {
   hSet: (key: string, value: Record<string, string>) => Promise<number>;
   hGetAll: (key: string) => Promise<Record<string, string>>;
   rPush: (key: string, value: string) => Promise<number>;
+  publish: (channel: string, message: string) => Promise<number>;
   set: (key: string, value: string) => Promise<string>;
   get: (key: string) => Promise<string | null>;
   del: (...keys: string[]) => Promise<number>;
@@ -102,6 +103,14 @@ class RedisRunStore {
     return `${this.keyPrefix}:run:${runId}:cancel`;
   }
 
+  private notifyChannel(runId: string): string {
+    return `${this.keyPrefix}:run:${runId}:notify`;
+  }
+
+  private async notifyRunUpdate(runId: string, kind: string): Promise<void> {
+    await this.client.publish(this.notifyChannel(runId), kind).catch(() => {});
+  }
+
   private async touchKeys(runId: string): Promise<void> {
     const keys = [
       this.metaKey(runId),
@@ -180,6 +189,7 @@ class RedisRunStore {
       data,
     }));
     await this.client.expire(this.eventsKey(runId), this.resultTtlSeconds);
+    await this.notifyRunUpdate(runId, "event");
   }
 
   async markCompleted(runId: string, payload: CompletedRunPayload): Promise<void> {
@@ -198,6 +208,7 @@ class RedisRunStore {
       completedAt: payload.completedAt,
     }));
     await this.touchKeys(runId);
+    await this.notifyRunUpdate(runId, "completed");
   }
 
   async markFailed(runId: string, payload: FailedRunPayload): Promise<void> {
@@ -210,6 +221,7 @@ class RedisRunStore {
     });
     await this.client.set(this.errorKey(runId), JSON.stringify(payload));
     await this.touchKeys(runId);
+    await this.notifyRunUpdate(runId, "failed");
   }
 
   async requestCancel(runId: string, reason?: string): Promise<boolean> {
@@ -230,6 +242,7 @@ class RedisRunStore {
       updatedAt: cancelRequestedAt,
     });
     await this.touchKeys(runId);
+    await this.notifyRunUpdate(runId, "cancel_requested");
     return true;
   }
 
@@ -245,6 +258,7 @@ class RedisRunStore {
       cancelReason: reason?.trim() || "",
     });
     await this.touchKeys(runId);
+    await this.notifyRunUpdate(runId, "cancelled");
   }
 }
 

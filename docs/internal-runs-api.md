@@ -208,6 +208,7 @@ For `RUN_REDIS_KEY_PREFIX=aa` and `runId=run_123`, the executor writes:
 - `aa:run:run_123:final`
 - `aa:run:run_123:error`
 - `aa:run:run_123:cancel`
+- Pub/Sub channel `aa:run:run_123:notify`
 
 ### `:meta`
 
@@ -228,6 +229,8 @@ Redis list of streamed wire data entries. Each list item is JSON:
 }
 ```
 
+Each appended event publishes `event` on `aa:run:<runId>:notify` so Redis-backed gateways can wake immediately instead of waiting for their fallback polling interval. The list remains the authoritative replay source.
+
 ### `:final`
 
 Redis string containing JSON for successful terminal output:
@@ -244,6 +247,8 @@ Redis string containing JSON for successful terminal output:
 
 For non-text payloads the executor stores `bodyBase64` instead of `bodyText`.
 
+Writing the final payload publishes `completed` on `aa:run:<runId>:notify`.
+
 ### `:error`
 
 Redis string containing JSON for internal execution failures:
@@ -256,6 +261,8 @@ Redis string containing JSON for internal execution failures:
 }
 ```
 
+Writing the error payload publishes `failed` on `aa:run:<runId>:notify`.
+
 ### `:cancel`
 
 Redis string containing JSON for cancel requests:
@@ -266,6 +273,8 @@ Redis string containing JSON for cancel requests:
   "cancelRequestedAt": "2026-05-14T10:00:03.000Z"
 }
 ```
+
+Writing a cancel request publishes `cancel_requested`; marking the run cancelled publishes `cancelled`.
 
 ## Compatibility Notes
 

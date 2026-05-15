@@ -67,6 +67,31 @@ test("createRedisRunStore persists lifecycle data and terminal payloads", async 
   assert.equal(redis.expiries.get("aa:run:run-complete:final"), 60);
 });
 
+test("createRedisRunStore publishes run update notifications", async () => {
+  const redis = new FakeRedisClient();
+  const store = createRedisRunStore({
+    client: redis,
+    keyPrefix: "aa",
+    resultTtlSeconds: 60,
+  });
+
+  const envelope = makeEnvelope("run-notify");
+  await store.acceptRun(envelope);
+  await store.appendEvent(envelope.runId, "data: one\n\n");
+  await store.markCompleted(envelope.runId, {
+    status: 200,
+    contentType: "text/event-stream",
+    body: Buffer.alloc(0),
+    completedAt: "2026-05-14T00:00:02.000Z",
+    eventCount: 1,
+  });
+
+  assert.deepEqual(redis.publishes.get("aa:run:run-notify:notify"), [
+    "event",
+    "completed",
+  ]);
+});
+
 test("createRedisRunStore records cancel requests and exposes cancel state", async () => {
   const redis = new FakeRedisClient();
   const store = createRedisRunStore({

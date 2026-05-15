@@ -78,6 +78,7 @@ export async function getRedisRunStoreClient(): Promise<RedisRunStoreClient> {
         hSet: async (key, value) => await run(async () => await client.hSet(key, value)),
         hGetAll: async (key) => await run(async () => await client.hGetAll(key)),
         rPush: async (key, value) => await run(async () => await client.rPush(key, value)),
+        publish: async (channel, message) => await run(async () => await client.publish(channel, message)),
         set: async (key, value) => await run(async () => (await client.set(key, value)) ?? "OK"),
         get: async (key) => await run(async () => await client.get(key)),
         del: async (...keys) => await run(async () => await client.del(keys)),

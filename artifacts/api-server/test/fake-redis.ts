@@ -3,6 +3,7 @@ export class FakeRedisClient {
   readonly lists = new Map<string, string[]>();
   readonly strings = new Map<string, string>();
   readonly expiries = new Map<string, number>();
+  readonly publishes = new Map<string, string[]>();
   connected = false;
 
   async connect(): Promise<void> {
@@ -70,5 +71,12 @@ export class FakeRedisClient {
         || this.lists.has(key)
         || this.strings.has(key),
     );
+  }
+
+  async publish(channel: string, message: string): Promise<number> {
+    const existing = this.publishes.get(channel) ?? [];
+    existing.push(message);
+    this.publishes.set(channel, existing);
+    return 1;
   }
 }
