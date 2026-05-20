@@ -55,7 +55,13 @@ export function createRunExecutor(params: {
             write: async (chunk) => {
               if (!streamingMarked) {
                 streamingMarked = true;
-                await params.store.markStreaming(envelope.runId, now());
+                await params.store.markStreamingAndAppendEvent(
+                  envelope.runId,
+                  now(),
+                  chunk,
+                );
+                eventCount += 1;
+                return;
               }
 
               eventCount += 1;

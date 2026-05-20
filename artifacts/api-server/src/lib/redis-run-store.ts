@@ -13,6 +13,16 @@ export type RedisRunStoreClient = {
   del: (...keys: string[]) => Promise<number>;
   expire: (key: string, ttlSeconds: number) => Promise<number>;
   exists: (key: string) => Promise<number>;
+  multi?: () => RedisRunStorePipeline;
+};
+
+export type RedisRunStorePipeline = {
+  hSet: (key: string, value: Record<string, string>) => RedisRunStorePipeline;
+  rPush: (key: string, value: string) => RedisRunStorePipeline;
+  publish: (channel: string, message: string) => RedisRunStorePipeline;
+  set: (key: string, value: string) => RedisRunStorePipeline;
+  expire: (key: string, ttlSeconds: number) => RedisRunStorePipeline;
+  exec: () => Promise<unknown[]>;
 };
 
 type CompletedRunPayload = {
@@ -111,20 +121,44 @@ class RedisRunStore {
     await this.client.publish(this.notifyChannel(runId), kind).catch(() => {});
   }
 
-  private async touchKeys(runId: string): Promise<void> {
-    const keys = [
-      this.metaKey(runId),
-      this.eventsKey(runId),
-      this.finalKey(runId),
-      this.errorKey(runId),
-      this.cancelKey(runId),
-    ];
+  private createPipeline(): RedisRunStorePipeline {
+    if (typeof this.client.multi === "function") {
+      return this.client.multi();
+    }
 
-    await Promise.all(keys.map(async (key) => {
-      if (await this.client.exists(key)) {
-        await this.client.expire(key, this.resultTtlSeconds);
-      }
-    }));
+    const steps: Array<() => Promise<unknown>> = [];
+    const client = this.client;
+    const pipeline: RedisRunStorePipeline = {
+      hSet(key, value) {
+        steps.push(async () => await client.hSet(key, value));
+        return pipeline;
+      },
+      rPush(key, value) {
+        steps.push(async () => await client.rPush(key, value));
+        return pipeline;
+      },
+      publish(channel, message) {
+        steps.push(async () => await client.publish(channel, message));
+        return pipeline;
+      },
+      set(key, value) {
+        steps.push(async () => await client.set(key, value));
+        return pipeline;
+      },
+      expire(key, ttlSeconds) {
+        steps.push(async () => await client.expire(key, ttlSeconds));
+        return pipeline;
+      },
+      async exec() {
+        const results = [];
+        for (const step of steps) {
+          results.push(await step());
+        }
+        return results;
+      },
+    };
+
+    return pipeline;
   }
 
   private async writeMeta(
@@ -169,7 +203,6 @@ class RedisRunStore {
       startedAt,
       updatedAt: startedAt,
     });
-    await this.touchKeys(runId);
   }
 
   async markStreaming(runId: string, updatedAt: string): Promise<void> {
@@ -177,7 +210,27 @@ class RedisRunStore {
       status: "streaming",
       updatedAt,
     });
-    await this.touchKeys(runId);
+  }
+
+  async markStreamingAndAppendEvent(
+    runId: string,
+    updatedAt: string,
+    chunk: Uint8Array | string,
+  ): Promise<void> {
+    const data = typeof chunk === "string"
+      ? chunk
+      : Buffer.from(chunk).toString("utf8");
+
+    await this.createPipeline()
+      .hSet(this.metaKey(runId), {
+        status: "streaming",
+        updatedAt,
+      })
+      .expire(this.metaKey(runId), this.resultTtlSeconds)
+      .rPush(this.eventsKey(runId), JSON.stringify({ data }))
+      .expire(this.eventsKey(runId), this.resultTtlSeconds)
+      .publish(this.notifyChannel(runId), "event")
+      .exec();
   }
 
   async appendEvent(runId: string, chunk: Uint8Array | string): Promise<void> {
@@ -185,43 +238,51 @@ class RedisRunStore {
       ? chunk
       : Buffer.from(chunk).toString("utf8");
 
-    await this.client.rPush(this.eventsKey(runId), JSON.stringify({
-      data,
-    }));
-    await this.client.expire(this.eventsKey(runId), this.resultTtlSeconds);
-    await this.notifyRunUpdate(runId, "event");
+    await this.createPipeline()
+      .rPush(this.eventsKey(runId), JSON.stringify({ data }))
+      .expire(this.eventsKey(runId), this.resultTtlSeconds)
+      .publish(this.notifyChannel(runId), "event")
+      .exec();
   }
 
   async markCompleted(runId: string, payload: CompletedRunPayload): Promise<void> {
-    await this.writeMeta(runId, {
-      status: "completed",
-      completedAt: payload.completedAt,
-      updatedAt: payload.completedAt,
-      errorCode: "",
-      errorMessage: "",
-    });
-    await this.client.set(this.finalKey(runId), JSON.stringify({
-      status: payload.status,
-      contentType: payload.contentType,
-      ...serializeBody(payload.body, payload.contentType),
-      eventCount: payload.eventCount,
-      completedAt: payload.completedAt,
-    }));
-    await this.touchKeys(runId);
-    await this.notifyRunUpdate(runId, "completed");
+    await this.createPipeline()
+      .hSet(this.metaKey(runId), {
+        status: "completed",
+        completedAt: payload.completedAt,
+        updatedAt: payload.completedAt,
+        errorCode: "",
+        errorMessage: "",
+      })
+      .expire(this.metaKey(runId), this.resultTtlSeconds)
+      .set(this.finalKey(runId), JSON.stringify({
+        status: payload.status,
+        contentType: payload.contentType,
+        ...serializeBody(payload.body, payload.contentType),
+        eventCount: payload.eventCount,
+        completedAt: payload.completedAt,
+      }))
+      .expire(this.finalKey(runId), this.resultTtlSeconds)
+      .expire(this.eventsKey(runId), this.resultTtlSeconds)
+      .publish(this.notifyChannel(runId), "completed")
+      .exec();
   }
 
   async markFailed(runId: string, payload: FailedRunPayload): Promise<void> {
-    await this.writeMeta(runId, {
-      status: "failed",
-      completedAt: payload.failedAt,
-      updatedAt: payload.failedAt,
-      errorCode: payload.code ?? "",
-      errorMessage: payload.message,
-    });
-    await this.client.set(this.errorKey(runId), JSON.stringify(payload));
-    await this.touchKeys(runId);
-    await this.notifyRunUpdate(runId, "failed");
+    await this.createPipeline()
+      .hSet(this.metaKey(runId), {
+        status: "failed",
+        completedAt: payload.failedAt,
+        updatedAt: payload.failedAt,
+        errorCode: payload.code ?? "",
+        errorMessage: payload.message,
+      })
+      .expire(this.metaKey(runId), this.resultTtlSeconds)
+      .set(this.errorKey(runId), JSON.stringify(payload))
+      .expire(this.errorKey(runId), this.resultTtlSeconds)
+      .expire(this.eventsKey(runId), this.resultTtlSeconds)
+      .publish(this.notifyChannel(runId), "failed")
+      .exec();
   }
 
   async requestCancel(runId: string, reason?: string): Promise<boolean> {
@@ -234,15 +295,17 @@ class RedisRunStore {
       reason: reason?.trim() || undefined,
       cancelRequestedAt,
     }));
-    await this.client.expire(this.cancelKey(runId), this.resultTtlSeconds);
-    await this.writeMeta(runId, {
-      status: "cancel_requested",
-      cancelRequestedAt,
-      cancelReason: reason?.trim() || "",
-      updatedAt: cancelRequestedAt,
-    });
-    await this.touchKeys(runId);
-    await this.notifyRunUpdate(runId, "cancel_requested");
+    await this.createPipeline()
+      .expire(this.cancelKey(runId), this.resultTtlSeconds)
+      .hSet(this.metaKey(runId), {
+        status: "cancel_requested",
+        cancelRequestedAt,
+        cancelReason: reason?.trim() || "",
+        updatedAt: cancelRequestedAt,
+      })
+      .expire(this.metaKey(runId), this.resultTtlSeconds)
+      .publish(this.notifyChannel(runId), "cancel_requested")
+      .exec();
     return true;
   }
 
@@ -251,14 +314,18 @@ class RedisRunStore {
   }
 
   async markCancelled(runId: string, cancelledAt: string, reason?: string): Promise<void> {
-    await this.writeMeta(runId, {
-      status: "cancelled",
-      completedAt: cancelledAt,
-      updatedAt: cancelledAt,
-      cancelReason: reason?.trim() || "",
-    });
-    await this.touchKeys(runId);
-    await this.notifyRunUpdate(runId, "cancelled");
+    await this.createPipeline()
+      .hSet(this.metaKey(runId), {
+        status: "cancelled",
+        completedAt: cancelledAt,
+        updatedAt: cancelledAt,
+        cancelReason: reason?.trim() || "",
+      })
+      .expire(this.metaKey(runId), this.resultTtlSeconds)
+      .expire(this.cancelKey(runId), this.resultTtlSeconds)
+      .expire(this.eventsKey(runId), this.resultTtlSeconds)
+      .publish(this.notifyChannel(runId), "cancelled")
+      .exec();
   }
 }
 

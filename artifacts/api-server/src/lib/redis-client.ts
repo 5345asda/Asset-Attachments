@@ -2,7 +2,7 @@ import { Buffer } from "node:buffer";
 import { createClient } from "redis";
 import { getInternalRunsConfig } from "./internal-run-config";
 import { logger } from "./logger";
-import type { RedisRunStoreClient } from "./redis-run-store";
+import type { RedisRunStoreClient, RedisRunStorePipeline } from "./redis-run-store";
 
 let redisClientPromise: Promise<RedisRunStoreClient> | null = null;
 
@@ -84,6 +84,36 @@ export async function getRedisRunStoreClient(): Promise<RedisRunStoreClient> {
         del: async (...keys) => await run(async () => await client.del(keys)),
         expire: async (key, ttlSeconds) => await run(async () => Number(await client.expire(key, ttlSeconds))),
         exists: async (key) => await run(async () => await client.exists(key)),
+        multi: () => {
+          const tx = client.multi() as any;
+          const pipeline: RedisRunStorePipeline = {
+            hSet(key, value) {
+              tx.hSet(key, value);
+              return pipeline;
+            },
+            rPush(key, value) {
+              tx.rPush(key, value);
+              return pipeline;
+            },
+            publish(channel, message) {
+              tx.publish(channel, message);
+              return pipeline;
+            },
+            set(key, value) {
+              tx.set(key, value);
+              return pipeline;
+            },
+            expire(key, ttlSeconds) {
+              tx.expire(key, ttlSeconds);
+              return pipeline;
+            },
+            async exec() {
+              await ensureReady();
+              return await tx.exec();
+            },
+          };
+          return pipeline;
+        },
       };
 
       return storeClient;

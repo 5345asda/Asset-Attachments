@@ -92,6 +92,73 @@ test("createRedisRunStore publishes run update notifications", async () => {
   ]);
 });
 
+test("createRedisRunStore pipelines appendEvent writes and avoids standalone event commands", async () => {
+  const redis = new FakeRedisClient();
+  const store = createRedisRunStore({
+    client: redis,
+    keyPrefix: "aa",
+    resultTtlSeconds: 60,
+  });
+
+  const envelope = makeEnvelope("run-pipeline-event");
+  await store.acceptRun(envelope);
+  redis.commandLog.length = 0;
+
+  await store.appendEvent(envelope.runId, "data: one\n\n");
+
+  assert.deepEqual(redis.pipelineExecs, [[
+    "rPush",
+    "expire",
+    "publish",
+  ]]);
+  assert.deepEqual(redis.commandLog, [
+    "multi",
+    "rPush",
+    "expire",
+    "publish",
+    "exec",
+  ]);
+});
+
+test("createRedisRunStore pipelines first streaming chunk state and event append together", async () => {
+  const redis = new FakeRedisClient();
+  const store = createRedisRunStore({
+    client: redis,
+    keyPrefix: "aa",
+    resultTtlSeconds: 60,
+  });
+
+  const envelope = makeEnvelope("run-first-stream");
+  await store.acceptRun(envelope);
+  redis.commandLog.length = 0;
+
+  await store.markStreamingAndAppendEvent(
+    envelope.runId,
+    "2026-05-14T00:00:01.000Z",
+    "data: first\n\n",
+  );
+
+  const meta = await store.getRunMeta(envelope.runId);
+  assert.equal(meta?.status, "streaming");
+  assert.deepEqual(redis.pipelineExecs, [[
+    "hSet",
+    "expire",
+    "rPush",
+    "expire",
+    "publish",
+  ]]);
+  assert.deepEqual(redis.commandLog, [
+    "multi",
+    "hSet",
+    "expire",
+    "rPush",
+    "expire",
+    "publish",
+    "exec",
+    "hGetAll",
+  ]);
+});
+
 test("createRedisRunStore records cancel requests and exposes cancel state", async () => {
   const redis = new FakeRedisClient();
   const store = createRedisRunStore({

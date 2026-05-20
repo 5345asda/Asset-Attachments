@@ -55,6 +55,7 @@ test("run executor stores streamed wire chunks and completes the run", async () 
 
   const envelope = makeEnvelope("run-stream");
   await store.acceptRun(envelope);
+  redis.commandLog.length = 0;
   await executor.start(envelope);
 
   const meta = await store.getRunMeta(envelope.runId);
@@ -72,6 +73,17 @@ test("run executor stores streamed wire chunks and completes the run", async () 
   assert.equal(finalPayload.status, 200);
   assert.equal(finalPayload.contentType, "text/event-stream");
   assert.equal(finalPayload.eventCount, 2);
+  assert.ok(redis.commandLog.filter((command) => command === "exists").length <= 1);
+  assert.equal(
+    redis.pipelineExecs.some((commands) => JSON.stringify(commands) === JSON.stringify([
+      "hSet",
+      "expire",
+      "rPush",
+      "expire",
+      "publish",
+    ])),
+    true,
+  );
 });
 
 test("run executor aborts and marks cancelled when Redis cancel marker appears", async () => {
