@@ -8,7 +8,7 @@ function expectedAxonHubBaseUrl(
   provider: "anthropic" | "gemini" | "openai" | "openrouter" | "codex",
 ): string {
   const basePathProvider = provider === "codex" ? "openai" : provider;
-  return `http://proxyapi:3000?targeturl=${projectOrigin}/api/${basePathProvider}`;
+  return `${projectOrigin}/api/${basePathProvider}`;
 }
 
 function makeChannel(id: number, overrides: Record<string, unknown> = {}) {

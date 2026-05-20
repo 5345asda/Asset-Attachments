@@ -6,7 +6,6 @@ import {
 } from "./openai-models";
 
 export const AXONHUB_ORIGIN = "https://axonhub.qwqtao.com";
-export const AXONHUB_PROXY_API_URL = "http://proxyapi:3000";
 export const AXONHUB_DEFAULT_TEST_MODEL = "claude-opus-4-5";
 export const AXONHUB_SUPPORTED_MODELS = [
   "claude-opus-4-7",
@@ -292,13 +291,6 @@ function buildProjectProviderBaseUrl(
   return `${normalizedOrigin}/api/${basePathProvider}`;
 }
 
-function buildAxonHubProxyBaseUrl(
-  projectOrigin: string,
-  provider: AxonHubProvider,
-): string {
-  return `${AXONHUB_PROXY_API_URL}?targeturl=${buildProjectProviderBaseUrl(projectOrigin, provider)}`;
-}
-
 function readProxyTargetUrl(baseURL: string): string | null {
   try {
     return new URL(baseURL).searchParams.get("targeturl")?.trim() || null;
@@ -379,7 +371,7 @@ export function buildAxonHubChannelInput({
   return {
     type: provider,
     name: deriveChannelName(projectOrigin),
-    baseURL: buildAxonHubProxyBaseUrl(projectOrigin, provider),
+    baseURL: buildProjectProviderBaseUrl(projectOrigin, provider),
     credentials: {
       apiKey: proxyKey,
     },
