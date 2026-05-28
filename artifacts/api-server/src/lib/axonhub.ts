@@ -31,6 +31,7 @@ export const AXONHUB_CODEX_DEFAULT_TEST_MODEL = "gpt-5.3-codex";
 export const AXONHUB_CODEX_SUPPORTED_MODELS = OPENAI_ENCRYPTED_CONTENT_SUPPORTED_MODELS;
 export const AXONHUB_OPENROUTER_DEFAULT_TEST_MODEL = "z-ai/glm-4.7";
 export const AXONHUB_OPENROUTER_SUPPORTED_MODELS = [
+  "anthropic/claude-opus-4.8",
   "anthropic/claude-opus-4.7",
   "anthropic/claude-opus-4.7-fast",
   "anthropic/claude-opus-4.6-fast",
