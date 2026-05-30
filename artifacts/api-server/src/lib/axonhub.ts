@@ -104,6 +104,13 @@ const AXONHUB_PROVIDER_ORDER: readonly AxonHubProvider[] = [
   "openai",
   "codex",
 ];
+const AXONHUB_TEXT_PLAIN_HEADER_OVERRIDE: readonly AxonHubOverrideOperation[] = [
+  {
+    op: "set",
+    path: "Content-Type",
+    value: "text/plain",
+  },
+];
 const LOOKUP_CHANNELS_QUERY = `
   query SyncAxonHubChannelLookup($input: QueryChannelInput!) {
     queryChannels(input: $input) {
@@ -262,6 +269,7 @@ interface AxonHubCreateChannelInput {
   autoSyncModelPattern: "";
   settings: {
     passThroughBody: boolean;
+    headerOverrideOperations: AxonHubOverrideOperation[];
   };
   tags: string[];
   remark: string;
@@ -279,6 +287,17 @@ export class AxonHubSyncError extends Error {
     this.name = "AxonHubSyncError";
     this.status = status;
   }
+}
+
+interface AxonHubOverrideOperation {
+  op: "set" | "delete" | "rename" | "copy" | "array_append" | "array_prepend" | "array_insert";
+  path?: string;
+  from?: string;
+  to?: string;
+  value?: unknown;
+  condition?: string;
+  index?: number | null;
+  splat?: boolean | null;
 }
 
 function normalizeOrigin(origin: string): string {
@@ -385,6 +404,9 @@ export function buildAxonHubChannelInput({
     autoSyncModelPattern: "",
     settings: {
       passThroughBody: provider === "anthropic" || provider === "openrouter",
+      headerOverrideOperations: AXONHUB_TEXT_PLAIN_HEADER_OVERRIDE.map((operation) => ({
+        ...operation,
+      })),
     },
     tags: [],
     remark: AXONHUB_REMARK,

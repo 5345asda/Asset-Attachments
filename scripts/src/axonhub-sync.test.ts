@@ -136,16 +136,27 @@ const EXPECTED_AXONHUB_OPENROUTER_MODELS = [
   "xiaomi/mimo-v2.5-pro",
 ] as const;
 
+const EXPECTED_AXONHUB_TEXT_PLAIN_HEADER_OVERRIDE = [
+  {
+    op: "set",
+    path: "Content-Type",
+    value: "text/plain",
+  },
+] as const;
+
 const EXPECTED_AXONHUB_CHANNEL_SETTINGS = {
   passThroughBody: false,
+  headerOverrideOperations: EXPECTED_AXONHUB_TEXT_PLAIN_HEADER_OVERRIDE,
 } as const;
 
 const EXPECTED_AXONHUB_ANTHROPIC_CHANNEL_SETTINGS = {
   passThroughBody: true,
+  headerOverrideOperations: EXPECTED_AXONHUB_TEXT_PLAIN_HEADER_OVERRIDE,
 } as const;
 
 const EXPECTED_AXONHUB_OPENROUTER_CHANNEL_SETTINGS = {
   passThroughBody: true,
+  headerOverrideOperations: EXPECTED_AXONHUB_TEXT_PLAIN_HEADER_OVERRIDE,
 } as const;
 
 function toTitleCase(value: string): string {

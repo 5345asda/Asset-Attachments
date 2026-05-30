@@ -186,6 +186,13 @@ test("syncAxonHubChannel fetches the full channel list without pagination before
       autoSyncModelPattern: "",
       settings: {
         passThroughBody: false,
+        headerOverrideOperations: [
+          {
+            op: "set",
+            path: "Content-Type",
+            value: "text/plain",
+          },
+        ],
       },
       tags: [],
       remark: "Managed by Asset-Attachments",
