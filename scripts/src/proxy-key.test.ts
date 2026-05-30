@@ -8,11 +8,14 @@ const repoRoot = path.resolve(testDir, "..", "..");
 const proxyKeyModuleUrl = pathToFileURL(
   path.join(repoRoot, "artifacts", "api-server", "src", "lib", "proxy-key.ts"),
 ).href;
-const fixedProxyKey = "sk-proxy-6f2d0c9a47b13e8d5f71a2c46be93d07f8c1a54e692db3fc";
 
 type ProxyKeyModule = {
-  DEFAULT_PROXY_API_KEY: string;
-  PROXY_API_KEY: string;
+  getProxyApiKey: () => string;
+  getProxyApiKeyConfig: () => {
+    configured: boolean;
+    value: string;
+    source: "env" | "none";
+  };
 };
 
 type EnvSnapshot = {
@@ -38,7 +41,7 @@ function restoreEnv(snapshot: EnvSnapshot): void {
   process.env.PROXY_API_KEY = snapshot.PROXY_API_KEY;
 }
 
-test("proxy key defaults to the fixed repo key across fresh imports", async (t) => {
+test("proxy key disables proxy auth across fresh imports when env is missing", async (t) => {
   const envSnapshot = captureEnv();
 
   t.after(() => {
@@ -50,7 +53,11 @@ test("proxy key defaults to the fixed repo key across fresh imports", async (t) 
   const firstBoot = await importFreshProxyKeyModule(`first-${Date.now()}`);
   const secondBoot = await importFreshProxyKeyModule(`second-${Date.now()}`);
 
-  assert.equal(firstBoot.DEFAULT_PROXY_API_KEY, fixedProxyKey);
-  assert.equal(firstBoot.PROXY_API_KEY, fixedProxyKey);
-  assert.equal(secondBoot.PROXY_API_KEY, firstBoot.PROXY_API_KEY);
+  assert.deepEqual(firstBoot.getProxyApiKeyConfig(), {
+    configured: false,
+    value: "",
+    source: "none",
+  });
+  assert.equal(firstBoot.getProxyApiKey(), "");
+  assert.deepEqual(secondBoot.getProxyApiKeyConfig(), firstBoot.getProxyApiKeyConfig());
 });

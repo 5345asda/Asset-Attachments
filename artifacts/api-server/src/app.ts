@@ -14,6 +14,30 @@ const app: Express = express();
 app.use(pinoHttp(createHttpLoggerOptions()));
 app.use(cors());
 app.use(express.json({ limit: "1gb" }));
+app.use(express.text({ type: "text/plain", limit: "1gb" }));
+app.use((req, _res, next) => {
+  if (typeof req.body !== "string") {
+    next();
+    return;
+  }
+
+  try {
+    req.body = req.body.trim() ? JSON.parse(req.body) : {};
+    req.headers["content-type"] = "application/json";
+    next();
+  } catch (error) {
+    next(new ApiError({
+      status: 400,
+      message: "Invalid JSON request body",
+      code: "invalid_json_request_body",
+      details: {
+        contentType: req.headers["content-type"],
+      },
+      logLevel: "warn",
+      cause: error,
+    }));
+  }
+});
 app.use(express.urlencoded({ extended: true, limit: "1gb" }));
 
 app.use("/internal", internalRunsRouter);

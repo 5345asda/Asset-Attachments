@@ -72,6 +72,48 @@ async function postJson(url: string, options: {
   });
 }
 
+async function postRaw(url: string, options: {
+  headers?: Record<string, string>;
+  body: string;
+}): Promise<{ status: number; headers: http.IncomingHttpHeaders; body: any }> {
+  const target = new URL(url);
+
+  return await new Promise((resolve, reject) => {
+    const request = http.request({
+      protocol: target.protocol,
+      hostname: target.hostname,
+      port: target.port,
+      path: `${target.pathname}${target.search}`,
+      method: "POST",
+      headers: {
+        "content-length": Buffer.byteLength(options.body),
+        ...options.headers,
+      },
+    }, (response) => {
+      const chunks: Buffer[] = [];
+      response.on("data", (chunk) => {
+        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      });
+      response.on("end", () => {
+        const raw = Buffer.concat(chunks).toString("utf8");
+        try {
+          resolve({
+            status: response.statusCode ?? 0,
+            headers: response.headers,
+            body: JSON.parse(raw),
+          });
+        } catch (error) {
+          reject(error);
+        }
+      });
+    });
+
+    request.on("error", reject);
+    request.write(options.body);
+    request.end();
+  });
+}
+
 test("public anthropic model routes expose native list envelopes without proxy auth", async (t) => {
   const previousProxyKey = process.env.PROXY_API_KEY;
   process.env.PROXY_API_KEY = "sk-proxy-test";
@@ -1663,6 +1705,100 @@ test("openrouter passthrough accepts Replit integration secrets and forwards Ope
   assert.equal(headers.get("content-type"), "application/json");
   assert.equal(response.body.id, "chatcmpl-openrouter");
   assert.equal(response.body.choices?.[0]?.message?.content, "hello from openrouter");
+  assert.ok(response.headers["x-request-id"]);
+});
+
+test("openrouter passthrough accepts text/plain JSON request bodies as application/json", async (t) => {
+  const previousEnv = {
+    PROXY_API_KEY: process.env.PROXY_API_KEY,
+    AI_INTEGRATIONS_OPENROUTER_BASE_URL: process.env.AI_INTEGRATIONS_OPENROUTER_BASE_URL,
+    AI_INTEGRATIONS_OPENROUTER_API_KEY: process.env.AI_INTEGRATIONS_OPENROUTER_API_KEY,
+    OPENROUTER_BASE_URL: process.env.OPENROUTER_BASE_URL,
+    OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
+  };
+
+  process.env.PROXY_API_KEY = "sk-proxy-test";
+  process.env.AI_INTEGRATIONS_OPENROUTER_BASE_URL = "https://openrouter.integration.test/api/v1";
+  process.env.AI_INTEGRATIONS_OPENROUTER_API_KEY = "openrouter-integration-test-key";
+  delete process.env.OPENROUTER_BASE_URL;
+  delete process.env.OPENROUTER_API_KEY;
+
+  const originalFetch = globalThis.fetch;
+  let fetchCalled = false;
+  let lastRequestHeaders: unknown;
+  let lastRequestBody = "";
+
+  globalThis.fetch = (async (_input, init) => {
+    fetchCalled = true;
+    lastRequestHeaders = init?.headers;
+    lastRequestBody = typeof init?.body === "string" ? init.body : "";
+
+    return new Response(JSON.stringify({
+      id: "chatcmpl-openrouter-text",
+      object: "chat.completion",
+      choices: [
+        {
+          index: 0,
+          finish_reason: "stop",
+          message: {
+            role: "assistant",
+            content: "json accepted",
+          },
+        },
+      ],
+    }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  }) as typeof fetch;
+
+  const server = await startAppServer();
+
+  t.after(async () => {
+    globalThis.fetch = originalFetch;
+    await server.close();
+
+    for (const [key, value] of Object.entries(previousEnv)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  });
+
+  const requestBody = {
+    model: "google/gemini-3-flash-preview",
+    usage: {
+      include: true,
+    },
+    stream: false,
+    messages: [
+      { role: "system", content: "Return valid JSON." },
+      { role: "user", content: "user" },
+    ],
+    temperature: 0.2,
+  };
+
+  const response = await postRaw(`http://127.0.0.1:${server.port}/api/openrouter/v1/chat/completions`, {
+    headers: {
+      authorization: "Bearer sk-proxy-test",
+      "content-type": "text/plain",
+    },
+    body: JSON.stringify(requestBody),
+  });
+
+  assert.equal(response.status, 200);
+  if (!fetchCalled) {
+    throw new Error("Expected OpenRouter chat completions fetch to be called.");
+  }
+
+  assert.deepEqual(JSON.parse(lastRequestBody), requestBody);
+
+  const headers = new Headers(lastRequestHeaders as Record<string, string>);
+  assert.equal(headers.get("authorization"), "Bearer openrouter-integration-test-key");
+  assert.equal(headers.get("content-type"), "application/json");
+  assert.equal(response.body.id, "chatcmpl-openrouter-text");
   assert.ok(response.headers["x-request-id"]);
 });
 

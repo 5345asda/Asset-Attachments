@@ -35,7 +35,7 @@ async function getFreePort(): Promise<number> {
   });
 }
 
-test("proxy key falls back to the fixed repo default when no env override is set", async () => {
+test("proxy key disables proxy auth when no env override is set", async () => {
   const previousProxyKey = process.env.PROXY_API_KEY;
   delete process.env.PROXY_API_KEY;
 
@@ -43,15 +43,20 @@ test("proxy key falls back to the fixed repo default when no env override is set
     const proxyKeyModule = await import(
       `${pathToFileURL(path.join(repoRoot, "artifacts", "api-server", "src", "lib", "proxy-key.ts")).href}?default-proxy-key-test=${Date.now()}`
     ) as {
-      DEFAULT_PROXY_API_KEY: string;
-      PROXY_API_KEY: string;
+      getProxyApiKey: () => string;
+      getProxyApiKeyConfig: () => {
+        configured: boolean;
+        value: string;
+        source: "env" | "none";
+      };
     };
 
-    assert.equal(
-      proxyKeyModule.DEFAULT_PROXY_API_KEY,
-      "sk-proxy-6f2d0c9a47b13e8d5f71a2c46be93d07f8c1a54e692db3fc",
-    );
-    assert.equal(proxyKeyModule.PROXY_API_KEY, proxyKeyModule.DEFAULT_PROXY_API_KEY);
+    assert.deepEqual(proxyKeyModule.getProxyApiKeyConfig(), {
+      configured: false,
+      value: "",
+      source: "none",
+    });
+    assert.equal(proxyKeyModule.getProxyApiKey(), "");
   } finally {
     if (previousProxyKey === undefined) {
       delete process.env.PROXY_API_KEY;
