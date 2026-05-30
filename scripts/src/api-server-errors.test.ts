@@ -819,7 +819,7 @@ test("openrouter passthrough redacts upstream spend-limit codes and messages", a
 
   const body = await response.text();
 
-  assert.equal(response.status, 403);
+  assert.equal(response.status, 404);
   assert.equal(
     body,
     "Request failed: Forbidden, error: Provider account unavailable., type: api_error",
@@ -847,6 +847,12 @@ test("sanitizeUpstreamError redacts FREE_TIER_BUDGET_EXCEEDED fields inside upst
       },
     },
   );
+});
+
+test("normalizeUpstreamStatus maps upstream 403 responses to 404", async () => {
+  const { normalizeUpstreamStatus } = await import("../../artifacts/api-server/src/lib/upstream-error.ts");
+
+  assert.equal(normalizeUpstreamStatus(403), 404);
 });
 
 test("openrouter model list maps upstream 404 to 401", async (t) => {

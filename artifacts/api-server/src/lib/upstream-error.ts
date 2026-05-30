@@ -52,5 +52,9 @@ export function sanitizeUpstreamError(value: unknown): unknown {
 }
 
 export function normalizeUpstreamStatus(status: number): number {
+  if (status === 403) {
+    return 404;
+  }
+
   return status === 404 ? 401 : status;
 }
