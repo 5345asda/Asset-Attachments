@@ -148,13 +148,14 @@ test("public anthropic model routes expose native list envelopes without proxy a
   assert.ok(v1Body.data.length > 0);
   assert.deepEqual(v1Body.data[0], {
     type: "model",
-    id: "claude-opus-4-7",
-    display_name: "claude-opus-4-7",
+    id: "claude-opus-4-8",
+    display_name: "claude-opus-4-8",
     created_at: v1Body.data[0]?.created_at,
   });
   assert.deepEqual(
     v1Body.data?.map((model) => model.id),
     [
+      "claude-opus-4-8",
       "claude-opus-4-7",
       "claude-opus-4-6",
       "claude-opus-4-5",
@@ -164,7 +165,7 @@ test("public anthropic model routes expose native list envelopes without proxy a
       "claude-opus-4-1",
     ],
   );
-  assert.equal(v1Body.first_id, "claude-opus-4-7");
+  assert.equal(v1Body.first_id, "claude-opus-4-8");
   assert.equal(v1Body.last_id, "claude-opus-4-1");
   assert.equal(v1Body.has_more, false);
   assert.match(v1Body.data[0]?.created_at ?? "", /^\d{4}-\d{2}-\d{2}T/);
@@ -224,6 +225,7 @@ test("legacy /api/v1/models routes to the public anthropic model list", async (t
   assert.deepEqual(
     body.data?.map((model) => model.id),
     [
+      "claude-opus-4-8",
       "claude-opus-4-7",
       "claude-opus-4-6",
       "claude-opus-4-5",
@@ -233,7 +235,7 @@ test("legacy /api/v1/models routes to the public anthropic model list", async (t
       "claude-opus-4-1",
     ],
   );
-  assert.equal(body.first_id, "claude-opus-4-7");
+  assert.equal(body.first_id, "claude-opus-4-8");
   assert.equal(body.last_id, "claude-opus-4-1");
   assert.equal(body.has_more, false);
   assert.ok(response.headers.get("x-request-id"));

@@ -6,8 +6,9 @@ import {
 } from "./openai-models";
 
 export const AXONHUB_ORIGIN = "https://axonhub.qwqtao.com";
-export const AXONHUB_DEFAULT_TEST_MODEL = "claude-opus-4-5";
+export const AXONHUB_DEFAULT_TEST_MODEL = "claude-haiku-4-5";
 export const AXONHUB_SUPPORTED_MODELS = [
+  "claude-opus-4-8",
   "claude-opus-4-7",
   "claude-opus-4-6",
   "claude-opus-4-5",

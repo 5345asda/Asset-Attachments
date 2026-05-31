@@ -28,6 +28,7 @@ import {
 const testDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(testDir, "..", "..");
 const EXPECTED_ANTHROPIC_MODELS = [
+  "claude-opus-4-8",
   "claude-opus-4-7",
   "claude-opus-4-6",
   "claude-opus-4-5",
@@ -37,6 +38,7 @@ const EXPECTED_ANTHROPIC_MODELS = [
   "claude-opus-4-1",
 ] as const;
 const EXPECTED_AXONHUB_ANTHROPIC_MODELS = [
+  "claude-opus-4-8",
   "claude-opus-4-7",
   "claude-opus-4-6",
   "claude-opus-4-5",
@@ -148,9 +150,9 @@ const EXPECTED_AXONHUB_OPENROUTER_MODELS = [
 ] as const;
 
 test("AxonHub status-page copy stays aligned with the backend sync model lists", async () => {
-  assert.equal(ANTHROPIC_MODELS[0], "claude-opus-4-7");
-  assert.equal(AXONHUB_SUPPORTED_MODELS[0], "claude-opus-4-7");
-  assert.equal(AXONHUB_DEFAULT_TEST_MODEL, "claude-opus-4-5");
+  assert.equal(ANTHROPIC_MODELS[0], "claude-opus-4-8");
+  assert.equal(AXONHUB_SUPPORTED_MODELS[0], "claude-opus-4-8");
+  assert.equal(AXONHUB_DEFAULT_TEST_MODEL, "claude-haiku-4-5");
   assert.deepEqual(ANTHROPIC_MODELS, EXPECTED_ANTHROPIC_MODELS);
   assert.deepEqual(AXONHUB_SUPPORTED_MODELS, EXPECTED_AXONHUB_ANTHROPIC_MODELS);
   assert.deepEqual(AXONHUB_GEMINI_SUPPORTED_MODELS, EXPECTED_AXONHUB_GEMINI_MODELS);
@@ -215,7 +217,7 @@ test("AxonHub status-page copy stays aligned with the backend sync model lists",
   assert.match(statusPageSource, /优先补给 archived 占比更高、但 enabled 占比偏低的 provider/);
   assert.doesNotMatch(statusPageSource, /anthropic:openrouter:gemini = 8:1:2/);
   assert.doesNotMatch(statusPageSource, /Auto 8:1:2 routing/);
-  assert.match(statusPageSource, /"claude-opus-4-7"/);
+  assert.match(statusPageSource, /"claude-opus-4-8"/);
   assert.match(
     statusPageSource,
     /supportedModels=gemini-3\.1-pro-preview \/ gemini-3-flash-preview \/ gemini-3-pro-image-preview \/ gemini-2\.5-pro \/ gemini-2\.5-flash \/ gemini-2\.5-flash-image/,
@@ -249,7 +251,11 @@ test("AxonHub status-page copy stays aligned with the backend sync model lists",
   assert.match(statusPageSource, /gpt-image-2/);
   assert.match(
     statusPageSource,
-    /supportedModels=claude-opus-4-7 \/ claude-opus-4-6 \/ claude-opus-4-5 \/ claude-sonnet-4-6 \/ claude-sonnet-4-5 \/ claude-haiku-4-5 \/ claude-opus-4-1/,
+    /defaultTestModel=claude-haiku-4-5/,
+  );
+  assert.match(
+    statusPageSource,
+    /supportedModels=claude-opus-4-8 \/ claude-opus-4-7 \/ claude-opus-4-6 \/ claude-opus-4-5 \/ claude-sonnet-4-6 \/ claude-sonnet-4-5 \/ claude-haiku-4-5 \/ claude-opus-4-1/,
   );
   assert.match(statusPageSource, /OpenRouter and Anthropic are synced back with/);
   assert.match(statusPageSource, /settings\.passThroughUserAgent=inherit/);

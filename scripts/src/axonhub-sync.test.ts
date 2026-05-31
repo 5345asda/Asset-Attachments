@@ -72,6 +72,17 @@ const EXPECTED_AXONHUB_CODEX_MODELS = [
   "o3-mini",
 ] as const;
 
+const EXPECTED_AXONHUB_ANTHROPIC_MODELS = [
+  "claude-opus-4-8",
+  "claude-opus-4-7",
+  "claude-opus-4-6",
+  "claude-opus-4-5",
+  "claude-sonnet-4-6",
+  "claude-sonnet-4-5",
+  "claude-haiku-4-5",
+  "claude-opus-4-1",
+] as const;
+
 const EXPECTED_AXONHUB_OPENROUTER_MODELS = [
   "anthropic/claude-opus-4.8",
   "anthropic/claude-opus-4.8-fast",
@@ -240,9 +251,9 @@ test("buildAxonHubChannelInput uses the fixed anthropic channel format", () => {
     credentials: {
       apiKey: "sk-proxy-test",
     },
-    supportedModels: AXONHUB_SUPPORTED_MODELS,
-    defaultTestModel: AXONHUB_DEFAULT_TEST_MODEL,
-    manualModels: AXONHUB_SUPPORTED_MODELS,
+    supportedModels: EXPECTED_AXONHUB_ANTHROPIC_MODELS,
+    defaultTestModel: "claude-haiku-4-5",
+    manualModels: EXPECTED_AXONHUB_ANTHROPIC_MODELS,
     autoSyncSupportedModels: false,
     autoSyncModelPattern: "",
     settings: EXPECTED_AXONHUB_ANTHROPIC_CHANNEL_SETTINGS,
